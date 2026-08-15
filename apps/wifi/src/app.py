@@ -429,6 +429,13 @@ class App(oreoOS.App):
             hs = self._http()
             if hs is not None:
                 try:
+                    rem_sec = max(0, hs.code_remaining_ms() // 1000)
+                    if rem_sec != getattr(self, "_last_rem_sec", None):
+                        self._last_rem_sec = rem_sec
+                        self._dirty = True
+                except Exception:
+                    pass
+                try:
                     sessions = hs.list_sessions()
                 except Exception:
                     sessions = []

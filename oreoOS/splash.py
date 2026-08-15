@@ -17,6 +17,7 @@ fresh checkout.
 
 import struct
 import time
+import sys
 from oreoOS import api
 from oreoOS import theme
 
@@ -379,7 +380,8 @@ def show_splash(os_obj):
                 d.blit(data, 0, 0, bw, bh)
             else:
                 _draw_procedural_bg(d)
-            bg_drawn = True
+            if getattr(sys, "platform", "") in ("esp32", "rp2"):
+                bg_drawn = True
 
         # ── logo: slides down from y=-mh to y=_LOGO_REST_Y (ease-out cubic)
         p_logo = _phase(elapsed, 0.04, 0.21)
