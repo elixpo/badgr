@@ -23,6 +23,48 @@ def _rgb565_to_rgb(c):
 def _swap(c):
     return ((c & 0xFF) << 8) | ((c >> 8) & 0xFF)
 
+_LUT_565_TO_RGB = bytearray(65536 * 3)
+for c in range(65536):
+    r = ((c >> 11) & 0x1F) * 255 // 31
+    g = ((c >> 5) & 0x3F) * 255 // 63
+    b = (c & 0x1F) * 255 // 31
+    _LUT_565_TO_RGB[c * 3]     = r
+    _LUT_565_TO_RGB[c * 3 + 1] = g
+    _LUT_565_TO_RGB[c * 3 + 2] = b
+
+_surf_cache = {}
+_clock = pygame.time.Clock()
+
+def _sprite_to_surface(sprite, w, h):
+    if isinstance(sprite, tuple):
+        sprite = sprite[0]
+    key = (id(sprite), len(sprite), w, h)
+    if key in _surf_cache:
+        return _surf_cache[key]
+    
+    import struct
+    words = struct.unpack_from(">%dH" % (w * h), sprite)
+    rgb_bytes = bytearray(w * h * 3)
+    lut = _LUT_565_TO_RGB
+    has_transparent = False
+    for i, c in enumerate(words):
+        if c == 0xF81F:
+            rgb_bytes[i * 3]     = 255
+            rgb_bytes[i * 3 + 1] = 0
+            rgb_bytes[i * 3 + 2] = 255
+            has_transparent = True
+        else:
+            p = c * 3
+            rgb_bytes[i * 3]     = lut[p]
+            rgb_bytes[i * 3 + 1] = lut[p + 1]
+            rgb_bytes[i * 3 + 2] = lut[p + 2]
+            
+    surf = pygame.image.frombuffer(rgb_bytes, (w, h), "RGB")
+    if has_transparent:
+        surf.set_colorkey((255, 0, 255))
+    _surf_cache[key] = surf
+    return surf
+
 class Display(api.Display):
     def __init__(self):
         self._surface = pygame.Surface((api.SCREEN_W, api.SCREEN_H))
@@ -63,53 +105,18 @@ class Display(api.Display):
         self._dirty = True
 
     def blit(self, sprite, x, y, w, h):
-        if isinstance(sprite, tuple):
-            sprite = sprite[0]
-        buf = bytearray(sprite[:w * h * 2])
-        # Convert RGB565 to Pygame surface
-        # Pygame wants 24-bit or 32-bit for easy handling
-        temp_surf = pygame.Surface((w, h))
-        pxarray = pygame.PixelArray(temp_surf)
-        import struct
-        words = struct.unpack_from(">%dH" % (w * h), buf)
-        for sy in range(h):
-            for sx in range(w):
-                c = words[sy * w + sx]
-                # Magenta is transparent
-                if c != 0xF81F:
-                    pxarray[sx, sy] = _rgb565_to_rgb(c)
-                else:
-                    pxarray[sx, sy] = (255, 0, 255) # Assuming we set colorkey
-        pxarray.close()
-        del pxarray
-        temp_surf.set_colorkey((255, 0, 255))
-        self._surface.blit(temp_surf, (x, y))
+        surf = _sprite_to_surface(sprite, w, h)
+        self._surface.blit(surf, (x, y))
         self._dirty = True
 
     def blit_scale(self, sprite, x, y, w, h, scale, dim=0.0):
-        # basic implementation without dimming for now
-        if isinstance(sprite, tuple):
-            sprite = sprite[0]
-        buf = bytearray(sprite[:w * h * 2])
-        temp_surf = pygame.Surface((w, h))
-        pxarray = pygame.PixelArray(temp_surf)
-        import struct
-        words = struct.unpack_from(">%dH" % (w * h), buf)
-        for sy in range(h):
-            for sx in range(w):
-                c = words[sy * w + sx]
-                if c != 0xF81F:
-                    pxarray[sx, sy] = _rgb565_to_rgb(c)
-                else:
-                    pxarray[sx, sy] = (255, 0, 255)
-        pxarray.close()
-        del pxarray
-        temp_surf.set_colorkey((255, 0, 255))
-        scaled = pygame.transform.scale(temp_surf, (w * scale, h * scale))
+        surf = _sprite_to_surface(sprite, w, h)
+        scaled = pygame.transform.scale(surf, (w * scale, h * scale))
         self._surface.blit(scaled, (x, y))
         self._dirty = True
 
     def present(self):
+        _clock.tick(60)
         if not self._dirty: return
         self._dirty = False
         scaled_surf = pygame.transform.scale(self._surface, (api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM))

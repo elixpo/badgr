@@ -646,10 +646,12 @@ class App(oreoOS.App):
         self._dirty = True
 
     def update(self, dt):
-        # Tween scroll
+        # Frame-rate independent smooth exponential scroll tween
         target = self._top_row * CELL_H
-        if abs(self._scroll_y - target) > 0.5:
-            self._scroll_y += (target - self._scroll_y) * SCROLL_TWEEN
+        diff   = target - self._scroll_y
+        if abs(diff) > 0.4:
+            decay = 1.0 - math.exp(-16.0 * min(0.1, dt))
+            self._scroll_y += diff * decay
             self._dirty = True
         else:
             self._scroll_y = float(target)

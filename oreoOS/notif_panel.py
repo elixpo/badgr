@@ -418,7 +418,12 @@ class NotifPanel:
             return
         items   = self._items()
         full_h  = SH
-        offset  = int(full_h * (1.0 - self._t))
+        # Smooth cubic ease-out when opening, ease-in when closing
+        if self._dir >= 0:
+            ease = 1.0 - (1.0 - self._t) ** 3
+        else:
+            ease = self._t ** 3
+        offset  = int(full_h * (1.0 - ease))
         panel_y = -offset
 
         # Backdrop
