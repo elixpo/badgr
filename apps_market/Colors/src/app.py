@@ -118,23 +118,27 @@ def _try_load_spectrum():
 
 # ── persistence ─────────────────────────────────────────────────────────────
 
-def _save_rgb(rgb):
+def _save_state(cx, cy, rgb):
     try:
         with open(STATE_PATH, "w") as f:
-            f.write("%d,%d,%d" % rgb)
+            f.write("%f,%f,%d,%d,%d" % (cx, cy, rgb[0], rgb[1], rgb[2]))
     except Exception:
         pass
 
 
-def _load_rgb():
+def _load_state():
     try:
         with open(STATE_PATH) as f:
-            r, g, b = (int(x) for x in f.read().strip().split(","))
-        return (max(0, min(255, r)),
-                max(0, min(255, g)),
-                max(0, min(255, b)))
+            parts = f.read().strip().split(",")
+            if len(parts) == 5:
+                return (float(parts[0]), float(parts[1]),
+                        (int(parts[2]), int(parts[3]), int(parts[4])))
+            elif len(parts) == 3:
+                return (PLAY_W / 2.0, PLAY_H / 2.0,
+                        (int(parts[0]), int(parts[1]), int(parts[2])))
     except Exception:
-        return (255, 93, 104)
+        pass
+    return (PLAY_W / 2.0, PLAY_H / 2.0, (255, 93, 104))
 
 
 class App(oreoOS.App):
@@ -155,10 +159,8 @@ class App(oreoOS.App):
             self._bg = None
             self._bg_w = self._bg_h = 0
 
-        # Cursor starts mid-screen (often a nice saturated colour). Stored
-        # as floats so long-press acceleration can move in sub-pixel steps.
-        self._cx, self._cy = PLAY_W / 2.0, PLAY_H / 2.0
-        self._rgb = _load_rgb()       # restored from disk
+        # Cursor and RGB restored from disk
+        self._cx, self._cy, self._rgb = _load_state()
         self._mode = "RGB"            # header readout model
         self._saved_flash = 0.0
         # Hold-times for direction buttons (seconds held). Reset to 0 the
@@ -180,7 +182,7 @@ class App(oreoOS.App):
             i = _MODELS.index(self._mode)
             self._mode = _MODELS[(i + 1) % len(_MODELS)]
         elif btn == api.BTN_A:
-            _save_rgb(self._rgb)
+            _save_state(self._cx, self._cy, self._rgb)
             try:
                 self._os.settings_set("color_picker_rgb", self._rgb)
             except Exception:
