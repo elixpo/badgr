@@ -379,23 +379,23 @@ class App(oreoOS.App):
             # Right arrow
             d.text(">", x_next + w_next + 4, bar_y + 5, theme.GOLD)
 
-        # QR Container Box (126x126px) — allows Version 1..3 QRs to render at full 4px module scale
-        box_w = 126
-        box_h = 126
+        # Dynamically fit QR Container Box with crisp, proportional padding
+        qr_matrix = self._get_qr_matrix(url)
+        q_size    = len(qr_matrix)
+        mod_sz    = 4 if q_size <= 29 else max(2, min(4, 116 // q_size))
+        qr_pixel_w = q_size * mod_sz
+        pad       = 6
+
+        box_w = qr_pixel_w + pad * 2
+        box_h = box_w
         box_x = (SW - box_w) // 2
-        box_y = cy + 25
+        box_y = cy + 24 + (128 - box_h) // 2
 
         d.rect(box_x - 1, box_y - 1, box_w + 2, box_h + 2, theme.MUTED2, fill=True)
         d.rect(box_x, box_y, box_w, box_h, api.WHITE, fill=True)
 
-        # Render QR Code centered inside the box
-        qr_matrix = self._get_qr_matrix(url)
-        q_size    = len(qr_matrix)
-        mod_sz    = max(2, min(4, (box_w - 8) // q_size))
-        qr_pixel_w = q_size * mod_sz
-
-        start_x = box_x + (box_w - qr_pixel_w) // 2
-        start_y = box_y + (box_h - qr_pixel_w) // 2
+        start_x = box_x + pad
+        start_y = box_y + pad
 
         for r in range(q_size):
             for col in range(q_size):
@@ -405,7 +405,7 @@ class App(oreoOS.App):
                     d.rect(mx, my, mod_sz, mod_sz, api.BLACK, fill=True)
 
         # Configurable Encoded URL Text Field below QR Code
-        field_y = box_y + box_h + 5
+        field_y = cy + ch - 22
         field_w = cw - 16
         field_x = cx + 8
         field_h = 18
