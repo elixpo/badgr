@@ -1,10 +1,12 @@
-"""Music — Spotify & BLE Media Remote Controller for Oreo Badge.
+"""Music — Production Spotify & BLE Media Remote Controller for Oreo OS.
 
-Features:
-  • Live Track Sync: Displays Title, Artist, Album, and Duration (Spotify API / Local).
-  • Dynamic Audio Equalizer: 12 animated spectrum frequency bars with peak indicators.
-  • Media Controls: Play/Pause, Next Track, Previous Track, Volume Scrubber.
-  • Dual-Engine: Spotify Web API / BLE HID Remote / Offline Demo Playlist.
+Supports:
+  • Real-time Spotify Web API Sync: Title, Artist, Album, Progress, Volume, and Device.
+  • Instant Controls: Play/Pause, Next Track, Previous Track, Volume Adjuster, Shuffle.
+  • Smooth 60fps local interpolation + 2.5s cloud polling cadence.
+  • Automatic OAuth Token Refreshing on HTTP 401.
+  • Animated 12-band audio equalizer with dynamic harmonics & peak hold dots.
+  • Built-in Demo Playlist fallback when offline or unconfigured.
 
 Controls:
   A        Play / Pause toggle
@@ -12,14 +14,23 @@ Controls:
   LEFT     Previous track (restart/prev)
   UP       Volume Up (+5%)
   DOWN     Volume Down (-5%)
-  B        Toggle Shuffle / Repeat mode
-  HOME     Exit to apps drawer
+  B        Toggle Mode (Spotify <-> Demo) / Shuffle
+  C        Connection Info / Token Setup
+  HOME     Exit to launcher drawer
 """
 
 import math
 import time
 import oreoOS
 from oreoOS import api, theme, widgets
+
+try:
+    from .spotify import SpotifyClient
+except Exception:
+    try:
+        from apps_market.Music.src.spotify import SpotifyClient
+    except Exception:
+        from apps.Music.src.spotify import SpotifyClient
 
 try:
     _ticks_ms = time.ticks_ms
@@ -39,7 +50,6 @@ COL_MUTED   = api.rgb(160, 165, 175)  # Subtext / timer
 COL_BAR_BG  = api.rgb(45,  48,  58)   # Empty progress / vol bar
 COL_ACCENT  = api.rgb(255, 93,  104)  # Accent pink
 
-# Default Demo Playlist (used when offline or no Spotify token)
 DEMO_TRACKS = [
     {"title": "Starboy",         "artist": "The Weeknd, Daft Punk", "duration": 230},
     {"title": "Midnight City",   "artist": "M83",                  "duration": 244},
@@ -58,16 +68,24 @@ def _format_time(seconds):
 class App(oreoOS.App):
     name         = "Music"
     SHOW_LOADING = False
+    CONSUMES_C   = True
 
     def on_enter(self, os):
         self._os = os
-        self._track_idx = 0
         self._is_playing = True
         self._volume = 70
         self._progress = 45.0
+        self._duration = 230.0
+        self._title = "Starboy"
+        self._artist = "The Weeknd, Daft Punk"
+        self._album = "Starboy"
+        self._device_name = ""
         self._shuffle = False
-        self._repeat = False
-        self._mode = "DEMO"  # 'SPOTIFY', 'BLE', or 'DEMO'
+        self._repeat = "off"
+        self._track_idx = 0
+
+        self._mode = "DEMO"  # 'SPOTIFY' or 'DEMO'
+        self._show_info = False
 
         # Equalizer bar harmonics (12 frequency channels)
         self._eq_speeds = [3.2, 4.5, 5.1, 2.8, 6.0, 4.2, 5.5, 3.8, 4.9, 6.2, 3.5, 4.1]
@@ -77,60 +95,105 @@ class App(oreoOS.App):
 
         self._anim_t = 0.0
         self._last_tick = _ticks_ms()
+        self._last_poll_ms = 0
         self._vol_toast_t = 0.0
         self._dirty = True
 
-        # Check for Spotify credentials in config / .env
-        self._spotify_token = None
+        # Initialize Spotify Client
+        token = None
+        refresh_token = None
+        client_id = None
+        client_secret = None
+
         try:
             from oreoOS import config
-            self._spotify_token = getattr(config, "SPOTIFY_TOKEN", None) or getattr(config, "SPOTIFY_ACCESS_TOKEN", None)
-            if self._spotify_token:
-                self._mode = "SPOTIFY"
+            token = getattr(config, "SPOTIFY_TOKEN", None) or getattr(config, "SPOTIFY_ACCESS_TOKEN", None)
+            refresh_token = getattr(config, "SPOTIFY_REFRESH_TOKEN", None)
+            client_id = getattr(config, "SPOTIFY_CLIENT_ID", None)
+            client_secret = getattr(config, "SPOTIFY_CLIENT_SECRET", None)
         except Exception:
             pass
+
+        self._spotify = SpotifyClient(token=token, refresh_token=refresh_token,
+                                      client_id=client_id, client_secret=client_secret)
+
+        if self._spotify.is_configured():
+            self._mode = "SPOTIFY"
+            self._poll_spotify()
 
     def on_exit(self):
         pass
 
+    def _poll_spotify(self):
+        if not self._spotify.is_configured():
+            return
+        state = self._spotify.get_playback()
+        if state and state.get("connected"):
+            if state.get("active"):
+                self._title = state.get("title", self._title)
+                self._artist = state.get("artist", self._artist)
+                self._album = state.get("album", "")
+                self._is_playing = state.get("is_playing", self._is_playing)
+                self._duration = state.get("duration_s", self._duration)
+                self._progress = state.get("progress_s", self._progress)
+                self._volume = state.get("volume", self._volume)
+                self._device_name = state.get("device_name", "")
+                self._shuffle = state.get("shuffle", False)
+                self._repeat = state.get("repeat", "off")
+            else:
+                self._title = "No Active Playback"
+                self._artist = "Open Spotify on phone/PC"
+                self._is_playing = False
+        self._dirty = True
+
     def on_button_press(self, btn):
         if btn == api.BTN_A:
             self._is_playing = not self._is_playing
-            self._send_command("play_pause")
+            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+                if self._is_playing:
+                    self._spotify.play()
+                else:
+                    self._spotify.pause()
         elif btn == api.BTN_RIGHT:
-            self._track_idx = (self._track_idx + 1) % len(DEMO_TRACKS)
-            self._progress = 0.0
-            self._send_command("next")
-        elif btn == api.BTN_LEFT:
-            if self._progress > 3.0:
+            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+                self._spotify.next_track()
                 self._progress = 0.0
+                self._last_poll_ms = _ticks_ms() - 2000  # Poll soon for new song info
+            else:
+                self._track_idx = (self._track_idx + 1) % len(DEMO_TRACKS)
+                t = DEMO_TRACKS[self._track_idx]
+                self._title, self._artist, self._duration = t["title"], t["artist"], t["duration"]
+                self._progress = 0.0
+        elif btn == api.BTN_LEFT:
+            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+                self._spotify.prev_track()
+                self._progress = 0.0
+                self._last_poll_ms = _ticks_ms() - 2000
             else:
                 self._track_idx = (self._track_idx - 1) % len(DEMO_TRACKS)
+                t = DEMO_TRACKS[self._track_idx]
+                self._title, self._artist, self._duration = t["title"], t["artist"], t["duration"]
                 self._progress = 0.0
-            self._send_command("prev")
         elif btn == api.BTN_UP:
             self._volume = min(100, self._volume + 5)
             self._vol_toast_t = 1.8
-            self._send_command("vol_up")
+            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+                self._spotify.set_volume(self._volume)
         elif btn == api.BTN_DOWN:
             self._volume = max(0, self._volume - 5)
             self._vol_toast_t = 1.8
-            self._send_command("vol_down")
+            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+                self._spotify.set_volume(self._volume)
         elif btn == api.BTN_B:
-            self._shuffle = not self._shuffle
+            # Toggle between Spotify & Demo mode
+            if self._mode == "SPOTIFY":
+                self._mode = "DEMO"
+            else:
+                self._mode = "SPOTIFY" if self._spotify.is_configured() else "DEMO"
+        elif btn == api.BTN_C:
+            self._show_info = not self._show_info
+
         self._dirty = True
-
-    def _send_command(self, action):
-        # 1. BLE Consumer Control trigger (if BLE available)
-        try:
-            from oreoWare import bt
-            if hasattr(bt, "send_media_key"):
-                bt.send_media_key(action)
-        except Exception:
-            pass
-
-        # 2. Spotify Web API call (if token & Wi-Fi available)
-        # Non-blocking async webhook / API queue placeholder
 
     def update(self, dt):
         now = _ticks_ms()
@@ -141,29 +204,34 @@ class App(oreoOS.App):
         if self._vol_toast_t > 0:
             self._vol_toast_t = max(0.0, self._vol_toast_t - dt)
 
-        # Update track elapsed scrubber
-        track = DEMO_TRACKS[self._track_idx]
+        # Smooth local progress interpolation
         if self._is_playing:
             self._progress += dt
-            if self._progress >= track["duration"]:
-                self._track_idx = (self._track_idx + 1) % len(DEMO_TRACKS)
+            if self._progress >= self._duration:
+                if self._mode == "DEMO":
+                    self._track_idx = (self._track_idx + 1) % len(DEMO_TRACKS)
+                    t = DEMO_TRACKS[self._track_idx]
+                    self._title, self._artist, self._duration = t["title"], t["artist"], t["duration"]
                 self._progress = 0.0
 
-        # Animate equalizer bars
+        # Periodic Spotify sync (every 2.5s when in Spotify mode)
+        if self._mode == "SPOTIFY" and self._spotify.is_configured():
+            if _ticks_diff(now, self._last_poll_ms) > 2500:
+                self._last_poll_ms = now
+                self._poll_spotify()
+
+        # Animate Equalizer spectrum bars
         for i in range(12):
             if self._is_playing:
-                # Procedural sine wave with multi-frequency modulation
                 speed = self._eq_speeds[i]
                 phase = self._eq_phases[i]
                 val = abs(math.sin(self._anim_t * speed + phase)) * 0.7 +                       abs(math.cos(self._anim_t * speed * 0.5 + phase * 1.3)) * 0.3
                 target_h = 4 + val * 38
             else:
                 target_h = 2.0
-            
-            # Smooth interpolation
+
             self._eq_heights[i] += (target_h - self._eq_heights[i]) * 0.25
-            
-            # Peak hold dot with gravity drop
+
             if self._eq_heights[i] > self._eq_peaks[i]:
                 self._eq_peaks[i] = self._eq_heights[i]
             else:
@@ -177,13 +245,11 @@ class App(oreoOS.App):
 
         d.clear(COL_BG)
 
-        # 1. Header
-        header_title = "SPOTIFY REMOTE" if self._mode == "SPOTIFY" else "NOW PLAYING"
+        # 1. Header Bar
+        header_title = "SPOTIFY CONNECT" if self._mode == "SPOTIFY" else "NOW PLAYING (DEMO)"
         widgets.draw_header(d, header_title)
 
-        track = DEMO_TRACKS[self._track_idx]
-
-        # 2. Track Info Card (Top section)
+        # 2. Track Card (Top Section)
         card_x, card_y, card_w, card_h = 10, widgets.HEADER_H + 6, SW - 20, 58
         d.rect(card_x, card_y, card_w, card_h, COL_CARD, fill=True)
         d.rect(card_x, card_y, card_w, card_h, api.rgb(50, 54, 68), fill=False)
@@ -191,26 +257,26 @@ class App(oreoOS.App):
         # Mini Vinyl / Note icon box
         icon_x, icon_y, icon_sz = card_x + 8, card_y + 8, 42
         d.rect(icon_x, icon_y, icon_sz, icon_sz, COL_SPOTIFY, fill=True)
-        # Note glyph inside icon box
         d.text("o/", icon_x + 12, icon_y + 14, api.WHITE)
 
-        # Track title (clipped)
-        title = track["title"]
-        if len(title) > 18:
-            title = title[:16] + ".."
-        d.text(title, icon_x + icon_sz + 10, card_y + 12, api.WHITE)
+        # Title (clipped)
+        title_str = self._title
+        if len(title_str) > 18:
+            title_str = title_str[:16] + ".."
+        d.text(title_str, icon_x + icon_sz + 10, card_y + 12, api.WHITE)
 
-        # Artist name (clipped)
-        artist = track["artist"]
-        if len(artist) > 22:
-            artist = artist[:20] + ".."
-        d.text(artist, icon_x + icon_sz + 10, card_y + 26, COL_MUTED)
+        # Artist (clipped)
+        artist_str = self._artist
+        if len(artist_str) > 22:
+            artist_str = artist_str[:20] + ".."
+        d.text(artist_str, icon_x + icon_sz + 10, card_y + 26, COL_MUTED)
 
-        # Mode Badge (e.g. [DEMO] or [SPOTIFY])
-        badge_text = "[" + self._mode + "]"
-        d.text(badge_text, card_x + card_w - len(badge_text) * 8 - 8, card_y + 38, COL_SPOTIFY)
+        # Mode / Device Tag
+        tag = "[" + (self._device_name or self._mode) + "]"
+        if len(tag) > 16: tag = tag[:14] + "..]"
+        d.text(tag, card_x + card_w - len(tag) * 8 - 8, card_y + 38, COL_SPOTIFY)
 
-        # 3. Dynamic Equalizer Visualizer (Middle section)
+        # 3. Dynamic Equalizer Visualizer (Middle Section)
         eq_box_x = 10
         eq_box_y = card_y + card_h + 8
         eq_box_w = SW - 20
@@ -226,17 +292,14 @@ class App(oreoOS.App):
             bh = int(self._eq_heights[i])
             peak_h = int(self._eq_peaks[i])
 
-            # Draw vertical equalizer bar with gradient / green fill
             d.rect(bx, base_y - bh, bar_w, bh, COL_SPOTIFY, fill=True)
-            # Top highlight
             d.rect(bx, base_y - bh, bar_w, 1, api.WHITE, fill=True)
-            # Peak hold dot
             d.rect(bx, base_y - peak_h - 2, bar_w, 2, theme.GOLD, fill=True)
 
-        # 4. Progress Scrubber Bar
+        # 4. Progress Scrubber
         prog_y = eq_box_y + eq_box_h + 10
         cur_str = _format_time(self._progress)
-        tot_str = _format_time(track["duration"])
+        tot_str = _format_time(self._duration)
 
         d.text(cur_str, 12, prog_y - 1, COL_MUTED)
         d.text(tot_str, SW - len(tot_str) * 8 - 12, prog_y - 1, COL_MUTED)
@@ -245,15 +308,12 @@ class App(oreoOS.App):
         bar_end_x   = SW - len(tot_str) * 8 - 20
         bar_total_w = max(20, bar_end_x - bar_start_x)
 
-        ratio = min(1.0, max(0.0, self._progress / track["duration"]))
+        ratio = min(1.0, max(0.0, self._progress / max(1.0, self._duration)))
         fill_w = int(bar_total_w * ratio)
 
-        # Progress background groove
         d.rect(bar_start_x, prog_y + 2, bar_total_w, 4, COL_BAR_BG, fill=True)
-        # Filled progress
         if fill_w > 0:
             d.rect(bar_start_x, prog_y + 2, fill_w, 4, COL_SPOTIFY, fill=True)
-        # Scrubber thumb knob
         knob_x = bar_start_x + fill_w
         d.rect(knob_x - 2, prog_y, 4, 8, api.WHITE, fill=True)
 
@@ -262,12 +322,24 @@ class App(oreoOS.App):
         play_symbol = "> PLAYING" if self._is_playing else "|| PAUSED"
         d.text(play_symbol, 16, stat_y, COL_SPOTIFY if self._is_playing else theme.GOLD)
 
-        # Volume readout or Toast
         vol_str = "VOL: %d%%" % self._volume
         d.text(vol_str, SW - len(vol_str) * 8 - 16, stat_y, COL_MUTED)
 
-        # 6. Bottom Hint Bar
-        hint_text = "A=play  <>=skip  ^v=vol"
-        widgets.draw_hint(d, hint_text)
+        # 6. Connection Info Overlay Modal (when C is toggled)
+        if self._show_info:
+            modal_x, modal_y, modal_w, modal_h = 20, 36, SW - 40, SH - 72
+            d.rect(modal_x, modal_y, modal_w, modal_h, COL_CARD, fill=True)
+            d.rect(modal_x, modal_y, modal_w, modal_h, COL_SPOTIFY, fill=False)
+            d.text("SPOTIFY CONFIG", modal_x + 10, modal_y + 10, COL_SPOTIFY)
+            
+            configured_str = "Status: CONNECTED" if self._spotify.is_configured() else "Status: UNLINKED (DEMO)"
+            d.text(configured_str, modal_x + 10, modal_y + 30, api.WHITE)
+            d.text("Add token to .env:", modal_x + 10, modal_y + 50, COL_MUTED)
+            d.text("SPOTIFY_TOKEN=...", modal_x + 10, modal_y + 66, theme.GOLD)
+            d.text("or SPOTIFY_REFRESH_TOKEN", modal_x + 10, modal_y + 82, COL_MUTED)
+            d.text("Press C to close", modal_x + 10, modal_y + modal_h - 18, COL_SPOTIFY)
+
+        # 7. Bottom Hint Footer
+        widgets.draw_hint(d, "A=play  <>=skip  ^v=vol  C=info")
 
         self._dirty = False
