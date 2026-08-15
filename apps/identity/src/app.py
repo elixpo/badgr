@@ -42,37 +42,14 @@ def _try_avatar():
 
 
 def _load_identity(os_obj=None):
-    try:
-        import secrets as _sec
-    except Exception:
-        _sec = None
+    from oreoOS import config
 
-    try:
-        from oreoOS import config as _cfg
-    except Exception:
-        _cfg = None
-
-    def _get_val(key, default=""):
-        if _sec and hasattr(_sec, key):
-            val = getattr(_sec, key)
-            if val: return str(val).strip()
-        if _cfg and hasattr(_cfg, key):
-            val = getattr(_cfg, key)
-            if val: return str(val).strip()
-        if os_obj and hasattr(os_obj, "settings_get"):
-            try:
-                val = os_obj.settings_get(key.lower(), "")
-                if val: return str(val).strip()
-            except Exception:
-                pass
-        return default
-
-    gh_user = _get_val("GITHUB_USER")
-    name    = _get_val("DISPLAY_NAME") or gh_user
-    desig   = _get_val("DESIGNATION")
-    li_user = _get_val("LINKEDIN_USER")
-    tw_user = _get_val("TWITTER_USER")
-    web_url = _get_val("WEBSITE_URL")
+    gh_user = config.get("GITHUB_USER")
+    name    = config.get("DISPLAY_NAME") or gh_user
+    desig   = config.get("DESIGNATION")
+    li_user = config.get("LINKEDIN_USER")
+    tw_user = config.get("TWITTER_USER")
+    web_url = config.get("WEBSITE_URL")
 
     channels = []
     if gh_user:
@@ -86,7 +63,6 @@ def _load_identity(os_obj=None):
         channels.append({"name": "Website", "tab": "Website", "url": url_fmt})
 
     if not channels:
-        fallback_name = name or "Oreo"
         channels.append({"name": "Website", "tab": "Website", "url": "https://oreo.elixpo.com"})
 
     return {

@@ -15,6 +15,17 @@ def _load_env():
 
 _env = _load_env()
 
+# Hydrate from secrets.py on physical hardware if present
+try:
+    import secrets as _sec
+    for _k in dir(_sec):
+        if not _k.startswith("_") and hasattr(_sec, _k):
+            _v = getattr(_sec, _k)
+            if _v is not None and _k not in _env:
+                _env[_k] = str(_v)
+except Exception:
+    pass
+
 # OS version. tools/deploy.py auto-bumps the PATCH number on every push.
 # The literal MUST stay on its own line as `VERSION = "vN.N.N"` — the
 # deploy regex relies on that exact format to rewrite in place.
@@ -24,14 +35,26 @@ VERSION           = "v1.4.103"
 # "Latest stable as of …" line when no newer release is available.
 RELEASE_DATE      = "2026-05-16"
 
-GITHUB_USER       = "Circuit-Overtime"
-DISPLAY_NAME      = "Ayushman Bhattacharya"
-DESIGNATION       = "Developer @Myceli.ai"
-WEATHER_LAT       = 22.57
-WEATHER_LON       = 88.36
-WEATHER_NAME      = ""
+GITHUB_USER       = _env.get("GITHUB_USER", "")
+DISPLAY_NAME      = _env.get("DISPLAY_NAME", "")
+DESIGNATION       = _env.get("DESIGNATION", "")
+LINKEDIN_USER     = _env.get("LINKEDIN_USER", "")
+TWITTER_USER      = _env.get("TWITTER_USER", "")
+WEBSITE_URL       = _env.get("WEBSITE_URL", "")
+
+WEATHER_LAT       = float(_env.get("WEATHER_LAT", 22.57) or 22.57)
+WEATHER_LON       = float(_env.get("WEATHER_LON", 88.36) or 88.36)
+WEATHER_NAME      = _env.get("WEATHER_NAME", "")
 BT_AUTO_ENABLE    = False
-TIMEZONE_OFFSET   = 5.5
+TIMEZONE_OFFSET   = float(_env.get("TIMEZONE_OFFSET", 5.5) or 5.5)
+DEBUG             = _env.get("DEBUG", "1").lower() in ("1", "true", "yes")
+
+def get(key, default=""):
+    """Unified config & secrets getter across desktop emulator (.env) & hardware (secrets.py)."""
+    if key in _env and _env[key] != "":
+        return _env[key]
+    val = globals().get(key, default)
+    return default if val is None else val
 
 def _split_csv(s):
     """Comma-separated env value → trimmed list. Empty entries dropped."""

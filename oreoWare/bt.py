@@ -620,11 +620,13 @@ def _start_advertising(ble):
     except Exception:
         pass
     interval_us = 200_000   # was 500_000 — too slow for iOS opportunistic scans
-    try:
-        from secrets import BT_ADV_INTERVAL_MS
-        interval_us = int(BT_ADV_INTERVAL_MS) * 1000
-    except Exception:
-        pass
+    from oreoOS import config
+    adv_ms = config.get("BT_ADV_INTERVAL_MS", "")
+    if adv_ms:
+        try:
+            interval_us = int(adv_ms) * 1000
+        except Exception:
+            pass
     adv  = _adv_payload(DEVICE_NAME)
     try:
         resp = _scan_resp_payload(DEVICE_NAME)

@@ -299,7 +299,9 @@ def run_app(os_obj, app):
             # the app's _dirty flag is False and panel.draw bails on _t==0.
             panel_was_active = panel.is_active()
             panel.tick(dt)
-            if panel_was_active and not panel.is_active():
+            is_animating = getattr(panel, "_dir", 0) != 0
+            just_closed  = panel_was_active and not panel.is_active()
+            if is_animating or just_closed:
                 try:
                     app._dirty = True
                 except Exception:
@@ -341,7 +343,19 @@ def run_app(os_obj, app):
                 # FRAME_ERR_LIMIT consecutive bad frames we give up and
                 # let the outer handler crash-screen this app.
                 try:
-                    print("frame error in", getattr(app, "name", "?"), ":", e)
+                    from oreoOS import config
+                    if getattr(config, "DEBUG", True):
+                        print("[DEBUG] Frame error in '%s':" % getattr(app, "name", "?"))
+                        try:
+                            import traceback
+                            traceback.print_exc()
+                        except Exception:
+                            try:
+                                sys.print_exception(e)
+                            except Exception:
+                                print(" ", e)
+                    else:
+                        print("frame error in", getattr(app, "name", "?"), ":", e)
                 except Exception:
                     pass
                 frame_errs += 1
@@ -654,12 +668,9 @@ def boot():
     #   2. skip WiFi for one boot after a brownout reset, so the device
     #      can at least reach the home screen
     wifi_ok_to_try = True
-    try:
-        from secrets import WIFI_AUTO_CONNECT
-        if not WIFI_AUTO_CONNECT:
-            wifi_ok_to_try = False
-    except Exception:
-        pass
+    from oreoOS import config
+    if not config.get("WIFI_AUTO_CONNECT", True):
+        wifi_ok_to_try = False
     try:
         import machine
         # MicroPython exposes BROWNOUT_RESET on most ports; treat unknown

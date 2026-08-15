@@ -232,11 +232,8 @@ class App(oreoOS.App):
 
     def on_enter(self, os):
         self._os = os
-        try:
-            from secrets import GITHUB_USER
-            self._user = GITHUB_USER
-        except Exception:
-            self._user = "Circuit-Overtime"
+        from oreoOS import config
+        self._user = config.get("GITHUB_USER")
 
         # Show the disk cache immediately if present — no network spinner on
         # re-entry. We then attempt a refresh in the background; if it works,

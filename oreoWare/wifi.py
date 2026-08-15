@@ -70,23 +70,18 @@ def _apply_power_cap(wlan):
     try/except so older / minimal MicroPython builds without one of these
     keys don't kill WiFi entirely.
     """
-    try:
-        from secrets import WIFI_TX_DBM
+    from oreoOS import config
+    tx_dbm = config.get("WIFI_TX_DBM", "")
+    if tx_dbm:
         try:
-            wlan.config(txpower=int(WIFI_TX_DBM))
+            wlan.config(txpower=int(tx_dbm))
         except Exception:
             pass
-    except Exception:
-        pass
-    try:
-        from secrets import WIFI_POWERSAVE
-        if WIFI_POWERSAVE:
-            try:
-                wlan.config(pm=wlan.PM_POWERSAVE)
-            except Exception:
-                pass
-    except Exception:
-        pass
+    if config.get("WIFI_POWERSAVE", True):
+        try:
+            wlan.config(pm=wlan.PM_POWERSAVE)
+        except Exception:
+            pass
 
 
 MDNS_HOSTNAME = "oreo"

@@ -102,11 +102,8 @@ class App(oreoOS.App):
 
     def on_enter(self, os):
         self._os = os
-        try:
-            from secrets import GITHUB_USER
-            self._user = GITHUB_USER
-        except Exception:
-            self._user = "octocat"
+        from oreoOS import config
+        self._user = config.get("GITHUB_USER")
         self._avatar = _try_avatar()
 
         # 1) Load whatever's on disk so the card renders immediately.

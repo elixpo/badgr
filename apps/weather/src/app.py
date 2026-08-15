@@ -119,13 +119,10 @@ class App(oreoOS.App):
 
     def on_enter(self, os):
         self._os = os
-        try:
-            from secrets import WEATHER_LAT, WEATHER_LON, OWM_API_KEY
-            self._lat = float(WEATHER_LAT)
-            self._lon = float(WEATHER_LON)
-            self._key = OWM_API_KEY
-        except Exception:
-            self._lat, self._lon, self._key = 12.97, 77.59, ""
+        from oreoOS import config
+        self._lat = float(config.get("WEATHER_LAT", 22.57) or 22.57)
+        self._lon = float(config.get("WEATHER_LON", 88.36) or 88.36)
+        self._key = config.get("OWM_API_KEY", "")
 
         play_h = SH - widgets.HEADER_H - widgets.HINT_H
 
