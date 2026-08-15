@@ -69,6 +69,42 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
         return False
 
 
+_COVER_CACHE = {}
+
+def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
+    if not url:
+        return None
+    cache_key = "%s_%d_%d" % (url, target_w, target_h)
+    if cache_key in _COVER_CACHE:
+        return _COVER_CACHE[cache_key]
+
+    try:
+        import urllib.request
+        import io
+        try:
+            import PIL.Image as Image
+            req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                data = resp.read()
+            img = Image.open(io.BytesIO(data)).convert("RGB").resize((target_w, target_h))
+            raw = bytearray(target_w * target_h * 2)
+            idx = 0
+            for y in range(target_h):
+                for x in range(target_w):
+                    r, g, b = img.getpixel((x, y))
+                    rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+                    raw[idx] = (rgb565 >> 8) & 0xFF
+                    raw[idx + 1] = rgb565 & 0xFF
+                    idx += 2
+            _COVER_CACHE[cache_key] = raw
+            return raw
+        except ImportError:
+            pass
+    except Exception:
+        pass
+    return None
+
+
 class SpotifyClient:
     API_HOST  = "api.spotify.com"
     AUTH_HOST = "accounts.spotify.com"
@@ -271,13 +307,14 @@ class SpotifyClient:
                 "shuffle":     False,
                 "repeat":      "off"
             }
-
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
                 item = data.get("item") or {}
                 artists = item.get("artists", [])
                 artist_names = ", ".join(a.get("name", "") for a in artists) or "Unknown Artist"
+                images = (item.get("album") or {}).get("images", [])
+                image_url = images[-1].get("url", "") if images else ""
 
                 dev = data.get("device", {})
                 self.device_name = dev.get("name", "Spotify")
@@ -289,6 +326,7 @@ class SpotifyClient:
                     "title":       item.get("name", "Unknown Track"),
                     "artist":      artist_names,
                     "album":       (item.get("album") or {}).get("name", ""),
+                    "image_url":   image_url,
                     "duration_s":  (item.get("duration_ms", 0) or 0) / 1000.0,
                     "progress_s":  (data.get("progress_ms", 0) or 0) / 1000.0,
                     "volume":      dev.get("volume_percent", 70),

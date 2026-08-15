@@ -1,16 +1,17 @@
-"""Music — Spotify Connect & BLE Media Remote for Oreo OS.
+"""Music — Spotify Connect & Media Player for Oreo OS.
 
-Zero-Config Onboarding:
-  • Displays a dynamic QR Code for http://<badge-ip>/spotify on phone.
-  • 1-Tap phone setup pushes OAuth credentials directly to badge over LAN.
-  • Live playback sync (Track, Artist, Album, Progress, Volume, Device).
-  • 60fps smooth progress bar interpolation + animated 12-band equalizer.
-  • Offline demo fallback playlist for testing.
+Features:
+  • Real-time Spotify Playback Sync (Track, Artist, Album, Duration, Progress, Volume).
+  • High-Resolution 64x64 Album Cover Art photo rendering with memory caching.
+  • Smooth 60fps local timeline scrubber and playback interpolation.
+  • Full hardware transport controls (Play/Pause, Skip Next/Prev, Volume).
+  • Dynamic QR Code Setup screen for quick authentication.
+  • Offline Demo fallback playlist when not linked to Spotify.
 
 Controls:
-  A        Play / Pause toggle (or enter Demo mode on setup screen)
-  RIGHT    Next track (skip)
-  LEFT     Previous track (restart/prev)
+  A        Play / Pause toggle
+  RIGHT    Next track (Skip)
+  LEFT     Previous track
   UP       Volume Up (+5%)
   DOWN     Volume Down (-5%)
   B        Toggle Mode (Spotify <-> Demo)
@@ -18,20 +19,19 @@ Controls:
   HOME     Exit to launcher drawer
 """
 
-import math
 import time
 import oreoOS
 from oreoOS import api, theme, widgets
 
 try:
-    from .spotify import SpotifyClient
+    from .spotify import SpotifyClient, fetch_cover_art_rgb565
     from .qr import QRCode
 except Exception:
     try:
-        from apps_market.Music.src.spotify import SpotifyClient
+        from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565
         from apps_market.Music.src.qr import QRCode
     except Exception:
-        from apps.Music.src.spotify import SpotifyClient
+        from apps.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565
         from apps.Music.src.qr import QRCode
 
 try:
@@ -45,19 +45,21 @@ SW = api.SCREEN_W
 SH = api.SCREEN_H
 
 # Palette
-COL_SPOTIFY = api.rgb(29,  185, 84)   # Spotify signature green
-COL_BG      = api.rgb(18,  18,  18)   # Deep charcoal
-COL_CARD    = api.rgb(30,  32,  40)   # Card container
-COL_MUTED   = api.rgb(160, 165, 175)  # Subtext / timer
-COL_BAR_BG  = api.rgb(45,  48,  58)   # Empty progress / vol bar
-COL_ACCENT  = api.rgb(255, 93,  104)  # Accent pink
+COL_SPOTIFY  = api.rgb(29,  185, 84)   # Signature Spotify Green
+COL_BG       = api.rgb(18,  18,  18)   # OLED Charcoal / Black
+COL_CARD     = api.rgb(26,  28,  36)   # Card background
+COL_CARD_BD  = api.rgb(44,  48,  62)   # Card border
+COL_MUTED    = api.rgb(150, 155, 168)  # Subtext / timer
+COL_BAR_BG   = api.rgb(42,  44,  56)   # Empty progress / vol bar
+COL_ACCENT   = api.rgb(255, 93,  104)  # Accent pink
+COL_CYAN     = api.rgb(80,  200, 255)  # Device pill cyan
 
 DEMO_TRACKS = [
-    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk", "duration": 230},
-    {"title": "Midnight City",   "artist": "M83",                  "duration": 244},
-    {"title": "Resonance",       "artist": "HOME",                 "duration": 212},
-    {"title": "Get Lucky",       "artist": "Daft Punk, Pharrell",  "duration": 248},
-    {"title": "Blinding Lights", "artist": "The Weeknd",           "duration": 200},
+    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk", "album": "Starboy", "duration": 230},
+    {"title": "Midnight City",   "artist": "M83",                  "album": "Hurry Up", "duration": 244},
+    {"title": "Resonance",       "artist": "HOME",                 "album": "Odyssey",  "duration": 212},
+    {"title": "Get Lucky",       "artist": "Daft Punk, Pharrell",  "album": "RAM",      "duration": 248},
+    {"title": "Blinding Lights", "artist": "The Weeknd",           "album": "After Hrs","duration": 200},
 ]
 
 
@@ -65,25 +67,6 @@ def _format_time(seconds):
     m = int(seconds) // 60
     s = int(seconds) % 60
     return "%02d:%02d" % (m, s)
-
-
-def _get_badge_ip():
-    try:
-        from oreoWare import wifi
-        ip = wifi.ip()
-        if ip and ip != "0.0.0.0":
-            return ip
-    except Exception:
-        pass
-    try:
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "192.168.4.1"
 
 
 class App(oreoOS.App):
@@ -105,14 +88,17 @@ class App(oreoOS.App):
         self._repeat = "off"
         self._track_idx = 0
 
-        self._mode = "DEMO"  # 'SPOTIFY' or 'DEMO'
+        self._mode = "DEMO"
         self._show_qr = False
 
-        # Equalizer bar harmonics (12 frequency channels)
-        self._eq_speeds = [3.2, 4.5, 5.1, 2.8, 6.0, 4.2, 5.5, 3.8, 4.9, 6.2, 3.5, 4.1]
-        self._eq_phases = [i * 0.52 for i in range(12)]
-        self._eq_heights = [4.0] * 12
-        self._eq_peaks   = [4.0] * 12
+        # Album Cover Art state
+        self._cover_art = None
+        self._last_image_url = ""
+        self._cover_w = 64
+        self._cover_h = 64
+
+        # Title marquee scroll state
+        self._title_scroll_offset = 0.0
 
         self._anim_t = 0.0
         self._last_tick = _ticks_ms()
@@ -122,7 +108,7 @@ class App(oreoOS.App):
         self._dirty = True
 
         # QR Code state
-        self._qr_url = ""
+        self._qr_url = "https://oreo.elixpo.com/spotify"
         self._qr_matrix = None
 
         # Initialize Spotify Client
@@ -176,69 +162,101 @@ class App(oreoOS.App):
                 self._device_name = state.get("device_name", "")
                 self._shuffle = state.get("shuffle", False)
                 self._repeat = state.get("repeat", "off")
+
+                # Fetch Album Cover Art
+                img_url = state.get("image_url", "")
+                if img_url and img_url != self._last_image_url:
+                    self._last_image_url = img_url
+                    try:
+                        self._cover_art = fetch_cover_art_rgb565(img_url, 64, 64)
+                    except Exception:
+                        self._cover_art = None
             else:
                 self._title = "No Active Playback"
-                self._artist = "Open Spotify on phone/PC"
+                self._artist = "Start music on phone/PC"
+                self._album = "Spotify Connected"
                 self._is_playing = False
+                self._cover_art = None
         self._dirty = True
 
     def on_button_press(self, btn):
         if self._show_qr:
             if btn in (api.BTN_A, api.BTN_B):
-                # Switch to demo mode
                 self._show_qr = False
                 self._mode = "DEMO"
             elif btn == api.BTN_C:
                 self._show_qr = False
+                if self._spotify.reload_persisted():
+                    self._mode = "SPOTIFY"
+                    self._poll_spotify()
             self._dirty = True
             return
 
         if btn == api.BTN_A:
-            self._is_playing = not self._is_playing
-            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+            # Play / Pause toggle
+            if self._mode == "SPOTIFY":
                 if self._is_playing:
-                    self._spotify.play()
-                else:
                     self._spotify.pause()
+                    self._is_playing = False
+                else:
+                    self._spotify.play()
+                    self._is_playing = True
+            else:
+                self._is_playing = not self._is_playing
+
         elif btn == api.BTN_RIGHT:
-            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+            # Skip Next
+            if self._mode == "SPOTIFY":
                 self._spotify.next_track()
-                self._progress = 0.0
-                self._last_poll_ms = _ticks_ms() - 2000
+                time.sleep(0.15)
+                self._poll_spotify()
             else:
                 self._track_idx = (self._track_idx + 1) % len(DEMO_TRACKS)
                 t = DEMO_TRACKS[self._track_idx]
-                self._title, self._artist, self._duration = t["title"], t["artist"], t["duration"]
+                self._title, self._artist, self._album, self._duration = t["title"], t["artist"], t["album"], t["duration"]
                 self._progress = 0.0
+                self._cover_art = None
+
         elif btn == api.BTN_LEFT:
-            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+            # Skip Prev
+            if self._mode == "SPOTIFY":
                 self._spotify.prev_track()
-                self._progress = 0.0
-                self._last_poll_ms = _ticks_ms() - 2000
+                time.sleep(0.15)
+                self._poll_spotify()
             else:
                 self._track_idx = (self._track_idx - 1) % len(DEMO_TRACKS)
                 t = DEMO_TRACKS[self._track_idx]
-                self._title, self._artist, self._duration = t["title"], t["artist"], t["duration"]
+                self._title, self._artist, self._album, self._duration = t["title"], t["artist"], t["album"], t["duration"]
                 self._progress = 0.0
+                self._cover_art = None
+
         elif btn == api.BTN_UP:
+            # Volume Up
             self._volume = min(100, self._volume + 5)
-            self._vol_toast_t = 1.8
-            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+            self._vol_toast_t = 1.5
+            if self._mode == "SPOTIFY":
                 self._spotify.set_volume(self._volume)
+
         elif btn == api.BTN_DOWN:
+            # Volume Down
             self._volume = max(0, self._volume - 5)
-            self._vol_toast_t = 1.8
-            if self._mode == "SPOTIFY" and self._spotify.is_configured():
+            self._vol_toast_t = 1.5
+            if self._mode == "SPOTIFY":
                 self._spotify.set_volume(self._volume)
+
         elif btn == api.BTN_B:
+            # Switch Mode
             if self._mode == "SPOTIFY":
                 self._mode = "DEMO"
+                self._cover_art = None
             else:
                 if self._spotify.is_configured():
                     self._mode = "SPOTIFY"
+                    self._poll_spotify()
                 else:
                     self._build_qr()
                     self._show_qr = True
+
         elif btn == api.BTN_C:
             self._build_qr()
             self._show_qr = not self._show_qr
@@ -248,8 +266,8 @@ class App(oreoOS.App):
     def update(self, dt):
         now = _ticks_ms()
         self._last_tick = now
-
         self._anim_t += dt
+
         if self._vol_toast_t > 0:
             self._vol_toast_t = max(0.0, self._vol_toast_t - dt)
 
@@ -270,7 +288,7 @@ class App(oreoOS.App):
                 if self._mode == "DEMO":
                     self._track_idx = (self._track_idx + 1) % len(DEMO_TRACKS)
                     t = DEMO_TRACKS[self._track_idx]
-                    self._title, self._artist, self._duration = t["title"], t["artist"], t["duration"]
+                    self._title, self._artist, self._album, self._duration = t["title"], t["artist"], t["album"], t["duration"]
                 self._progress = 0.0
 
         # Periodic Spotify sync
@@ -279,21 +297,9 @@ class App(oreoOS.App):
                 self._last_poll_ms = now
                 self._poll_spotify()
 
-        # Animate Equalizer bars
-        for i in range(12):
-            if self._is_playing and not self._show_qr:
-                speed = self._eq_speeds[i]
-                phase = self._eq_phases[i]
-                val = abs(math.sin(self._anim_t * speed + phase)) * 0.7 +                       abs(math.cos(self._anim_t * speed * 0.5 + phase * 1.3)) * 0.3
-                target_h = 4 + val * 38
-            else:
-                target_h = 2.0
-
-            self._eq_heights[i] += (target_h - self._eq_heights[i]) * 0.25
-            if self._eq_heights[i] > self._eq_peaks[i]:
-                self._eq_peaks[i] = self._eq_heights[i]
-            else:
-                self._eq_peaks[i] = max(2.0, self._eq_peaks[i] - dt * 18.0)
+        # Update title ticker scroll
+        if len(self._title) > 15:
+            self._title_scroll_offset += dt * 18.0
 
         self._dirty = True
 
@@ -311,16 +317,13 @@ class App(oreoOS.App):
             d.rect(card_x, card_y, card_w, card_h, COL_CARD, fill=True)
             d.rect(card_x, card_y, card_w, card_h, COL_SPOTIFY, fill=False)
 
-            # Draw QR Code if available
             if self._qr_matrix:
                 n = len(self._qr_matrix)
-                # Maximize size within card
                 scale = max(2, min(4, (card_h - 48) // n))
                 qr_px = n * scale
                 qr_x = card_x + (card_w - qr_px) // 2
                 qr_y = card_y + 8
 
-                # White background container
                 pad = 4
                 d.rect(qr_x - pad, qr_y - pad, qr_px + pad * 2, qr_px + pad * 2, api.WHITE, fill=True)
 
@@ -345,83 +348,128 @@ class App(oreoOS.App):
             self._dirty = False
             return
 
-        # ── Normal Player Screen ──────────────────────────────────────────
-        header_title = "SPOTIFY CONNECT" if self._mode == "SPOTIFY" else "NOW PLAYING (DEMO)"
+        # ── Header ────────────────────────────────────────────────────────
+        header_title = "SPOTIFY CONNECT" if self._mode == "SPOTIFY" else "NOW PLAYING"
         widgets.draw_header(d, header_title)
 
-        # Track Card
-        card_x, card_y, card_w, card_h = 10, widgets.HEADER_H + 6, SW - 20, 58
-        d.rect(card_x, card_y, card_w, card_h, COL_CARD, fill=True)
-        d.rect(card_x, card_y, card_w, card_h, api.rgb(50, 54, 68), fill=False)
+        # ── Hero Album Cover Art + Track Metadata ────────────────────────
+        cover_box_x = 10
+        cover_box_y = widgets.HEADER_H + 8
+        cover_size = 64
 
-        # Icon box
-        icon_x, icon_y, icon_sz = card_x + 8, card_y + 8, 42
-        d.rect(icon_x, icon_y, icon_sz, icon_sz, COL_SPOTIFY, fill=True)
-        d.text("o/", icon_x + 12, icon_y + 14, api.WHITE)
+        # Draw Cover Art Photo Frame
+        d.rect(cover_box_x - 2, cover_box_y - 2, cover_size + 4, cover_size + 4, COL_CARD_BD, fill=True)
+        d.rect(cover_box_x - 2, cover_box_y - 2, cover_size + 4, cover_size + 4, COL_SPOTIFY if self._is_playing else COL_CARD_BD, fill=False)
 
-        # Title
+        if self._cover_art:
+            # Real Album Cover Art Photo
+            d.blit(self._cover_art, cover_box_x, cover_box_y, cover_size, cover_size)
+        else:
+            # Styled Vinyl Record Graphic Placeholder
+            d.rect(cover_box_x, cover_box_y, cover_size, cover_size, api.rgb(22, 24, 30), fill=True)
+            # Vinyl rings
+            cx = cover_box_x + cover_size // 2
+            cy = cover_box_y + cover_size // 2
+            d.rect(cx - 24, cy - 24, 48, 48, api.rgb(38, 42, 54), fill=False)
+            d.rect(cx - 16, cy - 16, 32, 32, api.rgb(50, 56, 72), fill=False)
+            # Center label
+            d.rect(cx - 10, cy - 10, 20, 20, COL_SPOTIFY, fill=True)
+            d.rect(cx - 3, cy - 3, 6, 6, api.BLACK, fill=True)
+
+        # Metadata Card (Right side of cover)
+        meta_x = cover_box_x + cover_size + 8
+        meta_w = SW - meta_x - 10
+        meta_y = cover_box_y - 2
+        meta_h = cover_size + 4
+
+        d.rect(meta_x, meta_y, meta_w, meta_h, COL_CARD, fill=True)
+        d.rect(meta_x, meta_y, meta_w, meta_h, COL_CARD_BD, fill=False)
+
+        # Title (with scrolling if long)
         title_str = self._title
-        if len(title_str) > 18: title_str = title_str[:16] + ".."
-        d.text(title_str, icon_x + icon_sz + 10, card_y + 12, api.WHITE)
+        max_chars = 14
+        if len(title_str) > max_chars:
+            scroll_idx = int(self._title_scroll_offset) % (len(title_str) + 4)
+            extended_title = title_str + "    " + title_str
+            display_title = extended_title[scroll_idx:scroll_idx + max_chars]
+        else:
+            display_title = title_str
+        d.text(display_title, meta_x + 6, meta_y + 6, api.WHITE)
 
         # Artist
         artist_str = self._artist
-        if len(artist_str) > 22: artist_str = artist_str[:20] + ".."
-        d.text(artist_str, icon_x + icon_sz + 10, card_y + 26, COL_MUTED)
+        if len(artist_str) > 15: artist_str = artist_str[:13] + ".."
+        d.text(artist_str, meta_x + 6, meta_y + 22, COL_SPOTIFY)
+
+        # Album
+        album_str = self._album or "Single"
+        if len(album_str) > 15: album_str = album_str[:13] + ".."
+        d.text(album_str, meta_x + 6, meta_y + 36, COL_MUTED)
 
         # Device tag
-        tag = "[" + (self._device_name or self._mode) + "]"
-        if len(tag) > 16: tag = tag[:14] + "..]"
-        d.text(tag, card_x + card_w - len(tag) * 8 - 8, card_y + 38, COL_SPOTIFY)
+        dev_tag = self._device_name or ("Spotify" if self._mode == "SPOTIFY" else "Badge")
+        if len(dev_tag) > 13: dev_tag = dev_tag[:11] + ".."
+        d.text("[" + dev_tag + "]", meta_x + 6, meta_y + 50, COL_CYAN)
 
-        # Equalizer
-        eq_box_x = 10
-        eq_box_y = card_y + card_h + 8
-        eq_box_w = SW - 20
-        eq_box_h = 44
+        # ── Playback Progress & Timeline Card ────────────────────────────
+        prog_card_y = cover_box_y + cover_size + 10
+        prog_card_h = 44
+        d.rect(10, prog_card_y, SW - 20, prog_card_h, COL_CARD, fill=True)
+        d.rect(10, prog_card_y, SW - 20, prog_card_h, COL_CARD_BD, fill=False)
 
-        num_bars = 12
-        bar_w = 14
-        spacing = (eq_box_w - (num_bars * bar_w)) // (num_bars + 1)
-        base_y = eq_box_y + eq_box_h - 2
-
-        for i in range(num_bars):
-            bx = eq_box_x + spacing + i * (bar_w + spacing)
-            bh = int(self._eq_heights[i])
-            peak_h = int(self._eq_peaks[i])
-
-            d.rect(bx, base_y - bh, bar_w, bh, COL_SPOTIFY, fill=True)
-            d.rect(bx, base_y - bh, bar_w, 1, api.WHITE, fill=True)
-            d.rect(bx, base_y - peak_h - 2, bar_w, 2, theme.GOLD, fill=True)
-
-        # Scrubber
-        prog_y = eq_box_y + eq_box_h + 10
+        # Time labels
         cur_str = _format_time(self._progress)
         tot_str = _format_time(self._duration)
+        d.text(cur_str, 18, prog_card_y + 8, api.WHITE)
+        d.text(tot_str, SW - len(tot_str) * 8 - 18, prog_card_y + 8, COL_MUTED)
 
-        d.text(cur_str, 12, prog_y - 1, COL_MUTED)
-        d.text(tot_str, SW - len(tot_str) * 8 - 12, prog_y - 1, COL_MUTED)
+        # Center Status (PLAYING / PAUSED)
+        play_label = "PLAYING" if self._is_playing else "PAUSED"
+        d.text(play_label, (SW - len(play_label) * 8) // 2, prog_card_y + 8, COL_SPOTIFY if self._is_playing else theme.GOLD)
 
-        bar_start_x = 12 + len(cur_str) * 8 + 8
-        bar_end_x   = SW - len(tot_str) * 8 - 20
-        bar_total_w = max(20, bar_end_x - bar_start_x)
-
+        # Progress bar
+        bar_x = 18
+        bar_y = prog_card_y + 26
+        bar_w = SW - 36
         ratio = min(1.0, max(0.0, self._progress / max(1.0, self._duration)))
-        fill_w = int(bar_total_w * ratio)
+        fill_w = int(bar_w * ratio)
 
-        d.rect(bar_start_x, prog_y + 2, bar_total_w, 4, COL_BAR_BG, fill=True)
+        d.rect(bar_x, bar_y, bar_w, 6, COL_BAR_BG, fill=True)
         if fill_w > 0:
-            d.rect(bar_start_x, prog_y + 2, fill_w, 4, COL_SPOTIFY, fill=True)
-        knob_x = bar_start_x + fill_w
-        d.rect(knob_x - 2, prog_y, 4, 8, api.WHITE, fill=True)
+            d.rect(bar_x, bar_y, fill_w, 6, COL_SPOTIFY, fill=True)
+        # Scrub knob
+        knob_x = min(bar_x + bar_w - 3, max(bar_x, bar_x + fill_w))
+        d.rect(knob_x - 2, bar_y - 2, 5, 10, api.WHITE, fill=True)
 
-        # Status
-        stat_y = prog_y + 16
-        play_symbol = "> PLAYING" if self._is_playing else "|| PAUSED"
-        d.text(play_symbol, 16, stat_y, COL_SPOTIFY if self._is_playing else theme.GOLD)
+        # ── Transport Controls & Volume Footer ────────────────────────────
+        ctrl_y = prog_card_y + prog_card_h + 8
+        ctrl_h = 32
+        d.rect(10, ctrl_y, SW - 20, ctrl_h, COL_CARD, fill=True)
+        d.rect(10, ctrl_y, SW - 20, ctrl_h, COL_CARD_BD, fill=False)
 
-        vol_str = "VOL: %d%%" % self._volume
-        d.text(vol_str, SW - len(vol_str) * 8 - 16, stat_y, COL_MUTED)
+        # Transport icons: |<<  [ > / || ]  >>|
+        d.text("|<<", 24, ctrl_y + 10, COL_MUTED)
 
-        widgets.draw_hint(d, "A=play  <>=skip  ^v=vol  C=link")
+        play_icon = "[  >  ]" if not self._is_playing else "[ || ]"
+        d.text(play_icon, 60, ctrl_y + 10, COL_SPOTIFY)
+
+        d.text(">>|", 120, ctrl_y + 10, COL_MUTED)
+
+        # Volume badge: Vol: 70%
+        vol_text = "%d%%" % self._volume
+        d.text("VOL", SW - 78, ctrl_y + 10, COL_MUTED)
+        d.text(vol_text, SW - 46, ctrl_y + 10, COL_SPOTIFY)
+
+        # ── Volume Toast Overlay ──────────────────────────────────────────
+        if self._vol_toast_t > 0:
+            toast_w, toast_h = 130, 28
+            tx = (SW - toast_w) // 2
+            ty = prog_card_y + 6
+            d.rect(tx, ty, toast_w, toast_h, api.BLACK, fill=True)
+            d.rect(tx, ty, toast_w, toast_h, COL_SPOTIFY, fill=False)
+            msg = "VOL: %d%%" % self._volume
+            d.text(msg, tx + (toast_w - len(msg) * 8) // 2, ty + 10, COL_SPOTIFY)
+
+        # ── Bottom Hints ──────────────────────────────────────────────────
+        widgets.draw_hint(d, "A:Play  < >:Skip  ^ v:Vol  C:QR")
         self._dirty = False
