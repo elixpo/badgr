@@ -1,0 +1,9 @@
+{
+  "name": "Music",
+  "description": "Spotify & BLE media controller with live equalizer, track sync, and volume control.",
+  "type": "app",
+  "version": "1.0.0",
+  "icon": "music_icon.png",
+  "author": "sea-deep",
+  "color": "#1DB954"
+}
