@@ -212,29 +212,30 @@ def _icon_wifi(d, x, y, connected=False):
     if icon:
         d.blit(icon[0], x, y, icon[1], icon[2])
         return
-    c = api.WHITE if connected else api.rgb(180, 100, 100)
-    d.rect(x + 5, y + 9,  3, 2, c, fill=True)
-    d.rect(x + 2, y + 6,  9, 2, c, fill=True)
-    if connected:
-        d.rect(x,   y + 3, 13, 2, c, fill=True)
+    c = api.WHITE if connected else theme.MUTED
+    d.rect(x + 5, y + 10, 3, 2, c, fill=True)
+    d.rect(x + 3, y + 7,  7, 2, c, fill=True)
+    d.rect(x + 1, y + 4, 11, 2, c, fill=True)
+    if not connected:
+        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
 
 
 def _icon_bt(d, x, y, active=False):
-    icon = _load_status_icon("bluetooth")
+    name = "bluetooth" if active else "bluetooth_disabled"
+    icon = _load_status_icon(name)
     if icon:
-        # Dim the icon if BT is off
         d.blit(icon[0], x, y, icon[1], icon[2])
         return
-    c = api.WHITE if active else api.rgb(180, 100, 100)
-    d.rect(x + 3, y,      2, 13, c, fill=True)
-    d.rect(x + 5, y,      2,  2, c, fill=True)
-    d.rect(x + 7, y + 2,  2,  2, c, fill=True)
-    d.rect(x + 5, y + 4,  2,  2, c, fill=True)
-    d.rect(x + 5, y + 7,  2,  2, c, fill=True)
-    d.rect(x + 7, y + 9,  2,  2, c, fill=True)
-    d.rect(x + 5, y + 11, 2,  2, c, fill=True)
-    d.rect(x,     y + 3,  3,  2, c, fill=True)
-    d.rect(x,     y + 8,  3,  2, c, fill=True)
+    c = api.WHITE if active else theme.MUTED
+    d.rect(x + 5, y + 1,  2, 11, c, fill=True)
+    d.rect(x + 7, y + 3,  2,  2, c, fill=True)
+    d.rect(x + 5, y + 5,  2,  2, c, fill=True)
+    d.rect(x + 7, y + 7,  2,  2, c, fill=True)
+    d.rect(x + 5, y + 9,  2,  2, c, fill=True)
+    d.rect(x + 2, y + 3,  3,  2, c, fill=True)
+    d.rect(x + 2, y + 8,  3,  2, c, fill=True)
+    if not active:
+        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
 
 
 def _icon_battery(d, x, y, pct=85):
@@ -288,12 +289,16 @@ class Home(oreoOS.App):
             self.os.launch("__appmenu__")
 
     def update(self, dt):
-        _, _, s, *_ = timeutil.now()
+        h, m, s, *_ = timeutil.now()
         if s != self._last_sec:
             self._last_sec = s
             self._blink    = not self._blink
-            # Only the clock area needs repainting on tick — NOT the full screen
+            # Repaint main clock area on second tick (for colon blink)
             self._clock_dirty = True
+            # Repaint status bar when minute rolls over so header clock stays in sync
+            if m != getattr(self, "_last_min", None):
+                self._last_min = m
+                self._status_dirty = True
 
         # Refresh the network cache (no-op unless _NET_INTERVAL_MS elapsed).
         if _poll_network():
@@ -396,7 +401,6 @@ class Home(oreoOS.App):
         _icon_bt     (d, bt_x,   icon_y, active=self._bt_on)
         d.text(pct_str, pct_x, text_y, api.WHITE)
         _icon_battery(d, bat_x, (_STATUS_H - 10) // 2, pct=self._battery_pct)
-        _icon_wifi (d, pct_x - 32, 5, connected=self._wifi_ok)
 
     def _draw_clock_area(self, d, h, m, wd, day, mon, yr):
         # Repaint just the clock band over the (cached) background.

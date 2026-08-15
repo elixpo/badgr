@@ -61,9 +61,12 @@ def _fetch_contributions(user):
     SVG (so the app can show "from X to Y" without computing calendar math).
     """
     try:
-        import urequests
+        try:
+            import urequests as _req
+        except ImportError:
+            import requests as _req
         url = "https://github.com/users/%s/contributions" % user
-        r = urequests.get(url, headers={"User-Agent": "OreoBadge"})
+        r = _req.get(url, headers={"User-Agent": "OreoBadge"})
         body = r.text
         r.close()
 

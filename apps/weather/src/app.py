@@ -91,23 +91,53 @@ def _upscale_dim_bg(data, w, h, sw, sh, factor):
     return out
 
 
-def _fetch_owm(lat, lon, api_key):
+def _clean_ascii(text):
+    if not text:
+        return ""
     try:
-        import urequests
+        import unicodedata
+        text = "".join(c for c in unicodedata.normalize("NFKD", str(text)) if unicodedata.category(c) != "Mn")
+    except Exception:
+        replacements = {
+            "ā": "a", "á": "a", "à": "a", "ä": "a", "â": "a", "ã": "a", "å": "a",
+            "Ā": "A", "Á": "A", "À": "A", "Ä": "A", "Â": "A",
+            "ē": "e", "é": "e", "è": "e", "ë": "e", "ê": "e",
+            "Ē": "E", "É": "E", "È": "E", "Ë": "E",
+            "ī": "i", "í": "i", "ì": "i", "ï": "i", "î": "i",
+            "Ī": "I", "Í": "I", "Ì": "I", "Ï": "I",
+            "ō": "o", "ó": "o", "ò": "o", "ö": "o", "ô": "o", "õ": "o",
+            "Ō": "O", "Ó": "O", "Ò": "O", "Ö": "O",
+            "ū": "u", "ú": "u", "ù": "u", "ü": "u", "û": "u",
+            "Ū": "U", "Ú": "U", "Ù": "U", "Ü": "U",
+            "ñ": "n", "Ñ": "N", "ç": "c", "Ç": "C"
+        }
+        for k, v in replacements.items():
+            text = text.replace(k, v)
+    return "".join(c if 32 <= ord(c) <= 126 else "" for c in text)
+
+
+def _fetch_owm(lat, lon, api_key, city_override=""):
+    try:
+        try:
+            import urequests as _req
+        except ImportError:
+            import requests as _req
         url = ("https://api.openweathermap.org/data/2.5/weather"
                "?lat=%.3f&lon=%.3f&units=metric&appid=%s" % (lat, lon, api_key))
-        r = urequests.get(url, headers={"User-Agent": "OreoBadge"})
+        r = _req.get(url, headers={"User-Agent": "OreoBadge"})
         if r.status_code != 200:
             r.close()
             return None
-        j = r.json(); r.close()
+        j = r.json()
+        r.close()
+        city_name = city_override or _clean_ascii(j.get("name") or "—")
         return {
             "temp":  round(float(j.get("main", {}).get("temp", 0))),
             "feels": round(float(j.get("main", {}).get("feels_like", 0))),
             "hum":   int(j.get("main", {}).get("humidity", 0)),
             "wind":  float(j.get("wind", {}).get("speed", 0)),
             "code":  int((j.get("weather") or [{"id": 0}])[0].get("id", 0)),
-            "city":  j.get("name") or "—",
+            "city":  city_name,
         }
     except Exception:
         return None
@@ -123,6 +153,7 @@ class App(oreoOS.App):
         self._lat = float(config.get("WEATHER_LAT", 22.57) or 22.57)
         self._lon = float(config.get("WEATHER_LON", 88.36) or 88.36)
         self._key = config.get("OWM_API_KEY", "")
+        self._city_name = config.get("WEATHER_NAME", "")
 
         play_h = SH - widgets.HEADER_H - widgets.HINT_H
 
@@ -143,7 +174,7 @@ class App(oreoOS.App):
         self._dirty = True
 
     def _refresh(self):
-        self._data = _fetch_owm(self._lat, self._lon, self._key) if self._key else None
+        self._data = _fetch_owm(self._lat, self._lon, self._key, self._city_name) if self._key else None
         self._last = time.ticks_ms()
         self._dirty = True
 

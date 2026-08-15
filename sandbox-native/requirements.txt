@@ -1,0 +1,4 @@
+pygame
+bleak
+bless
+requests

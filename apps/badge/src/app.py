@@ -30,9 +30,12 @@ SH = api.SCREEN_H
 
 def _fetch_profile(username):
     try:
-        import urequests
-        r = urequests.get("https://api.github.com/users/" + username,
-                          headers={"User-Agent": "OreoBadge"})
+        try:
+            import urequests as _req
+        except ImportError:
+            import requests as _req
+        r = _req.get("https://api.github.com/users/" + username,
+                     headers={"User-Agent": "OreoBadge"})
         if r.status_code != 200:
             r.close()
             return None
