@@ -1480,12 +1480,16 @@ input:focus, textarea:focus { border-color: #1db954; }
     <!-- Tab 1: 1-Click PKCE OAuth Login -->
     <div class="tab-content active" id="tab-oauth">
       <label>Spotify Client ID</label>
-      <input type="text" id="client-id-input" placeholder="Enter Client ID from developer dashboard">
+      <input type="text" id="client-id-input" placeholder="Paste Client ID from developer dashboard">
 
-      <label style="margin-top: 12px;">Add this Redirect URI to your Spotify App:</label>
-      <div class="uri-box">
-        <span id="redirect-uri-text">...</span>
-        <button class="copy-btn" onclick="copyRedirectUri()">Copy</button>
+      <div style="background: rgba(29, 185, 84, 0.08); border: 1px solid rgba(29, 185, 84, 0.3); border-radius: 8px; padding: 12px; margin-top: 14px;">
+        <p style="font-size: 12px; font-weight: 700; color: #1db954; margin-bottom: 6px;">👉 1 Quick Step in Spotify Dashboard:</p>
+        <p style="font-size: 12px; color: #bbb; line-height: 1.4;">Open your app in <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1db954; text-decoration: underline;">Spotify Dashboard</a> &rarr; <b>Settings</b> &rarr; <b>Redirect URIs</b> &rarr; Add:</p>
+        <div class="uri-box" style="margin-top: 8px; margin-bottom: 4px;">
+          <span id="redirect-uri-text" style="font-family: monospace; font-weight: 600;">...</span>
+          <button class="copy-btn" onclick="copyRedirectUri()">Copy</button>
+        </div>
+        <p style="font-size: 11px; color: #888; margin-top: 4px;">⚠️ Click <b>"Save"</b> at the bottom of Spotify's settings page!</p>
       </div>
 
       <button class="btn-spotify" onclick="startSpotifyOAuth()">
@@ -1518,12 +1522,14 @@ input:focus, textarea:focus { border-color: #1db954; }
 const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
 
 function getRedirectUri() {
-  return window.location.origin + window.location.pathname;
+  let uri = window.location.origin + window.location.pathname;
+  if (uri.endsWith('/')) uri = uri.slice(0, -1);
+  return uri;
 }
 
 function copyRedirectUri() {
   const uri = getRedirectUri();
-  navigator.clipboard.writeText(uri).then(() => alert('Copied Redirect URI: ' + uri));
+  navigator.clipboard.writeText(uri).then(() => alert('Copied Redirect URI:\n' + uri + '\n\nPaste this in your Spotify App Settings -> Redirect URIs and click Save!'));
 }
 
 function switchTab(name) {
