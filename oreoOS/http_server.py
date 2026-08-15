@@ -1428,84 +1428,203 @@ _SPOTIFY_HTML = b"""<!DOCTYPE html>
 body { background: #121212; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
 .card { background: #181818; border: 1px solid #282828; border-radius: 16px; width: 100%; max-width: 420px; padding: 28px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
 .logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-.badge-icon { width: 44px; height: 44px; border-radius: 50%; background: #1db954; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.badge-icon { width: 44px; height: 44px; border-radius: 50%; background: #1db954; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #000; }
 h1 { font-size: 20px; font-weight: 700; }
 p.sub { font-size: 13px; color: #a0a0a0; margin-top: 2px; }
-.status-box { background: #222; border-radius: 8px; padding: 12px 14px; margin: 18px 0; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.status-box { background: #222; border-radius: 8px; padding: 12px 14px; margin: 16px 0 20px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .dot-green { background: #1db954; box-shadow: 0 0 8px #1db954; }
-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #b3b3b3; display: block; margin-top: 14px; margin-bottom: 6px; }
-input, textarea { width: 100%; background: #282828; border: 1px solid #3e3e3e; border-radius: 8px; color: #fff; padding: 12px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.btn-spotify { width: 100%; background: #1db954; color: #000; font-size: 16px; font-weight: 700; padding: 16px; border-radius: 500px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform 0.1s, background-color 0.2s; text-decoration: none; }
+.btn-spotify:hover { background: #1ed760; }
+.btn-spotify:active { transform: scale(0.98); }
+.divider { text-align: center; color: #666; font-size: 12px; margin: 20px 0; position: relative; }
+.divider::before, .divider::after { content: ""; position: absolute; top: 50%; width: 40%; height: 1px; background: #333; }
+.divider::before { left: 0; } .divider::after { right: 0; }
+.adv-toggle { font-size: 12px; color: #888; text-align: center; cursor: pointer; text-decoration: underline; margin-top: 10px; }
+.adv-box { display: none; margin-top: 14px; }
+.adv-box.open { display: block; }
+label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #b3b3b3; display: block; margin-top: 12px; margin-bottom: 6px; }
+input, textarea { width: 100%; background: #282828; border: 1px solid #3e3e3e; border-radius: 8px; color: #fff; padding: 12px; font-size: 14px; outline: none; }
 input:focus, textarea:focus { border-color: #1db954; }
-.btn { width: 100%; background: #1db954; color: #000; font-size: 15px; font-weight: 700; padding: 14px; border-radius: 500px; border: none; cursor: pointer; margin-top: 20px; transition: transform 0.1s, background-color 0.2s; }
-.btn:hover { background: #1ed760; }
-.btn:active { transform: scale(0.98); }
-.hint { font-size: 11px; color: #777; line-height: 1.4; margin-top: 14px; text-align: center; }
-.success-overlay { display: none; text-align: center; padding: 20px 0; }
+.btn-sec { width: 100%; background: #333; color: #fff; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 500px; border: none; cursor: pointer; margin-top: 12px; }
+.hint { font-size: 11px; color: #777; line-height: 1.4; margin-top: 18px; text-align: center; }
+.success-overlay { display: none; text-align: center; padding: 24px 0; }
 .success-overlay.show { display: block; }
 .success-icon { font-size: 48px; margin-bottom: 12px; }
+.loading-spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #1db954; border-radius: 50%; width: 28px; height: 28px; animation: spin 0.8s linear infinite; margin: 16px auto; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <div class="card">
   <div class="logo-row">
-    <div class="badge-icon">\xf0\x9f\x8e\xb5</div>
+    <div class="badge-icon">\xe2\x99\xac</div>
     <div>
       <h1>Oreo Badge Spotify</h1>
-      <p class="sub">Link your badge in 1 tap</p>
+      <p class="sub">1-Click Fast Connect</p>
     </div>
   </div>
 
-  <div id="form-container">
+  <div id="auth-loading" style="display: none; text-align: center; padding: 20px 0;">
+    <div class="loading-spinner"></div>
+    <p style="font-size: 14px; color: #1db954; font-weight: 600;">Connecting your Spotify account...</p>
+    <p style="font-size: 12px; color: #888; margin-top: 6px;">Exchanging authorization code with badge</p>
+  </div>
+
+  <div id="main-flow">
     <div class="status-box">
-      <span><span class="status-dot dot-green"></span> Badge Online</span>
-      <span id="link-status" style="color: #1db954;">Ready to Pair</span>
+      <span><span class="status-dot dot-green"></span> Badge Ready</span>
+      <span style="color: #1db954; font-weight: 600;">1-Tap Login</span>
     </div>
 
-    <label>Spotify Access Token or Refresh Token</label>
-    <textarea id="token-input" rows="3" placeholder="Paste Spotify OAuth Token (BQ...) or Refresh Token"></textarea>
+    <!-- 1-Click Spotify OAuth Button -->
+    <button class="btn-spotify" id="login-btn" onclick="startSpotifyOAuth()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      Log in with Spotify
+    </button>
 
-    <button class="btn" id="save-btn" onclick="saveToken()">Save &amp; Link Badge</button>
+    <div class="adv-toggle" onclick="toggleAdv()">Advanced: enter token manually</div>
 
-    <p class="hint">Tokens are stored securely in local badge flash memory and never sent to external servers.</p>
+    <div id="adv-box" class="adv-box">
+      <div class="divider">or paste token</div>
+      <label>Spotify Access Token or Refresh Token</label>
+      <textarea id="token-input" rows="3" placeholder="Paste Spotify OAuth Token (BQ...)"></textarea>
+      <button class="btn-sec" onclick="saveManualToken()">Save to Badge</button>
+    </div>
+
+    <p class="hint">Your credentials are saved directly to your local badge flash memory and never sent to third-party servers.</p>
   </div>
 
   <div id="success-view" class="success-overlay">
     <div class="success-icon">\xf0\x9f\x8e\x89</div>
-    <h2 style="font-size: 20px; margin-bottom: 6px;">Successfully Linked!</h2>
-    <p style="font-size: 14px; color: #a0a0a0;">Your Oreo Badge is now connected to Spotify. Look at your badge screen!</p>
+    <h2 style="font-size: 22px; margin-bottom: 6px;">Successfully Linked!</h2>
+    <p style="font-size: 14px; color: #a0a0a0;">Your Oreo Badge is now connected. Look at your badge screen!</p>
   </div>
 </div>
 
 <script>
-async function saveToken() {
-  const token = document.getElementById('token-input').value.trim();
-  if (!token) { alert('Please paste your Spotify token'); return; }
-  const btn = document.getElementById('save-btn');
-  btn.innerText = 'Saving...';
-  btn.disabled = true;
+// Spotify PKCE OAuth Config
+// Default public Client ID for Oreo Badge (or customizable)
+const DEFAULT_CLIENT_ID = '93081e64906f47708579d4608cbb3a31';
+const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
 
+function toggleAdv() {
+  document.getElementById('adv-box').classList.toggle('open');
+}
+
+function generateRandomString(len) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let res = '';
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  for (let i = 0; i < len; i++) { res += chars[bytes[i] % chars.length]; }
+  return res;
+}
+
+async function generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+}
+
+async function startSpotifyOAuth() {
+  const verifier = generateRandomString(64);
+  const challenge = await generateCodeChallenge(verifier);
+  sessionStorage.setItem('spotify_pkce_verifier', verifier);
+
+  const redirectUri = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: DEFAULT_CLIENT_ID,
+    scope: SCOPES,
+    code_challenge_method: 'S256',
+    code_challenge: challenge,
+    redirect_uri: redirectUri,
+  });
+
+  window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
+}
+
+async function handleOAuthCallback() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const error = urlParams.get('error');
+
+  if (error) {
+    alert('Spotify login cancelled or failed: ' + error);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return;
+  }
+
+  if (code) {
+    document.getElementById('main-flow').style.display = 'none';
+    document.getElementById('auth-loading').style.display = 'block';
+
+    const verifier = sessionStorage.getItem('spotify_pkce_verifier') || '';
+    const redirectUri = window.location.origin + window.location.pathname;
+
+    try {
+      // Exchange code for token directly with Spotify
+      const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: redirectUri,
+          client_id: DEFAULT_CLIENT_ID,
+          code_verifier: verifier
+        })
+      });
+
+      const tokenData = await tokenRes.json();
+      if (tokenData.access_token) {
+        // Send to badge
+        await saveTokenToBadge(tokenData.access_token, tokenData.refresh_token, DEFAULT_CLIENT_ID);
+      } else {
+        throw new Error(tokenData.error_description || 'Failed to obtain access token');
+      }
+    } catch (err) {
+      alert('OAuth Error: ' + err.message);
+      document.getElementById('auth-loading').style.display = 'none';
+      document.getElementById('main-flow').style.display = 'block';
+    } finally {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+}
+
+async function saveTokenToBadge(token, refreshToken, clientId) {
   try {
     const res = await fetch('/api/spotify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: token })
+      body: JSON.stringify({
+        token: token,
+        refresh_token: refreshToken || '',
+        client_id: clientId || ''
+      })
     });
     const data = await res.json();
     if (data.status === 'ok') {
-      document.getElementById('form-container').style.display = 'none';
+      document.getElementById('main-flow').style.display = 'none';
+      document.getElementById('auth-loading').style.display = 'none';
       document.getElementById('success-view').classList.add('show');
     } else {
-      alert('Error saving token: ' + (data.message || 'Unknown error'));
-      btn.innerText = 'Save & Link Badge';
-      btn.disabled = false;
+      alert('Badge error: ' + data.message);
     }
   } catch (e) {
-    alert('Network error: ' + e);
-    btn.innerText = 'Save & Link Badge';
-    btn.disabled = false;
+    alert('Failed to send token to badge: ' + e);
   }
 }
+
+async function saveManualToken() {
+  const token = document.getElementById('token-input').value.trim();
+  if (!token) { alert('Please paste a token'); return; }
+  await saveTokenToBadge(token, '', '');
+}
+
+window.onload = handleOAuthCallback;
 </script>
 </body>
 </html>
