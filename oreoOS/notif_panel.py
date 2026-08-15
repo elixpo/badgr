@@ -57,6 +57,7 @@ _TIME_PAD    = 12
 _CARD_H   = 34
 _CARD_GAP = 4
 _LIST_Y   = _TIME_Y + _TIME_H + 8
+_HINT_H   = 18
 
 
 def _draw_bell(d, x, y, color):
@@ -569,7 +570,7 @@ class NotifPanel:
 
     def _draw_list(self, d, panel_y, items, full_h):
         list_top = panel_y + _LIST_Y
-        list_h   = full_h - _LIST_Y - 18    # leave room for hint
+        list_h   = full_h - _LIST_Y - _HINT_H - 4    # leave clean room for bottom hint dock
 
         if not items:
             msg = "no notifications"
@@ -654,16 +655,28 @@ class NotifPanel:
                    theme.PRIMARY if sel else theme.MUTED, scale=1)
 
     def _draw_hint(self, d, panel_y, full_h):
+        y = panel_y + full_h - _HINT_H
+        d.rect(0, y, SW, _HINT_H, theme.DOCK_BG, fill=True)
+        d.rect(0, y, SW, 1, theme.CARD, fill=True)
+
+        items = self._items()
         if self._focus == "quick":
-            hint = "L/R=switch  A=toggle  C=close"
+            if self._quick_sel == 2:
+                hint = "D-PAD=select  A=settings  C/HOME=close"
+            else:
+                hint = "D-PAD=select  A=toggle  C/HOME=close"
         elif self._focus == "bright":
-            hint = "L/R=adjust  UP=back  C=close"
+            hint = "LEFT/RIGHT=level  UP/DOWN=nav  C/HOME=close"
         elif self._focus == "time":
-            hint = "A=sync  UP/DOWN=move  C=close"
+            hint = "A=sync time  UP/DOWN=nav  C/HOME=close"
         else:
-            hint = "A=open  B=clear  C=close"
-        d.text(hint, (SW - len(hint) * 8) // 2,
-               panel_y + full_h - 14, theme.TEXT_DIM, scale=1)
+            if items:
+                hint = "A=open  B=clear all  UP/DOWN=scroll  C=close"
+            else:
+                hint = "UP=nav  C/HOME=close"
+
+        tx = (SW - len(hint) * 8) // 2
+        d.text(hint, tx, y + 5, theme.TEXT_BRIGHT, scale=1)
 
 
 def get(os_obj):
