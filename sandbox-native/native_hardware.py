@@ -32,15 +32,11 @@ for c in range(65536):
     _LUT_565_TO_RGB[c * 3 + 1] = g
     _LUT_565_TO_RGB[c * 3 + 2] = b
 
-_surf_cache = {}
 _clock = pygame.time.Clock()
 
 def _sprite_to_surface(sprite, w, h):
     if isinstance(sprite, tuple):
         sprite = sprite[0]
-    key = (id(sprite), len(sprite), w, h)
-    if key in _surf_cache:
-        return _surf_cache[key]
     
     import struct
     words = struct.unpack_from(">%dH" % (w * h), sprite)
@@ -62,7 +58,6 @@ def _sprite_to_surface(sprite, w, h):
     surf = pygame.image.frombuffer(rgb_bytes, (w, h), "RGB")
     if has_transparent:
         surf.set_colorkey((255, 0, 255))
-    _surf_cache[key] = surf
     return surf
 
 class Display(api.Display):

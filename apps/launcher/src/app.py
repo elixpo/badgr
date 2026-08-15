@@ -407,6 +407,7 @@ class App(oreoOS.App):
         _lap("categories")
         self._cat_level  = 0
         self._cat_sel    = 0          # picker selection (in level 0)
+        self._cat_top    = 0          # top category visible in picker
 
         # _view_apps holds the indices of self._apps that the grid will
         # render. In grid mode this is "everything"; in category level 1
@@ -629,7 +630,7 @@ class App(oreoOS.App):
         self._dirty = True
 
     def _on_button_press_picker(self, btn):
-        """Category picker (level 0). UP/DOWN walks the 5 tiles, A drills in."""
+        """Category picker (level 0). UP/DOWN walks the tiles, A drills in."""
         n = len(self._categories)
         if not n: return
         prev = self._cat_sel
@@ -639,8 +640,18 @@ class App(oreoOS.App):
             self._cat_sel = (self._cat_sel + 1) % n
         elif btn == api.BTN_A:
             self._enter_category(self._cat_sel)
+            return
         else:
             return
+
+        # Auto-scroll category window (4 visible categories per screen)
+        VISIBLE_CATS = 4
+        if self._cat_sel < self._cat_top:
+            self._cat_top = self._cat_sel
+        elif self._cat_sel >= self._cat_top + VISIBLE_CATS:
+            self._cat_top = self._cat_sel - VISIBLE_CATS + 1
+        self._cat_top = max(0, min(max(0, n - VISIBLE_CATS), self._cat_top))
+
         if self._cat_sel != prev:
             self._anim_t = 0.0
         self._dirty = True
@@ -837,19 +848,19 @@ class App(oreoOS.App):
                    theme.MUTED, scale=2)
             return
 
-        viewport_top = PAD_TOP
-        viewport_h   = SH - PAD_TOP - PAD_BOT
+        viewport_top = PAD_TOP + 4
         tile_h       = self.CAT_TILE_H
-        gap          = 4
-        block_h      = n * tile_h + (n - 1) * gap
-        # Vertically centred — leaves equal padding above and below.
-        start_y      = viewport_top + max(0, (viewport_h - block_h) // 2)
+        gap          = 6
+        VISIBLE_CATS = 4
 
         tile_x = self.CAT_TILE_PAD
-        tile_w = SW - 2 * self.CAT_TILE_PAD
+        tile_w = SW - 2 * self.CAT_TILE_PAD - (8 if n > VISIBLE_CATS else 0)
 
-        for i, (cat_name, _icon, app_idxs) in enumerate(cats):
-            y   = start_y + i * (tile_h + gap)
+        for vi in range(min(VISIBLE_CATS, n)):
+            i = self._cat_top + vi
+            if i >= n: break
+            cat_name, _icon, app_idxs = cats[i]
+            y   = viewport_top + vi * (tile_h + gap)
             sel = (i == self._cat_sel)
 
             # Tile body — pink stripe + dock-sel fill when active,
@@ -887,6 +898,12 @@ class App(oreoOS.App):
                    y + (tile_h - 16) // 2,
                    theme.PRIMARY if sel else theme.MUTED, scale=2)
 
-        # The picker has no scroll target — 5 tiles fit on one screen.
-        # Leftover line from the old vertical-list category view that
-        # *did* tween a scroll; deliberately a no-op here.
+        # Right-side scrollbar when categories exceed visible window
+        if n > VISIBLE_CATS:
+            track_x = SW - 8
+            track_y = viewport_top
+            track_h = VISIBLE_CATS * (tile_h + gap) - gap
+            d.rect(track_x, track_y, 2, track_h, theme.MUTED2, fill=True)
+            thumb_h = max(12, track_h * VISIBLE_CATS // n)
+            thumb_y = track_y + (track_h - thumb_h) * self._cat_top // (n - VISIBLE_CATS)
+            d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)

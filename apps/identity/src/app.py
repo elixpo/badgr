@@ -255,63 +255,48 @@ class App(oreoOS.App):
             data, aw, ah = None, 72, 72
         av_sz = max(aw, ah)
 
-        PAD  = 12
-        RING = 3
+        # 1. Centered circular avatar with pink outer ring
+        av_cx = SW // 2
+        av_cy = cy + 12 + av_sz // 2
 
-        desig_row_h = 0
-        if p["designation"]:
-            desig = p["designation"][:32]
-            avail = cw - 16
-            dw    = len(desig) * 16
-            if dw > avail:
-                desig_row_h = 18 + 2 * 22 + 4
-            else:
-                desig_row_h = 18 + 22 + 4
-
-        block_h = (av_sz + RING * 2) + desig_row_h
-        block_y = cy + max(PAD, (ch - block_h) // 2)
-
-        av_x  = cx + PAD
-        av_y  = block_y
-        av_cx = av_x + av_sz // 2
-        av_cy = av_y + av_sz // 2
-
-        _filled_circle(d, av_cx, av_cy, av_sz // 2 + RING, theme.PRIMARY)
+        _filled_circle(d, av_cx, av_cy, av_sz // 2 + 3, theme.PRIMARY)
         if data:
             d.blit(data, av_cx - aw // 2, av_cy - ah // 2, aw, ah)
         else:
             _filled_circle(d, av_cx, av_cy, av_sz // 2, theme.CARD)
             letter = (p["login"] or p["name"] or "?")[:1].upper()
-            d.text(letter, av_cx - 16, av_cy - 16, theme.PRIMARY, scale=4)
+            d.text(letter, av_cx - 12, av_cy - 12, theme.PRIMARY, scale=3)
 
-        name_x     = av_x + av_sz + RING + PAD
-        name_avail = cx + cw - name_x - PAD
-        max_chars  = max(4, name_avail // 16)
-        name_lines = _wrap(p["name"], max_chars)[:3]
+        # 2. Display Name (centered below avatar)
+        curr_y = av_cy + av_sz // 2 + 10
+        name_line = p["name"][:18]
+        lw = len(name_line) * 16
+        d.text(name_line, (SW - lw) // 2, curr_y, theme.PRIMARY, scale=2)
+        curr_y += 22
 
-        block_h = len(name_lines) * 22 - 4
-        name_y  = av_cy - block_h // 2
-        for i, line in enumerate(name_lines):
-            d.text(line, name_x, name_y + i * 22, theme.PRIMARY, scale=2)
+        # 3. GitHub @login handle
+        if p["login"]:
+            log_line = "@" + p["login"]
+            lw = len(log_line) * 8
+            d.text(log_line, (SW - lw) // 2, curr_y, theme.TEAL)
+            curr_y += 12
 
-        block_bot = max(av_y + av_sz + RING, name_y + block_h)
-        desig     = p["designation"][:32]
-        if desig:
-            dy    = block_bot + 14
-            dw    = len(desig) * 16
-            avail = cw - 16
-            if dw > avail:
-                wrapped = _wrap(desig, max(6, avail // 16))[:2]
-                for i, ln in enumerate(wrapped):
-                    lw = len(ln) * 16
-                    d.text(ln, (SW - lw) // 2, dy + i * 22, theme.GOLD, scale=2)
-                dy += len(wrapped) * 22
-            else:
-                d.text(desig, (SW - dw) // 2, dy, theme.GOLD, scale=2)
-                dy += 22
+        # 4. Designation / Bio
+        if p["designation"]:
+            desig = p["designation"][:32]
+            lw = len(desig) * 8
+            d.text(desig, (SW - lw) // 2, curr_y + 2, theme.GOLD)
+            curr_y += 14
 
-            uw = min(120, cw - 60)
-            d.rect((SW - uw) // 2, dy + 2, uw, 2, theme.GOLD, fill=True)
+        # 5. Bottom "View QR Cards" Action Pill
+        btn_w = 170
+        btn_h = 16
+        btn_x = (SW - btn_w) // 2
+        btn_y = cy + ch - 22
+        d.rect(btn_x, btn_y, btn_w, btn_h, theme.PRIMARY, fill=True)
+        d.rect(btn_x, btn_y, btn_w, btn_h, theme.GOLD, fill=False)
+        lbl = "A: View QR Cards >"
+        d.text(lbl, btn_x + (btn_w - len(lbl) * 8) // 2, btn_y + 4, api.WHITE)
 
     def _draw_qr(self, d):
         widgets.draw_header(d, "SOCIAL QR CARD")
