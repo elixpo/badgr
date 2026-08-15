@@ -41,35 +41,110 @@ def _try_avatar():
         return None
 
 
+def _format_platform_name(raw):
+    k = raw.upper().strip()
+    for prefix in ("SOCIAL_", "CUSTOM_", "MY_"):
+        if k.startswith(prefix):
+            k = k[len(prefix):]
+    for suffix in ("_USER", "_URL", "_LINK", "_CHANNEL", "_HANDLE", "_ID", "_NAME"):
+        if k.endswith(suffix):
+            k = k[:-len(suffix)]
+
+    known = {
+        "GITHUB":    ("GitHub", "GitHub", "github"),
+        "LINKEDIN":  ("LinkedIn", "LinkedIn", "linkedin"),
+        "TWITTER":   ("X / Twitter", "Twitter", "twitter"),
+        "X":         ("X / Twitter", "Twitter", "x"),
+        "BLUESKY":   ("Bluesky", "Bluesky", "bluesky"),
+        "BSKY":      ("Bluesky", "Bluesky", "bsky"),
+        "NPM":       ("NPM", "NPM", "npm"),
+        "WEBSITE":   ("Website", "Website", "website"),
+        "PORTFOLIO": ("Portfolio", "Portfolio", "portfolio"),
+        "BLOG":      ("Blog", "Blog", "blog"),
+        "EMAIL":     ("Email", "Email", "email"),
+        "DEVTO":     ("Dev.to", "Dev.to", "devto"),
+        "YOUTUBE":   ("YouTube", "YouTube", "youtube"),
+        "DISCORD":   ("Discord", "Discord", "discord"),
+        "TELEGRAM":  ("Telegram", "Telegram", "telegram"),
+        "INSTAGRAM": ("Instagram", "Instagram", "instagram"),
+        "TIKTOK":    ("TikTok", "TikTok", "tiktok"),
+        "MASTODON":  ("Mastodon", "Mastodon", "mastodon"),
+        "REDDIT":    ("Reddit", "Reddit", "reddit"),
+        "SUBSTACK":  ("Substack", "Substack", "substack"),
+        "TWITCH":    ("Twitch", "Twitch", "twitch"),
+    }
+    if k in known:
+        return known[k]
+
+    words = [w.capitalize() for w in k.replace("_", " ").replace("-", " ").split()]
+    name = " ".join(words) or "Link"
+    tab = name if len(name) <= 10 else name[:9] + "…"
+    return name, tab, k.lower()
+
+
+def _format_url(stem, val):
+    val = str(val).strip()
+    if val.startswith(("http://", "https://", "mailto:")):
+        return val
+    if "@" in val and "." in val and "/" not in val:
+        return "mailto:" + val
+
+    known_urls = {
+        "github":    "https://github.com/",
+        "linkedin":  "https://linkedin.com/in/",
+        "twitter":   "https://x.com/",
+        "x":         "https://x.com/",
+        "bluesky":   "https://bsky.app/profile/",
+        "bsky":      "https://bsky.app/profile/",
+        "npm":       "https://npmjs.com/~",
+        "instagram": "https://instagram.com/",
+        "youtube":   "https://youtube.com/@",
+        "telegram":  "https://t.me/",
+        "reddit":    "https://reddit.com/u/",
+        "twitch":    "https://twitch.tv/",
+    }
+    if stem in known_urls:
+        return known_urls[stem] + val
+    return "https://" + val
+
+
 def _load_identity(os_obj=None):
     from oreoOS import config
 
-    gh_user   = config.get("GITHUB_USER")
-    name      = config.get("DISPLAY_NAME") or gh_user
-    desig     = config.get("DESIGNATION")
-    li_user   = config.get("LINKEDIN_USER")
-    tw_user   = config.get("TWITTER_USER")
-    bsky_user = config.get("BLUESKY_USER") or config.get("BSKY_USER")
-    npm_user  = config.get("NPM_USER")
-    web_url   = config.get("WEBSITE_URL")
-    email     = config.get("EMAIL")
+    name    = config.get("DISPLAY_NAME") or config.get("GITHUB_USER", "")
+    gh_user = config.get("GITHUB_USER", "")
+    desig   = config.get("DESIGNATION", "")
 
+    # Priority order for standard curated channels
+    standard_order = [
+        "GITHUB_USER", "LINKEDIN_USER", "TWITTER_USER", "BLUESKY_USER",
+        "NPM_USER", "WEBSITE_URL", "EMAIL"
+    ]
+    seen_keys = set()
     channels = []
-    if gh_user:
-        channels.append({"name": "GitHub", "tab": "GitHub", "url": "https://github.com/" + gh_user})
-    if li_user:
-        channels.append({"name": "LinkedIn", "tab": "LinkedIn", "url": "https://linkedin.com/in/" + li_user})
-    if tw_user:
-        channels.append({"name": "X / Twitter", "tab": "Twitter", "url": "https://x.com/" + tw_user})
-    if bsky_user:
-        channels.append({"name": "Bluesky", "tab": "Bluesky", "url": "https://bsky.app/profile/" + bsky_user})
-    if npm_user:
-        channels.append({"name": "NPM", "tab": "NPM", "url": "https://npmjs.com/~" + npm_user})
-    if web_url:
-        url_fmt = web_url if web_url.startswith(("http://", "https://")) else ("https://" + web_url)
-        channels.append({"name": "Website", "tab": "Website", "url": url_fmt})
-    if email:
-        channels.append({"name": "Email", "tab": "Email", "url": "mailto:" + email})
+
+    # 1. Process standard keys first in clean curated order
+    for k in standard_order:
+        val = config.get(k)
+        if val:
+            seen_keys.add(k)
+            c_name, c_tab, c_stem = _format_platform_name(k)
+            c_url = _format_url(c_stem, val)
+            channels.append({"name": c_name, "tab": c_tab, "url": c_url})
+
+    # 2. Dynamically process any extra custom keys defined in .env
+    env_dict = getattr(config, "_env", {})
+    for k, val in env_dict.items():
+        if k in seen_keys or not val:
+            continue
+        # Skip system / non-social keys
+        if k in ("DISPLAY_NAME", "DESIGNATION", "OWM_API_KEY", "GH_TOKEN",
+                 "WEATHER_LAT", "WEATHER_LON", "WEATHER_NAME", "TIMEZONE_OFFSET",
+                 "DEBUG", "WIFI_SSID", "WIFI_PASSWORD", "WIFI_AUTO_CONNECT", "VERSION", "RELEASE_DATE"):
+            continue
+        c_name, c_tab, c_stem = _format_platform_name(k)
+        c_url = _format_url(c_stem, val)
+        channels.append({"name": c_name, "tab": c_tab, "url": c_url})
 
     if not channels:
         channels.append({"name": "Website", "tab": "Website", "url": "https://oreo.elixpo.com"})
@@ -253,27 +328,72 @@ class App(oreoOS.App):
         d.rect(cx,     cy,     cw, ch, theme.CARD,   fill=True)
         d.rect(cx,     cy,     cw, 3,  theme.PRIMARY, fill=True)
 
-        # Top Channel Switcher Bar
+        # Top Channel Carousel Switcher Bar
         chans = self._identity.get("channels", [])
-        n_chans = max(1, len(chans))
-        tab_w = (cw - 8) // n_chans
-        for idx, c in enumerate(chans):
-            tx = cx + 4 + idx * tab_w
-            is_active = (idx == self._channel_idx)
-            t_bg = theme.PRIMARY if is_active else theme.CARD
-            t_fg = api.WHITE if is_active else theme.TEXT_DIM
+        n = len(chans)
+        bar_y = cy + 6
+        bar_h = 18
 
-            d.rect(tx, cy + 6, tab_w - 2, 16, t_bg, fill=True)
-            if is_active:
-                d.rect(tx, cy + 6, tab_w - 2, 16, theme.GOLD, fill=False)
-            t_lbl = c.get("tab", c["name"])
-            d.text(t_lbl, tx + (tab_w - 2 - len(t_lbl) * 8) // 2, cy + 10, t_fg)
+        if n <= 3:
+            tab_w = (cw - 8) // max(1, n)
+            for idx, c in enumerate(chans):
+                tx = cx + 4 + idx * tab_w
+                is_active = (idx == self._channel_idx)
+                t_bg = theme.PRIMARY if is_active else theme.CARD
+                t_fg = api.WHITE if is_active else theme.TEXT_DIM
+
+                d.rect(tx, bar_y, tab_w - 4, bar_h, t_bg, fill=True)
+                if is_active:
+                    d.rect(tx, bar_y, tab_w - 4, bar_h, theme.GOLD, fill=False)
+                t_lbl = c.get("tab", c["name"])[:10]
+                d.text(t_lbl, tx + (tab_w - 4 - len(t_lbl) * 8) // 2, bar_y + 5, t_fg)
+        else:
+            prev_idx = (self._channel_idx - 1) % n
+            next_idx = (self._channel_idx + 1) % n
+
+            tag = "%d/%d" % (self._channel_idx + 1, n)
+            tag_w = len(tag) * 8
+            d.text(tag, cx + cw - tag_w - 6, bar_y + 5, theme.TEXT_DIM)
+
+            d.text("<", cx + 6, bar_y + 5, theme.GOLD)
+
+            start_x = cx + 18
+            avail_w = (cx + cw - tag_w - 14) - start_x
+
+            w_prev = max(44, min(62, len(chans[prev_idx]["tab"]) * 8 + 10))
+            w_next = max(44, min(62, len(chans[next_idx]["tab"]) * 8 + 10))
+            w_act  = min(116, avail_w - w_prev - w_next - 10)
+
+            x_prev = start_x
+            x_act  = x_prev + w_prev + 5
+            x_next = x_act + w_act + 5
+
+            # Prev Tab Pill
+            d.rect(x_prev, bar_y, w_prev, bar_h, theme.CARD, fill=True)
+            d.rect(x_prev, bar_y, w_prev, bar_h, theme.MUTED2, fill=False)
+            p_lbl = chans[prev_idx]["tab"][:6]
+            d.text(p_lbl, x_prev + (w_prev - len(p_lbl) * 8) // 2, bar_y + 5, theme.TEXT_DIM)
+
+            # Active Tab Pill (Highlighted + Gold Border)
+            d.rect(x_act, bar_y, w_act, bar_h, theme.PRIMARY, fill=True)
+            d.rect(x_act, bar_y, w_act, bar_h, theme.GOLD, fill=False)
+            a_lbl = chans[self._channel_idx]["tab"][:12]
+            d.text(a_lbl, x_act + (w_act - len(a_lbl) * 8) // 2, bar_y + 5, api.WHITE)
+
+            # Next Tab Pill
+            d.rect(x_next, bar_y, w_next, bar_h, theme.CARD, fill=True)
+            d.rect(x_next, bar_y, w_next, bar_h, theme.MUTED2, fill=False)
+            n_lbl = chans[next_idx]["tab"][:6]
+            d.text(n_lbl, x_next + (w_next - len(n_lbl) * 8) // 2, bar_y + 5, theme.TEXT_DIM)
+
+            # Right arrow
+            d.text(">", x_next + w_next + 4, bar_y + 5, theme.GOLD)
 
         # FIXED, IMMUTABLE QR Container Box dimensions (116x116px)
         box_w = 116
         box_h = 116
         box_x = (SW - box_w) // 2
-        box_y = cy + 26
+        box_y = cy + 28
 
         d.rect(box_x - 1, box_y - 1, box_w + 2, box_h + 2, theme.MUTED2, fill=True)
         d.rect(box_x, box_y, box_w, box_h, api.WHITE, fill=True)
