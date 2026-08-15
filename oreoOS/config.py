@@ -15,16 +15,19 @@ def _load_env():
 
 _env = _load_env()
 
-# Hydrate from secrets.py on physical hardware if present
-try:
-    import secrets as _sec
-    for _k in dir(_sec):
-        if not _k.startswith("_") and hasattr(_sec, _k):
-            _v = getattr(_sec, _k)
-            if _v is not None and _k not in _env:
-                _env[_k] = str(_v)
-except Exception:
-    pass
+# On MicroPython embedded hardware where .env is absent, hydrate from hardware secrets.py
+if not _env:
+    try:
+        import sys
+        if sys.platform not in ("linux", "darwin", "win32"):
+            import secrets as _sec
+            for _k in dir(_sec):
+                if not _k.startswith("_") and hasattr(_sec, _k):
+                    _v = getattr(_sec, _k)
+                    if _v is not None and _k not in _env:
+                        _env[_k] = str(_v)
+    except Exception:
+        pass
 
 # OS version. tools/deploy.py auto-bumps the PATCH number on every push.
 # The literal MUST stay on its own line as `VERSION = "vN.N.N"` — the

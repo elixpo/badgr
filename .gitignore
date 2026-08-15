@@ -24,6 +24,7 @@ firmware.bin
 .vscode/settings.json
 .idea/
 .secrets_tmp.py
+secrets.py
 *.swp
 *.env
 .deploy_hashes.json
