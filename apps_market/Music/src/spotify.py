@@ -25,11 +25,44 @@ except ImportError:
     import binascii as _binascii
 
 
+STATE_FILE = "state_spotify.json"
+
+
 def _base64_encode(s):
     try:
         return _binascii.b2a_base64(s.encode('utf-8')).decode('utf-8').strip()
     except Exception:
         return ""
+
+
+def load_persisted_credentials():
+    try:
+        with open(STATE_FILE, "r") as f:
+            data = _json.loads(f.read())
+            return (data.get("token"),
+                    data.get("refresh_token"),
+                    data.get("client_id"),
+                    data.get("client_secret"))
+    except Exception:
+        pass
+    return (None, None, None, None)
+
+
+def save_credentials(token=None, refresh_token=None, client_id=None, client_secret=None):
+    try:
+        cur_t, cur_rt, cur_ci, cur_cs = load_persisted_credentials()
+        data = {
+            "token": token or cur_t,
+            "refresh_token": refresh_token or cur_rt,
+            "client_id": client_id or cur_ci,
+            "client_secret": client_secret or cur_cs,
+            "updated_at": int(time.time() if hasattr(time, 'time') else 0),
+        }
+        with open(STATE_FILE, "w") as f:
+            f.write(_json.dumps(data))
+        return True
+    except Exception:
+        return False
 
 
 class SpotifyClient:
@@ -47,8 +80,19 @@ class SpotifyClient:
         self.device_name    = ""
         self.last_error     = ""
 
+        if not self.is_configured():
+            self.reload_persisted()
+
     def is_configured(self):
         return bool(self.token or (self.refresh_token and self.client_id and self.client_secret))
+
+    def reload_persisted(self):
+        t, rt, ci, cs = load_persisted_credentials()
+        if t:  self.token = t
+        if rt: self.refresh_token = rt
+        if ci: self.client_id = ci
+        if cs: self.client_secret = cs
+        return self.is_configured()
 
     def _http_request(self, host, method, path, headers=None, body_data=None):
         if not _RAW_OK:

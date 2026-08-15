@@ -1266,6 +1266,12 @@ def _handle(sock):
     if method == "GET" and path == "/mascot.png":
         _handle_mascot(sock)
         return
+    if method == "GET" and path in ("/spotify", "/spotify.html"):
+        _handle_spotify(sock)
+        return
+    if path == "/api/spotify":
+        _handle_api_spotify(sock, headers, after_head, qs, method)
+        return
     if method == "GET" and path == "/beacon":
         _handle_beacon(sock, qs, _peer_addr(sock))
         return
@@ -1401,6 +1407,171 @@ def _handle_beacon(sock, qs, peer_addr):
     body = ('{"device_id":"%s","state":"%s","free":%d}'
             % (sid, s["state"], fb)).encode()
     _send_status(sock, 200, "OK", body, content_type="application/json")
+
+
+_SPOTIFY_HTML = b"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oreo Badge \xe2\x80\xa2 Spotify Connect</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+body { background: #121212; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.card { background: #181818; border: 1px solid #282828; border-radius: 16px; width: 100%; max-width: 420px; padding: 28px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+.logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.badge-icon { width: 44px; height: 44px; border-radius: 50%; background: #1db954; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+h1 { font-size: 20px; font-weight: 700; }
+p.sub { font-size: 13px; color: #a0a0a0; margin-top: 2px; }
+.status-box { background: #222; border-radius: 8px; padding: 12px 14px; margin: 18px 0; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.dot-green { background: #1db954; box-shadow: 0 0 8px #1db954; }
+label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #b3b3b3; display: block; margin-top: 14px; margin-bottom: 6px; }
+input, textarea { width: 100%; background: #282828; border: 1px solid #3e3e3e; border-radius: 8px; color: #fff; padding: 12px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+input:focus, textarea:focus { border-color: #1db954; }
+.btn { width: 100%; background: #1db954; color: #000; font-size: 15px; font-weight: 700; padding: 14px; border-radius: 500px; border: none; cursor: pointer; margin-top: 20px; transition: transform 0.1s, background-color 0.2s; }
+.btn:hover { background: #1ed760; }
+.btn:active { transform: scale(0.98); }
+.hint { font-size: 11px; color: #777; line-height: 1.4; margin-top: 14px; text-align: center; }
+.success-overlay { display: none; text-align: center; padding: 20px 0; }
+.success-overlay.show { display: block; }
+.success-icon { font-size: 48px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-row">
+    <div class="badge-icon">\xf0\x9f\x8e\xb5</div>
+    <div>
+      <h1>Oreo Badge Spotify</h1>
+      <p class="sub">Link your badge in 1 tap</p>
+    </div>
+  </div>
+
+  <div id="form-container">
+    <div class="status-box">
+      <span><span class="status-dot dot-green"></span> Badge Online</span>
+      <span id="link-status" style="color: #1db954;">Ready to Pair</span>
+    </div>
+
+    <label>Spotify Access Token or Refresh Token</label>
+    <textarea id="token-input" rows="3" placeholder="Paste Spotify OAuth Token (BQ...) or Refresh Token"></textarea>
+
+    <button class="btn" id="save-btn" onclick="saveToken()">Save &amp; Link Badge</button>
+
+    <p class="hint">Tokens are stored securely in local badge flash memory and never sent to external servers.</p>
+  </div>
+
+  <div id="success-view" class="success-overlay">
+    <div class="success-icon">\xf0\x9f\x8e\x89</div>
+    <h2 style="font-size: 20px; margin-bottom: 6px;">Successfully Linked!</h2>
+    <p style="font-size: 14px; color: #a0a0a0;">Your Oreo Badge is now connected to Spotify. Look at your badge screen!</p>
+  </div>
+</div>
+
+<script>
+async function saveToken() {
+  const token = document.getElementById('token-input').value.trim();
+  if (!token) { alert('Please paste your Spotify token'); return; }
+  const btn = document.getElementById('save-btn');
+  btn.innerText = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/spotify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token })
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      document.getElementById('form-container').style.display = 'none';
+      document.getElementById('success-view').classList.add('show');
+    } else {
+      alert('Error saving token: ' + (data.message || 'Unknown error'));
+      btn.innerText = 'Save & Link Badge';
+      btn.disabled = false;
+    }
+  } catch (e) {
+    alert('Network error: ' + e);
+    btn.innerText = 'Save & Link Badge';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
+"""
+
+def _handle_spotify(sock):
+    _send_status(sock, 200, "OK", _SPOTIFY_HTML, content_type="text/html")
+
+
+def _handle_api_spotify(sock, headers, body_prefix, qs, method):
+    if method == "GET":
+        try:
+            from apps_market.Music.src.spotify import load_persisted_credentials
+            t, rt, _, _ = load_persisted_credentials()
+            linked = bool(t or rt)
+        except Exception:
+            linked = False
+        body = ('{"linked":%s}' % ("true" if linked else "false")).encode()
+        _send_status(sock, 200, "OK", body, content_type="application/json")
+        return
+
+    if method == "POST":
+        content_len = 0
+        try:
+            content_len = int(headers.get("content-length", 0) or 0)
+        except Exception:
+            pass
+
+        body = body_prefix or b""
+        rem = content_len - len(body)
+        if rem > 0:
+            try:
+                chunk = sock.read(min(rem, 4096))
+                if chunk:
+                    body += chunk
+            except Exception:
+                pass
+
+        token = ""
+        refresh_token = ""
+        client_id = ""
+        client_secret = ""
+
+        try:
+            import json
+            data = json.loads(body.decode('utf-8'))
+            token = data.get("token", "")
+            refresh_token = data.get("refresh_token", "")
+            client_id = data.get("client_id", "")
+            client_secret = data.get("client_secret", "")
+        except Exception:
+            s = body.decode('utf-8', 'ignore')
+            for part in s.split('&'):
+                if '=' in part:
+                    k, v = part.split('=', 1)
+                    if k == 'token': token = v
+                    elif k == 'refresh_token': refresh_token = v
+
+        if token or refresh_token:
+            try:
+                from apps_market.Music.src.spotify import save_credentials
+                save_credentials(token=token, refresh_token=refresh_token,
+                                 client_id=client_id, client_secret=client_secret)
+            except Exception:
+                try:
+                    import json
+                    with open("state_spotify.json", "w") as f:
+                        f.write(json.dumps({"token": token, "refresh_token": refresh_token}))
+                except Exception:
+                    pass
+
+            _send_status(sock, 200, "OK", b'{"status":"ok"}', content_type="application/json")
+        else:
+            _send_status(sock, 400, "Bad Request", b'{"status":"error","message":"No token provided"}', content_type="application/json")
 
 
 def _handle_upload(sock, headers, body_prefix, qs):

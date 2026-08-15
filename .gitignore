@@ -39,3 +39,6 @@ store_cache.json
 store_icons/
 store_details/
 state_pet.txt
+state_spotify.json
+state_*.json
+
