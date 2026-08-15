@@ -30,7 +30,7 @@ PLAY_TOP  = widgets.HEADER_H
 PLAY_BOT  = SH - widgets.HINT_H
 PLAY_H    = PLAY_BOT - PLAY_TOP      # 196
 PLAY_W    = SW                       # full width
-STATE_PATH = "apps/color_picker/state.txt"
+STATE_PATH = "state_color.txt"
 
 # Movement tuning. Tap = 1 px nudge; hold for ACCEL_AFTER seconds and the
 # cursor steps by FAST_PX_PER_FRAME each frame for fast traversal.
@@ -98,11 +98,21 @@ def _upscale_4x(src, sw, sh, dw, dh):
 
 
 def _try_load_spectrum():
+    for modpath in (
+        "apps.Colors.assets.optimized.color_splash",
+        "apps_market.Colors.assets.optimized.color_splash",
+        "apps.color_picker.assets.optimized.color_splash",
+    ):
+        try:
+            m = __import__(modpath, None, None, ["DATA", "W", "H"])
+            return bytes(m.DATA), m.W, m.H
+        except Exception:
+            pass
     try:
-        m = __import__("apps.color_picker.assets.optimized.color_splash",
-                       None, None, ["DATA", "W", "H"])
+        pkg = __name__.rsplit(".", 2)[0]
+        m = __import__(pkg + ".assets.optimized.color_splash", None, None, ["DATA", "W", "H"])
         return bytes(m.DATA), m.W, m.H
-    except (ImportError, AttributeError):
+    except Exception:
         return None
 
 
