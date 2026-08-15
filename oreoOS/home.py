@@ -277,10 +277,10 @@ class Home(oreoOS.App):
         self._dirty = True
 
     def on_button_press(self, btn):
-        # A always opens the apps drawer — the dock is gone, the icon
-        # in the bottom-right of the bg is purely a visual hint now.
         if btn == api.BTN_A:
             self.os.launch("__appmenu__")
+        elif btn == api.BTN_B:
+            self.os.launch("identity")
 
     def update(self, dt):
         h, m, s, *_ = timeutil.now()
@@ -343,7 +343,7 @@ class Home(oreoOS.App):
 
             self._draw_status_bar(d, h, m)
             self._draw_clock_area(d, h, m, wd, day, mon, yr)
-            widgets.draw_hint(d, "A=apps  C=notif")
+            widgets.draw_hint(d, "A=apps  B=id  C=notif")
             self._dirty = False
             self._clock_dirty = False
             self._status_dirty = False
