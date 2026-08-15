@@ -664,13 +664,6 @@ class App(oreoOS.App):
             return
         d.clear(theme.BG)
         widgets.draw_header(d, "APPS")
-        # Hint reflects what the user can do at this level.
-        if self._mode == "categories" and self._cat_level == 0:
-            widgets.draw_hint(d, "A=open  HOME=back  C=notif")
-        elif self._mode == "categories" and self._cat_level == 1:
-            widgets.draw_hint(d, "A=launch  B=back  C=notif")
-        else:
-            widgets.draw_hint(d, "A=launch  HOME=back  C=notif")
 
         n = len(self._apps)
         if not n:
@@ -683,6 +676,7 @@ class App(oreoOS.App):
         # the apps grid.
         if self._mode == "categories" and self._cat_level == 0:
             self._draw_category_picker(d)
+            widgets.draw_hint(d, "A=open  HOME=back  C=notif")
             self._dirty = False
             return
 
@@ -693,14 +687,14 @@ class App(oreoOS.App):
         scroll_int = int(self._scroll_y)
 
         viewport_top    = PAD_TOP
-        viewport_bottom = PAD_TOP + VISIBLE_ROWS * CELL_H
+        viewport_bottom = SH - widgets.HINT_H
 
         for vi in range(view_n):
             app_idx = self._view_apps[vi]
             row = vi // COLS
             col = vi %  COLS
             cell_y = PAD_TOP + row * CELL_H - scroll_int
-            if cell_y + CELL_H < viewport_top or cell_y > viewport_bottom:
+            if cell_y + CELL_H < viewport_top or cell_y >= viewport_bottom:
                 continue
 
             cx = PAD_X + col * CELL_W + CELL_W // 2
@@ -773,10 +767,18 @@ class App(oreoOS.App):
                 _rounded_outline(d, rect_x, rect_y, cur_w, full_h,
                                  theme.SEL_BORDER, r=r)
 
-        # ── viewport mask: hide rows scrolled above the top edge ─────────
+        # ── viewport top mask: hide rows scrolled above the top edge ─────────
         if scroll_int > 0:
             d.rect(0, 0, SW, PAD_TOP, theme.BG, fill=True)
             widgets.draw_header(d, "APPS")   # re-stamp the header on top
+
+        # ── viewport bottom mask & hint bar: clean stamp over bottom edge ─────
+        hint_y = SH - widgets.HINT_H
+        d.rect(0, hint_y, SW, widgets.HINT_H, theme.DOCK_BG, fill=True)
+        if self._mode == "categories" and self._cat_level == 1:
+            widgets.draw_hint(d, "A=launch  B=back  C=notif")
+        else:
+            widgets.draw_hint(d, "A=launch  HOME=back  C=notif")
 
         # ── scrollbar on the right ───────────────────────────────────────
         if rows_total > VISIBLE_ROWS:
