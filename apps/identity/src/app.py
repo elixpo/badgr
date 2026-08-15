@@ -44,12 +44,15 @@ def _try_avatar():
 def _load_identity(os_obj=None):
     from oreoOS import config
 
-    gh_user = config.get("GITHUB_USER")
-    name    = config.get("DISPLAY_NAME") or gh_user
-    desig   = config.get("DESIGNATION")
-    li_user = config.get("LINKEDIN_USER")
-    tw_user = config.get("TWITTER_USER")
-    web_url = config.get("WEBSITE_URL")
+    gh_user   = config.get("GITHUB_USER")
+    name      = config.get("DISPLAY_NAME") or gh_user
+    desig     = config.get("DESIGNATION")
+    li_user   = config.get("LINKEDIN_USER")
+    tw_user   = config.get("TWITTER_USER")
+    bsky_user = config.get("BLUESKY_USER") or config.get("BSKY_USER")
+    npm_user  = config.get("NPM_USER")
+    web_url   = config.get("WEBSITE_URL")
+    email     = config.get("EMAIL")
 
     channels = []
     if gh_user:
@@ -58,9 +61,15 @@ def _load_identity(os_obj=None):
         channels.append({"name": "LinkedIn", "tab": "LinkedIn", "url": "https://linkedin.com/in/" + li_user})
     if tw_user:
         channels.append({"name": "X / Twitter", "tab": "Twitter", "url": "https://x.com/" + tw_user})
+    if bsky_user:
+        channels.append({"name": "Bluesky", "tab": "Bluesky", "url": "https://bsky.app/profile/" + bsky_user})
+    if npm_user:
+        channels.append({"name": "NPM", "tab": "NPM", "url": "https://npmjs.com/~" + npm_user})
     if web_url:
         url_fmt = web_url if web_url.startswith(("http://", "https://")) else ("https://" + web_url)
         channels.append({"name": "Website", "tab": "Website", "url": url_fmt})
+    if email:
+        channels.append({"name": "Email", "tab": "Email", "url": "mailto:" + email})
 
     if not channels:
         channels.append({"name": "Website", "tab": "Website", "url": "https://oreo.elixpo.com"})
