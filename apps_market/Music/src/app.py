@@ -143,18 +143,10 @@ class App(oreoOS.App):
         self._spotify = SpotifyClient(token=token, refresh_token=refresh_token,
                                       client_id=client_id, client_secret=client_secret)
 
-        # Ensure local HTTP server is running so the QR endpoint is reachable
-        try:
-            from oreoOS import http_server
-            http_server.start(os)
-        except Exception:
-            pass
-
         if self._spotify.is_configured():
             self._mode = "SPOTIFY"
             self._poll_spotify()
         else:
-            # Generate QR code for local portal
             self._build_qr()
             self._show_qr = True
 
@@ -162,12 +154,7 @@ class App(oreoOS.App):
         pass
 
     def _build_qr(self):
-        try:
-            from oreoOS import http_server
-            self._qr_url = http_server.get_server_url("spotify")
-        except Exception:
-            ip = _get_badge_ip()
-            self._qr_url = "http://" + ip + "/spotify"
+        self._qr_url = "https://oreo.elixpo.com/spotify"
         try:
             self._qr_matrix = QRCode.encode(self._qr_url)
         except Exception:
@@ -261,13 +248,6 @@ class App(oreoOS.App):
     def update(self, dt):
         now = _ticks_ms()
         self._last_tick = now
-
-        # Service local HTTP portal requests in real-time
-        try:
-            from oreoOS import http_server
-            http_server.tick()
-        except Exception:
-            pass
 
         self._anim_t += dt
         if self._vol_toast_t > 0:
