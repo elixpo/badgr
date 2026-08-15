@@ -253,14 +253,15 @@ class App(oreoOS.App):
         if self._vol_toast_t > 0:
             self._vol_toast_t = max(0.0, self._vol_toast_t - dt)
 
-        # Check for newly saved token from local web portal
-        if _ticks_diff(now, self._last_check_token_ms) > 1500:
+        # Check for newly saved token
+        if _ticks_diff(now, self._last_check_token_ms) > 1000:
             self._last_check_token_ms = now
-            if not self._spotify.is_configured():
+            if self._show_qr or self._mode != "SPOTIFY":
                 if self._spotify.reload_persisted():
                     self._mode = "SPOTIFY"
                     self._show_qr = False
                     self._poll_spotify()
+                    self._dirty = True
 
         # Smooth local progress interpolation
         if self._is_playing and not self._show_qr:
