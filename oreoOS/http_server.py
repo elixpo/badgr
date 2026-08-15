@@ -1417,7 +1417,7 @@ def _handle_beacon(sock, qs, peer_addr):
     _send_status(sock, 200, "OK", body, content_type="application/json")
 
 
-_SPOTIFY_HTML = b"""<!DOCTYPE html>
+_SPOTIFY_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -1732,7 +1732,7 @@ window.onload = handleOAuthCallback;
 </script>
 </body>
 </html>
-"""
+""".encode("utf-8")
 
 def _handle_spotify(sock):
     _send_status(sock, 200, "OK", _SPOTIFY_HTML, content_type="text/html")
