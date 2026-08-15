@@ -349,19 +349,26 @@ def _q(path):
 
 
 def _fetch_store_icon(name_dir, app_path, icon_filename):
-    """Best-effort download of an app's optimized icon .py from GitHub
-    so the Store card can render the real icon BEFORE the app is
-    installed. Source path follows the project convention:
-        apps_market/<dir>/assets/optimized/<icon_stem>.py
-    Cached to /store_icons/<name_dir>.py. Silently no-ops on failure —
-    the UI falls back to a letter glyph in that case.
-    """
+    """Download or copy an app's optimized icon .py so the Store card can
+    render the real icon before the app is installed."""
     if not icon_filename:
         return False
     stem = icon_filename.rsplit(".", 1)[0].replace("-", "_")
     dst  = _STORE_ICONS_DIR + "/" + name_dir + ".py"
     if _exists(dst):
         return True
+    
+    # Check local apps_market first (e.g. apps_market/<name_dir>/assets/optimized/<stem>.py)
+    local_icon = app_path + "/assets/optimized/" + stem + ".py"
+    if _exists(local_icon):
+        _ensure_dir(_STORE_ICONS_DIR)
+        try:
+            with open(local_icon, "rb") as sf, open(dst, "wb") as df:
+                df.write(sf.read())
+            return True
+        except Exception:
+            pass
+
     url = ("https://raw.githubusercontent.com/%s/%s/%s/assets/optimized/%s.py"
            % (STORE_REPO, STORE_REF, _q(app_path), stem))
     _bc("icon GET " + name_dir)
@@ -420,7 +427,14 @@ def installed_size(name_dir):
 
 
 def _fetch_manifest(app_path):
-    """Read the manifest.json for a single market app via the API."""
+    """Read the manifest.json for a single market app (local first, then API)."""
+    local_manifest = app_path + "/manifest.json"
+    if _exists(local_manifest) and _json is not None:
+        try:
+            with open(local_manifest) as f:
+                return _json.loads(f.read())
+        except Exception:
+            pass
     if _json is None:
         return {}
     url = ("https://api.github.com/repos/%s/contents/%s/manifest.json?ref=%s"
@@ -500,6 +514,23 @@ def refresh(force=False):
     _last_error = ""
     listing = _api(MARKET_PATH)
     if not isinstance(listing, list):
+        listing = []
+
+    # Merge local apps_market entries if they exist on disk (for local development & offline testing)
+    if _exists(MARKET_PATH) and _isdir(MARKET_PATH):
+        seen_dirs = {it.get("name") for it in listing if isinstance(it, dict)}
+        try:
+            for loc_dir in _os.listdir(MARKET_PATH):
+                if loc_dir not in seen_dirs and _exists(MARKET_PATH + "/" + loc_dir + "/manifest.json"):
+                    listing.append({
+                        "type": "dir",
+                        "name": loc_dir,
+                        "path": MARKET_PATH + "/" + loc_dir,
+                    })
+        except Exception:
+            pass
+
+    if not listing:
         if _catalogue is None:
             _load_cache_from_disk()
         _last_refresh_ok = False
@@ -695,21 +726,55 @@ def is_installed(name):
     return _exists(APPS_DIR + "/" + name + "/main.py")
 
 
-def install(name):
-    """Download every file under `apps_market/<name>/` on GitHub and
-    write it to `apps/<name>/<relative>`. Returns True iff main.py
-    landed cleanly.
+def _invalidate_launcher_cache():
+    try:
+        from apps.launcher.main import invalidate_apps_cache
+        invalidate_apps_cache()
+    except Exception:
+        try:
+            from apps.launcher.src.app import invalidate_apps_cache
+            invalidate_apps_cache()
+        except Exception:
+            pass
 
-    Network and storage errors are non-fatal per-file; the function
-    keeps going so the user gets a partial install rather than a
-    nothing-at-all failure (they can hit A again to retry).
-    """
+
+def install(name):
+    """Install an app to `apps/<name>/`. Checks local `apps_market/<name>/`
+    first (for local dev/offline testing), otherwise downloads every file
+    from GitHub. Returns True iff main.py landed cleanly."""
+    target_root = APPS_DIR + "/" + name
+
+    # 1. Fast local install if the app directory exists on disk under apps_market/
+    local_src = MARKET_PATH + "/" + name
+    if _exists(local_src + "/manifest.json") and _exists(local_src + "/main.py"):
+        _ensure_dir(target_root)
+        stack = [local_src]
+        while stack:
+            curr_dir = stack.pop()
+            rel_dir = curr_dir[len(local_src):].lstrip("/")
+            dst_dir = target_root + ("/" + rel_dir if rel_dir else "")
+            _ensure_dir(dst_dir)
+            try:
+                for item in _os.listdir(curr_dir):
+                    if item.startswith(".") or item == "__pycache__":
+                        continue
+                    src_item = curr_dir + "/" + item
+                    dst_item = dst_dir + "/" + item
+                    if _isdir(src_item):
+                        stack.append(src_item)
+                    else:
+                        with open(src_item, "rb") as sf, open(dst_item, "wb") as df:
+                            df.write(sf.read())
+            except Exception:
+                pass
+        ok = is_installed(name)
+        if ok:
+            _invalidate_launcher_cache()
+        return ok
+
+    # 2. Remote GitHub download
     if not _RAW_OK:
         return False
-    # Find the catalogue entry first so we know the GitHub path. We
-    # walk lazily here (NOT in get_details) so opening the details
-    # page is cheap (one API call) — install is the user's explicit
-    # "I want this" so the heavier walk is acceptable.
     cat = list_market()
     entry = None
     for e in cat:
@@ -723,7 +788,6 @@ def install(name):
         return False
 
     root_prefix = entry["path"] + "/"
-    target_root = APPS_DIR + "/" + name
 
     for f in files:
         rel = f["path"]
@@ -754,10 +818,7 @@ def install(name):
             pass
         gc.collect()
 
-    # Post-install integrity check: the launcher's drawer skips any
-    # app whose manifest.json is missing or unparseable, so a silent
-    # failure here surfaces as "the app vanished from the drawer".
-    # Verify and try to re-fetch once if the file is bad.
+    # Post-install integrity check: verify manifest.json
     mf_path = target_root + "/manifest.json"
     if _json is not None:
         ok_mf = False
@@ -779,12 +840,19 @@ def install(name):
                 except Exception:
                     pass
 
-    return is_installed(name)
+    ok = is_installed(name)
+    if ok:
+        _invalidate_launcher_cache()
+    return ok
 
 
 def uninstall(name):
     dst = APPS_DIR + "/" + name
     if not _exists(dst):
+        _invalidate_launcher_cache()
         return True
     _rm_tree(dst)
-    return not _exists(dst)
+    ok = not _exists(dst)
+    if ok:
+        _invalidate_launcher_cache()
+    return ok
