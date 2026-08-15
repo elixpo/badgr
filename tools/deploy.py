@@ -31,7 +31,7 @@ PYTHON = sys.executable or "python3"
 
 PORT = "/dev/ttyACM0"
 for arg in sys.argv[1:]:
-    if arg.startswith("/dev/") or "COM" in arg:
+    if arg.startswith("/dev/") or "COM" in arg or arg.startswith("rfc2217://"):
         PORT = arg
 
 CLEAN  = "--clean" in sys.argv
