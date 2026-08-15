@@ -42,3 +42,30 @@ SEL_BORDER   = api.rgb(255, 93, 104)                      # selection border pin
 ORANGE       = api.rgb(255, 140,  30)                     # festive orange
 PURPLE       = api.rgb(180,  80, 220)                     # festive purple
 GREEN        = api.rgb(60,  200, 100)                     # celebration green
+
+
+def set_primary_color(r, g, b):
+    global PRIMARY_R, PRIMARY_G, PRIMARY_B, PRIMARY, STATUS_BG, SEL_BORDER
+    PRIMARY_R, PRIMARY_G, PRIMARY_B = int(r), int(g), int(b)
+    PRIMARY    = api.rgb(PRIMARY_R, PRIMARY_G, PRIMARY_B)
+    STATUS_BG  = PRIMARY
+    SEL_BORDER = PRIMARY
+
+
+def load_custom_theme():
+    try:
+        with open("state_color.txt") as f:
+            parts = f.read().strip().split(",")
+            if len(parts) == 5:
+                r, g, b = int(parts[2]), int(parts[3]), int(parts[4])
+            elif len(parts) == 3:
+                r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
+            else:
+                return
+            set_primary_color(r, g, b)
+    except Exception:
+        pass
+
+
+# Initialize theme from persisted custom color if available
+load_custom_theme()

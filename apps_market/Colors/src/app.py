@@ -184,10 +184,15 @@ class App(oreoOS.App):
         elif btn == api.BTN_A:
             _save_state(self._cx, self._cy, self._rgb)
             try:
+                theme.set_primary_color(*self._rgb)
+            except Exception:
+                pass
+            try:
                 self._os.settings_set("color_picker_rgb", self._rgb)
             except Exception:
                 pass
             self._saved_flash = 1.2
+            self._dirty = True
         self._clamp_cursor()
         self._sample_color()
         self._dirty = True
