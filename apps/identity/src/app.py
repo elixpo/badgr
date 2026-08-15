@@ -204,22 +204,27 @@ class App(oreoOS.App):
             return
 
         if self._mode == "card":
-            if btn in (api.BTN_A, api.BTN_RIGHT, api.BTN_DOWN):
+            if btn == api.BTN_A:
                 self._mode = "qr"
                 self._dirty = True
+            elif btn == api.BTN_B:
+                if self._os:
+                    self._os.quit()
         elif self._mode == "qr":
             chans = self._identity.get("channels", [])
-            if not chans:
-                return
-            if btn in (api.BTN_LEFT, api.BTN_UP):
-                self._channel_idx = (self._channel_idx - 1) % len(chans)
-                self._dirty = True
-            elif btn in (api.BTN_RIGHT, api.BTN_DOWN, api.BTN_A):
-                self._channel_idx = (self._channel_idx + 1) % len(chans)
-                self._dirty = True
-            elif btn == api.BTN_B:
+            # A toggles back to card mode
+            if btn in (api.BTN_A, api.BTN_B):
                 self._mode = "card"
                 self._dirty = True
+            # Left / Right arrows cycle through QR channels
+            elif btn in (api.BTN_LEFT, api.BTN_UP):
+                if chans:
+                    self._channel_idx = (self._channel_idx - 1) % len(chans)
+                    self._dirty = True
+            elif btn in (api.BTN_RIGHT, api.BTN_DOWN):
+                if chans:
+                    self._channel_idx = (self._channel_idx + 1) % len(chans)
+                    self._dirty = True
 
     def update(self, dt):
         pass
@@ -238,7 +243,7 @@ class App(oreoOS.App):
 
     def _draw_card(self, d):
         widgets.draw_header(d, "IDENTITY")
-        widgets.draw_hint(d, "A=show QR  HOME=back")
+        widgets.draw_hint(d, "A=toggle QR  HOME=back")
 
         p = self._identity
         cx, cy = 12, widgets.HEADER_H + 4
@@ -295,12 +300,12 @@ class App(oreoOS.App):
         btn_y = cy + ch - 22
         d.rect(btn_x, btn_y, btn_w, btn_h, theme.PRIMARY, fill=True)
         d.rect(btn_x, btn_y, btn_w, btn_h, theme.GOLD, fill=False)
-        lbl = "A: View QR Cards >"
+        lbl = "A: Toggle QR Mode >"
         d.text(lbl, btn_x + (btn_w - len(lbl) * 8) // 2, btn_y + 4, api.WHITE)
 
     def _draw_qr(self, d):
         widgets.draw_header(d, "SOCIAL QR CARD")
-        widgets.draw_hint(d, "D-PAD=switch  B=card  HOME=back")
+        widgets.draw_hint(d, "A=card  LEFT/RIGHT=channel")
 
         chan = self._get_active_channel()
         url  = chan["url"]
