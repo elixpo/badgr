@@ -318,7 +318,7 @@ class App(oreoOS.App):
         d.rect(cx,     cy,     cw, ch, theme.CARD,   fill=True)
         d.rect(cx,     cy,     cw, 3,  theme.PRIMARY, fill=True)
 
-        # 1. Top Channel Switcher Bar (Fixed 200px bar with centered active channel and < > arrows)
+        # 1. Top Channel Switcher Bar with high-contrast PRIMARY fill
         chans = self._identity.get("channels", [])
         n = len(chans)
         bar_y = cy + 6
@@ -326,39 +326,41 @@ class App(oreoOS.App):
         bar_w = cw - 16
         bar_x = cx + 8
 
-        d.rect(bar_x, bar_y, bar_w, bar_h, theme.CARD, fill=True)
-        d.rect(bar_x, bar_y, bar_w, bar_h, theme.PRIMARY, fill=False)
+        d.rect(bar_x, bar_y, bar_w, bar_h, theme.PRIMARY, fill=True)
+        d.rect(bar_x, bar_y, bar_w, bar_h, theme.GOLD, fill=False)
 
         # Left arrow
-        d.text("<", bar_x + 8, bar_y + 5, theme.GOLD)
+        d.text("<", bar_x + 8, bar_y + 5, api.WHITE)
 
-        # Centered active channel name
+        # Centered active channel name in crisp high-contrast white
         act_name = chan.get("name", "Channel")
         d.text(act_name, bar_x + (bar_w - len(act_name) * 8) // 2, bar_y + 5, api.WHITE)
 
         # Counter on right side
         tag = "%d/%d" % (self._channel_idx + 1, n)
-        d.text(tag, bar_x + bar_w - len(tag) * 8 - 20, bar_y + 5, theme.GOLD)
+        d.text(tag, bar_x + bar_w - len(tag) * 8 - 20, bar_y + 5, api.WHITE)
 
         # Right arrow
-        d.text(">", bar_x + bar_w - 14, bar_y + 5, theme.GOLD)
+        d.text(">", bar_x + bar_w - 14, bar_y + 5, api.WHITE)
 
-        # 2. Rock-Solid Fixed QR Container Box (124x124px)
-        box_w = 124
-        box_h = 124
-        box_x = (SW - box_w) // 2
-        box_y = cy + 28
-
-        d.rect(box_x - 1, box_y - 1, box_w + 2, box_h + 2, theme.MUTED2, fill=True)
-        d.rect(box_x, box_y, box_w, box_h, api.WHITE, fill=True)
-
+        # 2. QR Container Box — tightly hugs the QR code so it fills the square!
         qr_matrix = self._get_qr_matrix(url)
         q_size    = len(qr_matrix)
         mod_sz    = 4 if q_size <= 29 else max(2, min(4, 116 // q_size))
         qr_pixel_w = q_size * mod_sz
+        pad       = 4
 
-        start_x = box_x + (box_w - qr_pixel_w) // 2
-        start_y = box_y + (box_h - qr_pixel_w) // 2
+        box_w = qr_pixel_w + pad * 2
+        box_h = box_w
+        box_x = (SW - box_w) // 2
+        box_y = cy + 26 + (124 - box_h) // 2
+
+        d.rect(box_x + 1, box_y + 1, box_w, box_h, theme.MUTED2, fill=True)
+        d.rect(box_x, box_y, box_w, box_h, api.WHITE, fill=True)
+        d.rect(box_x, box_y, box_w, box_h, theme.MUTED2, fill=False)
+
+        start_x = box_x + pad
+        start_y = box_y + pad
 
         for r in range(q_size):
             for col in range(q_size):
