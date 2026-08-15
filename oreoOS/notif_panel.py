@@ -417,7 +417,7 @@ class NotifPanel:
         if self._t <= 0:
             return
         items   = self._items()
-        full_h  = SH - widgets.HINT_H
+        full_h  = SH
         offset  = int(full_h * (1.0 - self._t))
         panel_y = -offset
 
