@@ -681,7 +681,11 @@ def speed_test(bytes_=200_000, timeout_s=10, pump_cb=None):
         try: raw.settimeout(timeout_s)   # connect can take a while
         except Exception: pass
         raw.connect(addr)
-        s = _ssl.wrap_socket(raw, server_hostname=host)
+        if hasattr(_ssl, "create_default_context"):
+            ctx = _ssl.create_default_context()
+            s = ctx.wrap_socket(raw, server_hostname=host)
+        else:
+            s = _ssl.wrap_socket(raw, server_hostname=host)
         try: s.settimeout(PER_READ_S)
         except Exception: pass
         req = ("GET %s HTTP/1.1\r\nHost: %s\r\n"

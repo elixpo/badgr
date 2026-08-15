@@ -47,8 +47,11 @@ def _http_get(url, accept_raw=False, timeout_s=4):
         try: port = int(p)
         except ValueError: port = 443
 
-    accept = ("application/vnd.github.raw" if accept_raw
-              else "application/vnd.github+json")
+    if "api.github.com" in host:
+        accept = ("application/vnd.github.raw" if accept_raw
+                  else "application/vnd.github+json")
+    else:
+        accept = "*/*"
 
     s = None
     raw = None
@@ -62,20 +65,38 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     auth_hdr = ""
     try:
         from oreoOS.config import GH_TOKEN as _TOK
-        if _TOK:
+        if _TOK and "api.github.com" in host:
             auth_hdr = "Authorization: Bearer " + _TOK + "\r\n"
     except Exception:
         pass
 
     try:
         _bc("  dns " + host)
-        addr = _socket.getaddrinfo(host, port)[0][-1]
-        _bc("  connect " + host + ":" + str(port))
-        raw = _socket.socket()
+        raw = None
+        for res in _socket.getaddrinfo(host, port):
+            af, socktype, proto, _, sa = res
+            try:
+                raw = _socket.socket(af, socktype, proto)
+                raw.settimeout(min(3.5, timeout_s))
+                raw.connect(sa)
+                break
+            except Exception:
+                if raw is not None:
+                    try: raw.close()
+                    except Exception: pass
+                raw = None
+
+        if raw is None:
+            _bc("connect FAIL " + host)
+            return None
+
         raw.settimeout(timeout_s)
-        raw.connect(addr)
         _bc("  ssl handshake")
-        s = _ssl.wrap_socket(raw, server_hostname=host)
+        if hasattr(_ssl, "create_default_context"):
+            ctx = _ssl.create_default_context()
+            s = ctx.wrap_socket(raw, server_hostname=host)
+        else:
+            s = _ssl.wrap_socket(raw, server_hostname=host)
         try:
             s.settimeout(timeout_s)
         except Exception:
@@ -95,6 +116,8 @@ def _http_get(url, accept_raw=False, timeout_s=4):
 
         _bc("  read body")
         buf = bytearray()
+        expected_len = None
+        head_end = -1
         while True:
             # Wallclock check — if we've blown our budget, bail no
             # matter what settimeout says.
@@ -114,6 +137,23 @@ def _http_get(url, accept_raw=False, timeout_s=4):
             if not chunk:
                 break
             buf.extend(chunk)
+
+            if head_end < 0 and b"\r\n\r\n" in buf:
+                head_end = buf.find(b"\r\n\r\n")
+                if head_end >= 0:
+                    head_lower = bytes(buf[:head_end]).lower()
+                    cl_idx = head_lower.find(b"\r\ncontent-length: ")
+                    if cl_idx >= 0:
+                        cl_val = head_lower[cl_idx + 18:].split(b"\r\n", 1)[0]
+                        try:
+                            expected_len = int(cl_val)
+                        except ValueError:
+                            pass
+
+            if head_end >= 0 and expected_len is not None:
+                if len(buf) - (head_end + 4) >= expected_len:
+                    break
+
             if len(buf) > 256 * 1024:
                 break
     except Exception as e:
@@ -694,6 +734,14 @@ def install(name):
         parent = dst.rsplit("/", 1)[0] if "/" in dst else ""
         if parent:
             _ensure_dir(parent)
+        if f.get("size") == 0:
+            try:
+                with open(dst, "wb") as out:
+                    pass
+            except Exception:
+                pass
+            continue
+
         _bc("install GET " + rel)
         body = _http_get(f["download_url"], accept_raw=False,
                          timeout_s=T_FILE)
