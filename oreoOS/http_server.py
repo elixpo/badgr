@@ -50,14 +50,9 @@ except ImportError:
 PORT          = 80
 MAX_BODY      = 8 * 1024 * 1024   # videos stream to flash; never buffered in RAM
 READ_CHUNK    = 2048
-RECV_TIMEOUT       = 3            # seconds — per-recv() during streaming
-HEADER_RECV_TIMEOUT = 0.05        # never stall the badge input loop on an
-                                  # accepted browser socket with no data yet
-HEAD_DEADLINE_MS   = 300          # hard cap on header-read for tiny requests
-                                  # (beacons / session/new). Anything slower
-                                  # than this is almost certainly a TLS probe
-                                  # or a stuck client and would otherwise
-                                  # freeze the run loop one beacon at a time.
+RECV_TIMEOUT       = 4            # seconds — per-recv() during streaming
+HEADER_RECV_TIMEOUT = 2.0          # seconds — allow mobile Wi-Fi browsers to send headers
+HEAD_DEADLINE_MS   = 3500         # hard cap on header-read for requests
 
 # Session lifecycle
 SESSION_TTL_MS         = 60 * 1000   # beacon must refresh within this
@@ -1263,26 +1258,11 @@ def _handle(sock):
         pass
     method, full_path, headers = _parse_headers(head)
     path, qs = _parse_query(full_path)
-
-    # ── master kill switch ──
-    # When the badge owner has flipped the transfer off (long-press
-    # LEFT on Send Files), every endpoint returns 503 with a tiny
-    # branded page. We DO still serve /favicon.ico as 204 so the
-    # browser tab doesn't show a broken icon.
-    if not _transfer_enabled:
-        if method == "GET" and path == "/favicon.ico":
-            _send_status(sock, 204, "No Content", b"")
-            return
-        _send_status(sock, 503, "Service Unavailable",
-                     _DISABLED_PAGE)
+    if method == "GET" and path in ("/spotify", "/spotify.html"):
+        _handle_spotify(sock)
         return
-
-    if method == "GET" and path in ("/", "/index.html"):
-        # The page is gated on `?prefill=<hash>` matching the live
-        # code's hash. No prefill, wrong prefill, or expired prefill
-        # all serve the 404 page — no code-entry form, no surface
-        # area for a guesser to brute-force from the LAN.
-        _handle_root(sock, qs, _peer_addr(sock))
+    if path == "/api/spotify":
+        _handle_api_spotify(sock, headers, after_head, qs, method)
         return
     if method == "GET" and path == "/favicon.ico":
         _send_status(sock, 204, "No Content", b"")
@@ -1290,11 +1270,15 @@ def _handle(sock):
     if method == "GET" and path == "/mascot.png":
         _handle_mascot(sock)
         return
-    if method == "GET" and path in ("/spotify", "/spotify.html"):
-        _handle_spotify(sock)
+
+    # ── master kill switch for file uploads ──
+    if not _transfer_enabled:
+        _send_status(sock, 503, "Service Unavailable",
+                     _DISABLED_PAGE)
         return
-    if path == "/api/spotify":
-        _handle_api_spotify(sock, headers, after_head, qs, method)
+
+    if method == "GET" and path in ("/", "/index.html"):
+        _handle_root(sock, qs, _peer_addr(sock))
         return
     if method == "GET" and path == "/beacon":
         _handle_beacon(sock, qs, _peer_addr(sock))
