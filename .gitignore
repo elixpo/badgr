@@ -34,6 +34,7 @@ secrets.py
 # Store downloads, caches & non-stock market apps installed locally
 apps/Colors/
 apps/Oreo Pet/
+apps/Music/
 store_cache.json
 store_icons/
 store_details/
