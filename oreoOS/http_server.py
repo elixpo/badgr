@@ -238,64 +238,77 @@ def start(os_obj=None):
     return _start_listener()
 
 
-def _start_listener():
-    """Open the listening socket on the current WiFi IP. Safe to call
-    multiple times — re-binds if WiFi reconnected to a different IP."""
-    global _lsock, _bound_ip
-    if _socket is None:
-        return False
-    # Resolve current WiFi IP via the wifi module.
+_bound_port = 80
+
+
+def _get_local_ip():
     try:
         from oreoWare import wifi
         ip = wifi.ip()
+        if ip and ip != "0.0.0.0":
+            return ip
     except Exception:
-        ip = None
+        pass
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def _start_listener():
+    """Open the listening socket on the current WiFi IP. Safe to call
+    multiple times — re-binds if WiFi reconnected to a different IP."""
+    global _lsock, _bound_ip, _bound_port
+    if _socket is None:
+        return False
+    # Resolve current WiFi IP via the wifi module or local LAN interface.
+    ip = _get_local_ip()
     if not ip:
         return False
     # If we're already bound on this IP, nothing to do.
     if _lsock is not None and _bound_ip == ip:
         return True
     stop()
-    try:
-        s = _socket.socket()
-        # SO_REUSEADDR so a fast WiFi flap doesn't leave us in TIME_WAIT
-        # waiting to bind. MicroPython doesn't always expose SOL_SOCKET
-        # constants, so wrap the setsockopt in its own try.
+    ports_to_try = [PORT, 8080, 8000, 8888, 5000, 8081]
+    for p in ports_to_try:
         try:
-            s.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
-        except Exception:
-            pass
-        try:
-            addr = _socket.getaddrinfo(ip, PORT)[0][-1]
+            s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            try:
+                s.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+            except Exception:
+                pass
+            addr = _socket.getaddrinfo("0.0.0.0", p)[0][-1]
             s.bind(addr)
+            s.listen(5)
+            s.setblocking(False)
+            _lsock = s
+            _bound_ip = ip
+            _bound_port = p
+            try:
+                print("[http] listening on %s:%d" % (ip, p))
+            except Exception:
+                pass
+            return True
         except Exception:
             try:
-                addr = _socket.getaddrinfo("0.0.0.0", PORT)[0][-1]
-                s.bind(addr)
+                s.close()
             except Exception:
-                addr = _socket.getaddrinfo("0.0.0.0", 8080)[0][-1]
-                s.bind(addr)
-        s.listen(2)
-        s.setblocking(False)
-        _lsock = s
-        _bound_ip = ip
-        try:
-            print("[http] listening on %s:%d" % (ip, PORT))
-        except Exception:
-            pass
-        return True
-    except Exception as e:
-        try:
-            print("[http] bind failed: %s" % e)
-        except Exception:
-            pass
-        _lsock = None
-        _bound_ip = None
-        return False
+                pass
+            continue
+
+    _lsock = None
+    _bound_ip = None
+    _bound_port = 80
+    return False
 
 
 def stop():
-    global _lsock, _bound_ip
+    global _lsock, _bound_ip, _bound_port
     if _lsock is not None:
         try:
             _lsock.close()
@@ -303,6 +316,7 @@ def stop():
             pass
     _lsock = None
     _bound_ip = None
+    _bound_port = 80
 
 
 def url():
@@ -311,7 +325,8 @@ def url():
     DHCP-lease rotation and reads better off a tiny screen."""
     if _bound_ip is None:
         return ""
-    return "http://oreo.local/"
+    p_str = "" if _bound_port == 80 else (":%d" % _bound_port)
+    return "http://oreo.local%s/" % p_str
 
 
 def url_fallback():
@@ -319,7 +334,16 @@ def url_fallback():
     where multicast DNS doesn't work (some corporate WiFi)."""
     if _bound_ip is None:
         return ""
-    return "http://%s/" % _bound_ip
+    p_str = "" if _bound_port == 80 else (":%d" % _bound_port)
+    return "http://%s%s/" % (_bound_ip, p_str)
+
+
+def get_server_url(path=""):
+    ip = _bound_ip or _get_local_ip()
+    port = _bound_port or 80
+    p_str = "" if port == 80 else (":%d" % port)
+    clean_path = path.lstrip("/")
+    return "http://%s%s/%s" % (ip, p_str, clean_path)
 
 
 def is_running():
