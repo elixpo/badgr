@@ -318,84 +318,47 @@ class App(oreoOS.App):
         d.rect(cx,     cy,     cw, ch, theme.CARD,   fill=True)
         d.rect(cx,     cy,     cw, 3,  theme.PRIMARY, fill=True)
 
-        # Top Channel Carousel Switcher Bar
+        # 1. Top Channel Switcher Bar (Fixed 200px bar with centered active channel and < > arrows)
         chans = self._identity.get("channels", [])
         n = len(chans)
         bar_y = cy + 6
         bar_h = 18
+        bar_w = cw - 16
+        bar_x = cx + 8
 
-        if n <= 3:
-            tab_w = (cw - 8) // max(1, n)
-            for idx, c in enumerate(chans):
-                tx = cx + 4 + idx * tab_w
-                is_active = (idx == self._channel_idx)
-                t_bg = theme.PRIMARY if is_active else theme.CARD
-                t_fg = api.WHITE if is_active else theme.TEXT_DIM
+        d.rect(bar_x, bar_y, bar_w, bar_h, theme.CARD, fill=True)
+        d.rect(bar_x, bar_y, bar_w, bar_h, theme.PRIMARY, fill=False)
 
-                d.rect(tx, bar_y, tab_w - 4, bar_h, t_bg, fill=True)
-                if is_active:
-                    d.rect(tx, bar_y, tab_w - 4, bar_h, theme.GOLD, fill=False)
-                t_lbl = c.get("tab", c["name"])[:10]
-                d.text(t_lbl, tx + (tab_w - 4 - len(t_lbl) * 8) // 2, bar_y + 5, t_fg)
-        else:
-            prev_idx = (self._channel_idx - 1) % n
-            next_idx = (self._channel_idx + 1) % n
+        # Left arrow
+        d.text("<", bar_x + 8, bar_y + 5, theme.GOLD)
 
-            tag = "%d/%d" % (self._channel_idx + 1, n)
-            tag_w = len(tag) * 8
-            d.text(tag, cx + cw - tag_w - 6, bar_y + 5, theme.TEXT_DIM)
+        # Centered active channel name
+        act_name = chan.get("name", "Channel")
+        d.text(act_name, bar_x + (bar_w - len(act_name) * 8) // 2, bar_y + 5, api.WHITE)
 
-            d.text("<", cx + 6, bar_y + 5, theme.GOLD)
+        # Counter on right side
+        tag = "%d/%d" % (self._channel_idx + 1, n)
+        d.text(tag, bar_x + bar_w - len(tag) * 8 - 20, bar_y + 5, theme.GOLD)
 
-            start_x = cx + 18
-            avail_w = (cx + cw - tag_w - 14) - start_x
+        # Right arrow
+        d.text(">", bar_x + bar_w - 14, bar_y + 5, theme.GOLD)
 
-            w_prev = max(44, min(62, len(chans[prev_idx]["tab"]) * 8 + 10))
-            w_next = max(44, min(62, len(chans[next_idx]["tab"]) * 8 + 10))
-            w_act  = min(116, avail_w - w_prev - w_next - 10)
-
-            x_prev = start_x
-            x_act  = x_prev + w_prev + 5
-            x_next = x_act + w_act + 5
-
-            # Prev Tab Pill
-            d.rect(x_prev, bar_y, w_prev, bar_h, theme.CARD, fill=True)
-            d.rect(x_prev, bar_y, w_prev, bar_h, theme.MUTED2, fill=False)
-            p_lbl = chans[prev_idx]["tab"][:6]
-            d.text(p_lbl, x_prev + (w_prev - len(p_lbl) * 8) // 2, bar_y + 5, theme.TEXT_DIM)
-
-            # Active Tab Pill (Highlighted + Gold Border)
-            d.rect(x_act, bar_y, w_act, bar_h, theme.PRIMARY, fill=True)
-            d.rect(x_act, bar_y, w_act, bar_h, theme.GOLD, fill=False)
-            a_lbl = chans[self._channel_idx]["tab"][:12]
-            d.text(a_lbl, x_act + (w_act - len(a_lbl) * 8) // 2, bar_y + 5, api.WHITE)
-
-            # Next Tab Pill
-            d.rect(x_next, bar_y, w_next, bar_h, theme.CARD, fill=True)
-            d.rect(x_next, bar_y, w_next, bar_h, theme.MUTED2, fill=False)
-            n_lbl = chans[next_idx]["tab"][:6]
-            d.text(n_lbl, x_next + (w_next - len(n_lbl) * 8) // 2, bar_y + 5, theme.TEXT_DIM)
-
-            # Right arrow
-            d.text(">", x_next + w_next + 4, bar_y + 5, theme.GOLD)
-
-        # Dynamically fit QR Container Box with crisp, proportional padding
-        qr_matrix = self._get_qr_matrix(url)
-        q_size    = len(qr_matrix)
-        mod_sz    = 4 if q_size <= 29 else max(2, min(4, 116 // q_size))
-        qr_pixel_w = q_size * mod_sz
-        pad       = 6
-
-        box_w = qr_pixel_w + pad * 2
-        box_h = box_w
+        # 2. Rock-Solid Fixed QR Container Box (124x124px)
+        box_w = 124
+        box_h = 124
         box_x = (SW - box_w) // 2
-        box_y = cy + 24 + (128 - box_h) // 2
+        box_y = cy + 28
 
         d.rect(box_x - 1, box_y - 1, box_w + 2, box_h + 2, theme.MUTED2, fill=True)
         d.rect(box_x, box_y, box_w, box_h, api.WHITE, fill=True)
 
-        start_x = box_x + pad
-        start_y = box_y + pad
+        qr_matrix = self._get_qr_matrix(url)
+        q_size    = len(qr_matrix)
+        mod_sz    = 4 if q_size <= 29 else max(2, min(4, 116 // q_size))
+        qr_pixel_w = q_size * mod_sz
+
+        start_x = box_x + (box_w - qr_pixel_w) // 2
+        start_y = box_y + (box_h - qr_pixel_w) // 2
 
         for r in range(q_size):
             for col in range(q_size):
@@ -404,7 +367,7 @@ class App(oreoOS.App):
                     my = start_y + r * mod_sz
                     d.rect(mx, my, mod_sz, mod_sz, api.BLACK, fill=True)
 
-        # Configurable Encoded URL Text Field below QR Code
+        # 3. Configurable Encoded URL Text Field below QR Code
         field_y = cy + ch - 22
         field_w = cw - 16
         field_x = cx + 8
