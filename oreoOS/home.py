@@ -18,7 +18,7 @@ Nav: LEFT/RIGHT wrap, A to open.
 
 import time
 from oreoOS import api
-from oreoOS import theme, timeutil
+from oreoOS import theme, timeutil, widgets
 import oreoOS
 
 SW = api.SCREEN_W   # 320
@@ -26,22 +26,16 @@ SH = api.SCREEN_H   # 240
 
 _STATUS_H   = 22
 _MAIN_TOP   = _STATUS_H            # 22
-_MAIN_H     = SH - _MAIN_TOP       # bg fills the rest now (no dock)
+_MAIN_H     = SH - _MAIN_TOP - widgets.HINT_H  # leave room for bottom hint bar
 
-# Clock + date — vertically centred in the play area below the status bar
-# and above the bottom-right APPS icon. Date uses scale=2 so it's readable.
+# Clock + date — vertically centred in the play area between status bar and hint bar.
+# Date uses scale=2 so it's readable.
 _CLOCK_H    = 32                    # 8×8 font scale=4
 _DATE_H     = 16                    # 8×8 font scale=2
 _CLOCK_GAP  = 12
 _BLOCK_H    = _CLOCK_H + _CLOCK_GAP + _DATE_H
 _CLOCK_Y    = _MAIN_TOP + (_MAIN_H - _BLOCK_H) // 2
 _DATE_Y     = _CLOCK_Y + _CLOCK_H + _CLOCK_GAP
-
-# APPS icon (overlaid on bg, bottom-right corner — replaces the old dock)
-_APPS_SZ    = 32
-_APPS_MARGIN = 12
-_APPS_X     = SW - _APPS_SZ - _APPS_MARGIN
-_APPS_Y     = SH - _APPS_SZ - _APPS_MARGIN
 
 # Forest-green status bar (matches the bg image's tones; the launcher app
 # keeps the original crimson via the widgets default).
@@ -349,7 +343,7 @@ class Home(oreoOS.App):
 
             self._draw_status_bar(d, h, m)
             self._draw_clock_area(d, h, m, wd, day, mon, yr)
-            self._draw_apps_icon(d)
+            widgets.draw_hint(d, "A=apps  C=notif")
             self._dirty = False
             self._clock_dirty = False
             self._status_dirty = False
