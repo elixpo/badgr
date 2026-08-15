@@ -222,9 +222,8 @@ def run_app(os_obj, app):
                             continue
 
                         # Global C hotkey → toggle the notification panel
-                        # before anything else gets a look. Works from any
-                        # app, including ones that would otherwise consume C.
-                        if b == api.BTN_C:
+                        # unless the active app explicitly declares CONSUMES_C = True.
+                        if b == api.BTN_C and not getattr(app, "CONSUMES_C", False):
                             panel.toggle()
                             continue
 

@@ -15,8 +15,12 @@ from oreoOS import theme
 
 try:
     import time as _time
-except ImportError:
-    _time = None
+    _ticks_ms = _time.ticks_ms
+    _ticks_diff = _time.ticks_diff
+except (ImportError, AttributeError):
+    import time as _time
+    _ticks_ms = lambda: int(_time.time() * 1000)
+    _ticks_diff = lambda a, b: a - b
 
 HEADER_H = 28
 HINT_H   = 16
@@ -36,10 +40,10 @@ def _poll_wifi():
     """Refresh the cached WiFi snapshot on a 2 s cadence. Returns the
     dict so draw_header() can render the right-aligned icon without
     poking the network module on every paint."""
-    now = _time.ticks_ms() if _time else 0
+    now = _ticks_ms() if _time else 0
     last = _wifi_cache["last_ms"]
     if last is not None and _time and \
-       _time.ticks_diff(now, last) < _WIFI_POLL_MS:
+       _ticks_diff(now, last) < _WIFI_POLL_MS:
         return _wifi_cache
     try:
         from oreoWare import wifi as _w
