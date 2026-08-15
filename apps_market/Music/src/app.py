@@ -2,10 +2,10 @@
 
 Features:
   • Real-time Spotify Playback Sync (Track, Artist, Album, Duration, Progress, Volume).
-  • High-Resolution 64x64 Album Cover Art photo rendering with memory caching.
-  • Smooth 60fps local timeline scrubber and playback interpolation.
-  • Full hardware transport controls (Play/Pause, Skip Next/Prev, Volume).
-  • Dynamic QR Code Setup screen for quick authentication.
+  • High-Resolution Album Cover Art photo rendering with memory caching.
+  • Smooth, natural left-scrolling marquee with start/end reading pauses.
+  • Spacious 240x240 layout with dedicated timeline card & transport controls.
+  • Full hardware controls (Play/Pause, Skip Next/Prev, Volume adjustment).
   • Offline Demo fallback playlist when not linked to Spotify.
 
 Controls:
@@ -46,12 +46,11 @@ SH = api.SCREEN_H
 
 # Palette
 COL_SPOTIFY  = api.rgb(29,  185, 84)   # Signature Spotify Green
-COL_BG       = api.rgb(18,  18,  18)   # OLED Charcoal / Black
-COL_CARD     = api.rgb(26,  28,  36)   # Card background
-COL_CARD_BD  = api.rgb(44,  48,  62)   # Card border
-COL_MUTED    = api.rgb(150, 155, 168)  # Subtext / timer
-COL_BAR_BG   = api.rgb(42,  44,  56)   # Empty progress / vol bar
-COL_ACCENT   = api.rgb(255, 93,  104)  # Accent pink
+COL_BG       = api.rgb(14,  15,  20)   # Deep OLED Midnight
+COL_CARD     = api.rgb(24,  26,  34)   # Card background
+COL_CARD_BD  = api.rgb(44,  48,  64)   # Card border
+COL_MUTED    = api.rgb(150, 155, 170)  # Subtext / timer
+COL_BAR_BG   = api.rgb(38,  40,  52)   # Empty progress / vol bar
 COL_CYAN     = api.rgb(80,  200, 255)  # Device pill cyan
 
 DEMO_TRACKS = [
@@ -67,6 +66,21 @@ def _format_time(seconds):
     m = int(seconds) // 60
     s = int(seconds) % 60
     return "%02d:%02d" % (m, s)
+
+
+def _marquee(text, max_chars, scroll_offset):
+    if len(text) <= max_chars:
+        return text
+    overflow = len(text) - max_chars
+    cycle = overflow + 8
+    idx = int(scroll_offset) % cycle
+    if idx < 3:
+        return text[:max_chars]
+    elif idx < 3 + overflow:
+        shift = idx - 3
+        return text[shift:shift + max_chars]
+    else:
+        return text[overflow:overflow + max_chars]
 
 
 class App(oreoOS.App):
@@ -94,11 +108,10 @@ class App(oreoOS.App):
         # Album Cover Art state
         self._cover_art = None
         self._last_image_url = ""
-        self._cover_w = 64
-        self._cover_h = 64
+        self._cover_size = 72
 
         # Title marquee scroll state
-        self._title_scroll_offset = 0.0
+        self._title_scroll_t = 0.0
 
         self._anim_t = 0.0
         self._last_tick = _ticks_ms()
@@ -152,7 +165,11 @@ class App(oreoOS.App):
         state = self._spotify.get_playback()
         if state and state.get("connected"):
             if state.get("active"):
-                self._title = state.get("title", self._title)
+                new_title = state.get("title", self._title)
+                if new_title != self._title:
+                    self._title = new_title
+                    self._title_scroll_t = 0.0
+
                 self._artist = state.get("artist", self._artist)
                 self._album = state.get("album", "")
                 self._is_playing = state.get("is_playing", self._is_playing)
@@ -163,12 +180,12 @@ class App(oreoOS.App):
                 self._shuffle = state.get("shuffle", False)
                 self._repeat = state.get("repeat", "off")
 
-                # Fetch Album Cover Art
+                # Fetch 72x72 Album Cover Art
                 img_url = state.get("image_url", "")
                 if img_url and img_url != self._last_image_url:
                     self._last_image_url = img_url
                     try:
-                        self._cover_art = fetch_cover_art_rgb565(img_url, 64, 64)
+                        self._cover_art = fetch_cover_art_rgb565(img_url, self._cover_size, self._cover_size)
                     except Exception:
                         self._cover_art = None
             else:
@@ -216,6 +233,7 @@ class App(oreoOS.App):
                 self._title, self._artist, self._album, self._duration = t["title"], t["artist"], t["album"], t["duration"]
                 self._progress = 0.0
                 self._cover_art = None
+                self._title_scroll_t = 0.0
 
         elif btn == api.BTN_LEFT:
             # Skip Prev
@@ -229,6 +247,7 @@ class App(oreoOS.App):
                 self._title, self._artist, self._album, self._duration = t["title"], t["artist"], t["album"], t["duration"]
                 self._progress = 0.0
                 self._cover_art = None
+                self._title_scroll_t = 0.0
 
         elif btn == api.BTN_UP:
             # Volume Up
@@ -297,9 +316,8 @@ class App(oreoOS.App):
                 self._last_poll_ms = now
                 self._poll_spotify()
 
-        # Update title ticker scroll
-        if len(self._title) > 15:
-            self._title_scroll_offset += dt * 18.0
+        # Update smooth marquee ticker scroll
+        self._title_scroll_t += dt * 2.5
 
         self._dirty = True
 
@@ -353,84 +371,75 @@ class App(oreoOS.App):
         widgets.draw_header(d, header_title)
 
         # ── Hero Album Cover Art + Track Metadata ────────────────────────
-        cover_box_x = 10
-        cover_box_y = widgets.HEADER_H + 8
-        cover_size = 64
+        csz = self._cover_size  # 72px
+        cover_box_x = 8
+        cover_box_y = widgets.HEADER_H + 5
 
-        # Draw Cover Art Photo Frame
-        d.rect(cover_box_x - 2, cover_box_y - 2, cover_size + 4, cover_size + 4, COL_CARD_BD, fill=True)
-        d.rect(cover_box_x - 2, cover_box_y - 2, cover_size + 4, cover_size + 4, COL_SPOTIFY if self._is_playing else COL_CARD_BD, fill=False)
+        # Draw Cover Art Photo Frame (76x76 container)
+        d.rect(cover_box_x - 2, cover_box_y - 2, csz + 4, csz + 4, COL_CARD_BD, fill=True)
+        d.rect(cover_box_x - 2, cover_box_y - 2, csz + 4, csz + 4, COL_SPOTIFY if self._is_playing else COL_CARD_BD, fill=False)
 
         if self._cover_art:
-            # Real Album Cover Art Photo
-            d.blit(self._cover_art, cover_box_x, cover_box_y, cover_size, cover_size)
+            # Real High-Resolution Album Cover Art Photo
+            d.blit(self._cover_art, cover_box_x, cover_box_y, csz, csz)
         else:
-            # Styled Vinyl Record Graphic Placeholder
-            d.rect(cover_box_x, cover_box_y, cover_size, cover_size, api.rgb(22, 24, 30), fill=True)
-            # Vinyl rings
-            cx = cover_box_x + cover_size // 2
-            cy = cover_box_y + cover_size // 2
-            d.rect(cx - 24, cy - 24, 48, 48, api.rgb(38, 42, 54), fill=False)
-            d.rect(cx - 16, cy - 16, 32, 32, api.rgb(50, 56, 72), fill=False)
-            # Center label
-            d.rect(cx - 10, cy - 10, 20, 20, COL_SPOTIFY, fill=True)
+            # Styled Retro Vinyl Record Graphic Placeholder
+            d.rect(cover_box_x, cover_box_y, csz, csz, api.rgb(20, 22, 28), fill=True)
+            cx = cover_box_x + csz // 2
+            cy = cover_box_y + csz // 2
+            d.rect(cx - 28, cy - 28, 56, 56, api.rgb(36, 40, 52), fill=False)
+            d.rect(cx - 18, cy - 18, 36, 36, api.rgb(48, 54, 70), fill=False)
+            d.rect(cx - 11, cy - 11, 22, 22, COL_SPOTIFY, fill=True)
             d.rect(cx - 3, cy - 3, 6, 6, api.BLACK, fill=True)
 
-        # Metadata Card (Right side of cover)
-        meta_x = cover_box_x + cover_size + 8
-        meta_w = SW - meta_x - 10
+        # Metadata Card (Right side of cover photo)
+        meta_x = cover_box_x + csz + 6
+        meta_w = SW - meta_x - 8
         meta_y = cover_box_y - 2
-        meta_h = cover_size + 4
+        meta_h = csz + 4
 
         d.rect(meta_x, meta_y, meta_w, meta_h, COL_CARD, fill=True)
         d.rect(meta_x, meta_y, meta_w, meta_h, COL_CARD_BD, fill=False)
 
-        # Title (with scrolling if long)
-        title_str = self._title
-        max_chars = 14
-        if len(title_str) > max_chars:
-            scroll_idx = int(self._title_scroll_offset) % (len(title_str) + 4)
-            extended_title = title_str + "    " + title_str
-            display_title = extended_title[scroll_idx:scroll_idx + max_chars]
-        else:
-            display_title = title_str
-        d.text(display_title, meta_x + 6, meta_y + 6, api.WHITE)
+        # Title: Smooth natural left marquee
+        max_chars = 17
+        display_title = _marquee(self._title, max_chars, self._title_scroll_t)
+        d.text(display_title, meta_x + 6, meta_y + 8, api.WHITE)
 
         # Artist
         artist_str = self._artist
-        if len(artist_str) > 15: artist_str = artist_str[:13] + ".."
-        d.text(artist_str, meta_x + 6, meta_y + 22, COL_SPOTIFY)
+        if len(artist_str) > 17: artist_str = artist_str[:15] + ".."
+        d.text(artist_str, meta_x + 6, meta_y + 24, COL_SPOTIFY)
 
         # Album
         album_str = self._album or "Single"
-        if len(album_str) > 15: album_str = album_str[:13] + ".."
-        d.text(album_str, meta_x + 6, meta_y + 36, COL_MUTED)
+        if len(album_str) > 17: album_str = album_str[:15] + ".."
+        d.text(album_str, meta_x + 6, meta_y + 40, COL_MUTED)
 
         # Device tag
         dev_tag = self._device_name or ("Spotify" if self._mode == "SPOTIFY" else "Badge")
-        if len(dev_tag) > 13: dev_tag = dev_tag[:11] + ".."
-        d.text("[" + dev_tag + "]", meta_x + 6, meta_y + 50, COL_CYAN)
+        if len(dev_tag) > 15: dev_tag = dev_tag[:13] + ".."
+        d.text("[" + dev_tag + "]", meta_x + 6, meta_y + 56, COL_CYAN)
 
         # ── Playback Progress & Timeline Card ────────────────────────────
-        prog_card_y = cover_box_y + cover_size + 10
-        prog_card_h = 44
-        d.rect(10, prog_card_y, SW - 20, prog_card_h, COL_CARD, fill=True)
-        d.rect(10, prog_card_y, SW - 20, prog_card_h, COL_CARD_BD, fill=False)
+        prog_card_y = cover_box_y + csz + 8
+        prog_card_h = 46
+        d.rect(8, prog_card_y, SW - 16, prog_card_h, COL_CARD, fill=True)
+        d.rect(8, prog_card_y, SW - 16, prog_card_h, COL_CARD_BD, fill=False)
 
-        # Time labels
+        # Time labels + Status
         cur_str = _format_time(self._progress)
         tot_str = _format_time(self._duration)
-        d.text(cur_str, 18, prog_card_y + 8, api.WHITE)
-        d.text(tot_str, SW - len(tot_str) * 8 - 18, prog_card_y + 8, COL_MUTED)
+        d.text(cur_str, 16, prog_card_y + 8, api.WHITE)
+        d.text(tot_str, SW - len(tot_str) * 8 - 16, prog_card_y + 8, COL_MUTED)
 
-        # Center Status (PLAYING / PAUSED)
         play_label = "PLAYING" if self._is_playing else "PAUSED"
         d.text(play_label, (SW - len(play_label) * 8) // 2, prog_card_y + 8, COL_SPOTIFY if self._is_playing else theme.GOLD)
 
         # Progress bar
-        bar_x = 18
+        bar_x = 16
         bar_y = prog_card_y + 26
-        bar_w = SW - 36
+        bar_w = SW - 32
         ratio = min(1.0, max(0.0, self._progress / max(1.0, self._duration)))
         fill_w = int(bar_w * ratio)
 
@@ -442,23 +451,23 @@ class App(oreoOS.App):
         d.rect(knob_x - 2, bar_y - 2, 5, 10, api.WHITE, fill=True)
 
         # ── Transport Controls & Volume Footer ────────────────────────────
-        ctrl_y = prog_card_y + prog_card_h + 8
-        ctrl_h = 32
-        d.rect(10, ctrl_y, SW - 20, ctrl_h, COL_CARD, fill=True)
-        d.rect(10, ctrl_y, SW - 20, ctrl_h, COL_CARD_BD, fill=False)
+        ctrl_y = prog_card_y + prog_card_h + 6
+        ctrl_h = 36
+        d.rect(8, ctrl_y, SW - 16, ctrl_h, COL_CARD, fill=True)
+        d.rect(8, ctrl_y, SW - 16, ctrl_h, COL_CARD_BD, fill=False)
 
         # Transport icons: |<<  [ > / || ]  >>|
-        d.text("|<<", 24, ctrl_y + 10, COL_MUTED)
+        d.text("|<<", 20, ctrl_y + 12, COL_MUTED)
 
         play_icon = "[  >  ]" if not self._is_playing else "[ || ]"
-        d.text(play_icon, 60, ctrl_y + 10, COL_SPOTIFY)
+        d.text(play_icon, 56, ctrl_y + 12, COL_SPOTIFY)
 
-        d.text(">>|", 120, ctrl_y + 10, COL_MUTED)
+        d.text(">>|", 116, ctrl_y + 12, COL_MUTED)
 
-        # Volume badge: Vol: 70%
+        # Volume badge: Vol: 95%
         vol_text = "%d%%" % self._volume
-        d.text("VOL", SW - 78, ctrl_y + 10, COL_MUTED)
-        d.text(vol_text, SW - 46, ctrl_y + 10, COL_SPOTIFY)
+        d.text("VOL", SW - 80, ctrl_y + 12, COL_MUTED)
+        d.text(vol_text, SW - 48, ctrl_y + 12, COL_SPOTIFY)
 
         # ── Volume Toast Overlay ──────────────────────────────────────────
         if self._vol_toast_t > 0:
