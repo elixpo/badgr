@@ -379,19 +379,19 @@ class App(oreoOS.App):
             # Right arrow
             d.text(">", x_next + w_next + 4, bar_y + 5, theme.GOLD)
 
-        # FIXED, IMMUTABLE QR Container Box dimensions (116x116px)
-        box_w = 116
-        box_h = 116
+        # QR Container Box (126x126px) — allows Version 1..3 QRs to render at full 4px module scale
+        box_w = 126
+        box_h = 126
         box_x = (SW - box_w) // 2
-        box_y = cy + 28
+        box_y = cy + 25
 
         d.rect(box_x - 1, box_y - 1, box_w + 2, box_h + 2, theme.MUTED2, fill=True)
         d.rect(box_x, box_y, box_w, box_h, api.WHITE, fill=True)
 
-        # Render QR Code centered inside the fixed box
+        # Render QR Code centered inside the box
         qr_matrix = self._get_qr_matrix(url)
         q_size    = len(qr_matrix)
-        mod_sz    = max(2, min(4, (box_w - 12) // q_size))
+        mod_sz    = max(2, min(4, (box_w - 8) // q_size))
         qr_pixel_w = q_size * mod_sz
 
         start_x = box_x + (box_w - qr_pixel_w) // 2
@@ -405,15 +405,16 @@ class App(oreoOS.App):
                     d.rect(mx, my, mod_sz, mod_sz, api.BLACK, fill=True)
 
         # Configurable Encoded URL Text Field below QR Code
-        field_y = box_y + box_h + 6
+        field_y = box_y + box_h + 5
         field_w = cw - 16
         field_x = cx + 8
-        d.rect(field_x, field_y, field_w, 20, theme.BG, fill=True)
-        d.rect(field_x, field_y, field_w, 20, theme.GOLD, fill=False)
+        field_h = 18
+        d.rect(field_x, field_y, field_w, field_h, theme.BG, fill=True)
+        d.rect(field_x, field_y, field_w, field_h, theme.GOLD, fill=False)
 
         # Strip protocol for clean display inside text box
         display_url = url.replace("https://", "").replace("http://", "")
         if len(display_url) > 33:
             display_url = display_url[:30] + "..."
 
-        d.text(display_url, field_x + (field_w - len(display_url) * 8) // 2, field_y + 6, theme.TEXT_BRIGHT)
+        d.text(display_url, field_x + (field_w - len(display_url) * 8) // 2, field_y + 5, theme.TEXT_BRIGHT)
