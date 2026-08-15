@@ -37,13 +37,13 @@ APPS_DIR = _find_apps_dir() or "/apps"
 # ── app discovery ─────────────────────────────────────────────────────────────
 
 def list_apps():
-    """Return [{'dir':..., 'name':..., 'type':...}, ...]  sorted by dir name."""
+    """Return [{'dir':..., 'name':..., 'type':...}, ...]  sorted alphabetically by name."""
     apps = []
     try:
         entries = _os.listdir(APPS_DIR)
     except OSError:
         return apps
-    for entry in sorted(entries):
+    for entry in entries:
         try:
             with open("%s/%s/manifest.json" % (APPS_DIR, entry)) as f:
                 manifest = json.loads(f.read())
@@ -57,7 +57,9 @@ def list_apps():
             })
         except (OSError, ValueError):
             continue
-    return [a for a in apps if a["type"] == "app"]
+    apps = [a for a in apps if a["type"] == "app"]
+    apps.sort(key=lambda a: (a.get("name") or a.get("dir", "")).lower())
+    return apps
 
 
 def load_app(app_dir):
