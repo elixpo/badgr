@@ -36,15 +36,18 @@ def _base64_encode(s):
 
 
 def load_persisted_credentials():
-    try:
-        with open(STATE_FILE, "r") as f:
-            data = _json.loads(f.read())
-            return (data.get("token"),
-                    data.get("refresh_token"),
-                    data.get("client_id"),
-                    data.get("client_secret"))
-    except Exception:
-        pass
+    for fpath in (STATE_FILE, "apps_market/Music/" + STATE_FILE, "apps/Music/" + STATE_FILE):
+        try:
+            with open(fpath, "r") as f:
+                data = _json.loads(f.read())
+                token = data.get("token") or data.get("access_token")
+                refresh_token = data.get("refresh_token")
+                client_id = data.get("client_id")
+                client_secret = data.get("client_secret")
+                if token or refresh_token:
+                    return (token, refresh_token, client_id, client_secret)
+        except Exception:
+            pass
     return (None, None, None, None)
 
 
@@ -52,6 +55,7 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
     try:
         cur_t, cur_rt, cur_ci, cur_cs = load_persisted_credentials()
         data = {
+            "access_token": token or cur_t,
             "token": token or cur_t,
             "refresh_token": refresh_token or cur_rt,
             "client_id": client_id or cur_ci,
@@ -84,7 +88,7 @@ class SpotifyClient:
             self.reload_persisted()
 
     def is_configured(self):
-        return bool(self.token or (self.refresh_token and self.client_id and self.client_secret))
+        return bool(self.token or (self.refresh_token and self.client_id) or self.refresh_token)
 
     def reload_persisted(self):
         t, rt, ci, cs = load_persisted_credentials()
@@ -192,15 +196,24 @@ class SpotifyClient:
             return 0, None
 
     def refresh_access_token(self):
-        if not (self.refresh_token and self.client_id and self.client_secret):
+        if not self.refresh_token:
             return False
 
-        auth_str = _base64_encode("%s:%s" % (self.client_id, self.client_secret))
-        headers = {
-            "Authorization": "Basic " + auth_str,
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        body = "grant_type=refresh_token&refresh_token=" + self.refresh_token
+        if self.client_secret:
+            auth_str = _base64_encode("%s:%s" % (self.client_id or "", self.client_secret or ""))
+            headers = {
+                "Authorization": "Basic " + auth_str,
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+            body = "grant_type=refresh_token&refresh_token=" + self.refresh_token
+        else:
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+            body = "grant_type=refresh_token&refresh_token=" + self.refresh_token
+            if self.client_id:
+                body += "&client_id=" + self.client_id
+
         status, resp_bytes = self._http_request(self.AUTH_HOST, "POST", "/api/token", headers, body)
 
         if status == 200 and resp_bytes:
@@ -227,8 +240,37 @@ class SpotifyClient:
                 headers = {"Authorization": "Bearer " + self.token}
                 status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player", headers)
 
+        if status == 403:
+            return {
+                "connected":   True,
+                "active":      True,
+                "is_playing":  False,
+                "title":       "Premium Account Needed",
+                "artist":      "Spotify Dev requires Premium",
+                "album":       "API Error 403",
+                "duration_s":  180.0,
+                "progress_s":  0.0,
+                "volume":      70,
+                "device_name": "Spotify",
+                "shuffle":     False,
+                "repeat":      "off"
+            }
+
         if status == 204 or not body:
-            return {"connected": True, "active": False, "title": "No Active Player", "artist": "Open Spotify on phone/PC"}
+            return {
+                "connected":   True,
+                "active":      True,
+                "is_playing":  False,
+                "title":       "No Active Playback",
+                "artist":      "Start music on phone/PC",
+                "album":       "Spotify Connected",
+                "duration_s":  180.0,
+                "progress_s":  0.0,
+                "volume":      70,
+                "device_name": "Spotify",
+                "shuffle":     False,
+                "repeat":      "off"
+            }
 
         if status == 200 and body:
             try:
