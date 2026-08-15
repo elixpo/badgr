@@ -225,7 +225,7 @@ try:
 except Exception:
     STORE_REF = "main"
 MARKET_PATH  = "apps_market"
-CACHE_PATH   = "/store_cache.json"
+CACHE_PATH   = "store_cache.json"
 
 T_API        = 6        # seconds — GitHub Contents API call
 T_FILE       = 25       # seconds — raw-file download (per file)
@@ -336,7 +336,7 @@ def _walk(path):
     return out
 
 
-_STORE_ICONS_DIR = "/store_icons"
+_STORE_ICONS_DIR = "store_icons"
 
 
 def _q(path):
@@ -620,7 +620,7 @@ def get_details(name_dir):
 # ── disk persistence for the per-app details cache ─────────────────────
 # One small JSON file per app under /store_details/. Survives reboots
 # so opening Store + tapping an app is instant after the first time.
-_DETAILS_DIR = "/store_details"
+_DETAILS_DIR = "store_details"
 
 
 def _details_disk_path(name_dir):
