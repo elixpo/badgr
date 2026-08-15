@@ -71,11 +71,21 @@ def _start_hot_reloader():
             os.path.join(repo_root, 'sandbox-native')
         ]
         
+        STOCK_APPS = {
+            'about', 'badge', 'bt', 'commits', 'flappy', 'gallery',
+            'gamepad', 'gestures', 'identity', 'launcher', 'quest',
+            'racer', 'reader', 'settings', 'snake', 'storage',
+            'store', 'updates', 'weather', 'wifi'
+        }
+        
         def _get_max_mtime():
             max_m = 0
             for d in watch_dirs:
                 if not os.path.exists(d): continue
-                for root, _, files in os.walk(d):
+                for root, dirs, files in os.walk(d):
+                    rel = os.path.relpath(root, repo_root)
+                    if rel == "apps":
+                        dirs[:] = [sub for sub in dirs if sub in STOCK_APPS]
                     for f in files:
                         if f.endswith('.py'):
                             try:
