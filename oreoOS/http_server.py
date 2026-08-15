@@ -1479,17 +1479,24 @@ input:focus, textarea:focus { border-color: #1db954; }
 
     <!-- Tab 1: 1-Click PKCE OAuth Login -->
     <div class="tab-content active" id="tab-oauth">
-      <label>Spotify Client ID</label>
-      <input type="text" id="client-id-input" placeholder="Paste Client ID from developer dashboard">
+      <div id="dev-creds-box">
+        <label>Spotify Client ID</label>
+        <input type="text" id="client-id-input" placeholder="Paste Client ID from developer dashboard">
 
-      <div style="background: rgba(29, 185, 84, 0.08); border: 1px solid rgba(29, 185, 84, 0.3); border-radius: 8px; padding: 12px; margin-top: 14px;">
-        <p style="font-size: 12px; font-weight: 700; color: #1db954; margin-bottom: 6px;">👉 1 Quick Step in Spotify Dashboard:</p>
-        <p style="font-size: 12px; color: #bbb; line-height: 1.4;">Open your app in <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1db954; text-decoration: underline;">Spotify Dashboard</a> &rarr; <b>Settings</b> &rarr; <b>Redirect URIs</b> &rarr; Add:</p>
-        <div class="uri-box" style="margin-top: 8px; margin-bottom: 4px;">
-          <span id="redirect-uri-text" style="font-family: monospace; font-weight: 600;">...</span>
-          <button class="copy-btn" onclick="copyRedirectUri()">Copy</button>
+        <div style="background: rgba(29, 185, 84, 0.08); border: 1px solid rgba(29, 185, 84, 0.3); border-radius: 8px; padding: 12px; margin-top: 14px;">
+          <p style="font-size: 12px; font-weight: 700; color: #1db954; margin-bottom: 6px;">👉 1 Quick Step in Spotify Dashboard:</p>
+          <p style="font-size: 12px; color: #bbb; line-height: 1.4;">Open your app in <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1db954; text-decoration: underline;">Spotify Dashboard</a> &rarr; <b>Settings</b> &rarr; <b>Redirect URIs</b> &rarr; Add:</p>
+          <div class="uri-box" style="margin-top: 8px; margin-bottom: 4px;">
+            <span id="redirect-uri-text" style="font-family: monospace; font-weight: 600;">...</span>
+            <button class="copy-btn" onclick="copyRedirectUri()">Copy</button>
+          </div>
+          <p style="font-size: 11px; color: #888; margin-top: 4px;">⚠️ Click <b>"Save"</b> at the bottom of Spotify's settings page!</p>
         </div>
-        <p style="font-size: 11px; color: #888; margin-top: 4px;">⚠️ Click <b>"Save"</b> at the bottom of Spotify's settings page!</p>
+      </div>
+
+      <div id="prebaked-badge-box" style="display: none; background: #222; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px;">
+        <span style="color: #1db954; font-weight: 600;">⚡ Official Oreo Badge App</span>
+        <p style="font-size: 12px; color: #888; margin-top: 4px;">Zero setup required. Tap below to authorize with your Spotify account.</p>
       </div>
 
       <button class="btn-spotify" onclick="startSpotifyOAuth()">
@@ -1497,7 +1504,7 @@ input:focus, textarea:focus { border-color: #1db954; }
         Log in with Spotify
       </button>
 
-      <p class="hint">Create a free app at <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a> to get your Client ID.</p>
+      <p class="hint" id="dev-hint">Need a burner Client ID? Create one at <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a>.</p>
     </div>
 
     <!-- Tab 2: Quick Token Paste -->
@@ -1519,7 +1526,15 @@ input:focus, textarea:focus { border-color: #1db954; }
 </div>
 
 <script>
+const PRECONFIGURED_CLIENT_ID = "__PRECONFIGURED_CLIENT_ID__";
 const SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
+
+function getActiveClientId() {
+  const inputVal = document.getElementById('client-id-input') ? document.getElementById('client-id-input').value.trim() : '';
+  if (inputVal) return inputVal;
+  if (PRECONFIGURED_CLIENT_ID && PRECONFIGURED_CLIENT_ID !== "__PRECONFIGURED_CLIENT_ID__") return PRECONFIGURED_CLIENT_ID;
+  return localStorage.getItem('spotify_client_id') || '';
+}
 
 function getRedirectUri() {
   let uri = window.location.origin + window.location.pathname;
@@ -1618,7 +1633,7 @@ async function generateCodeChallenge(verifier) {
 }
 
 async function startSpotifyOAuth() {
-  const clientId = document.getElementById('client-id-input').value.trim();
+  const clientId = getActiveClientId();
   if (!clientId) {
     alert('Please enter your Spotify Client ID (from developer.spotify.com/dashboard)');
     return;
@@ -1646,10 +1661,16 @@ async function handleOAuthCallback() {
   const redirectUri = getRedirectUri();
   document.getElementById('redirect-uri-text').innerText = redirectUri;
 
-  // Restore client ID if saved
-  const savedId = localStorage.getItem('spotify_client_id') || '';
-  if (savedId) {
-    document.getElementById('client-id-input').value = savedId;
+  if (PRECONFIGURED_CLIENT_ID && PRECONFIGURED_CLIENT_ID !== "__PRECONFIGURED_CLIENT_ID__") {
+    document.getElementById('dev-creds-box').style.display = 'none';
+    document.getElementById('dev-hint').style.display = 'none';
+    document.getElementById('prebaked-badge-box').style.display = 'block';
+  } else {
+    // Restore client ID if saved
+    const savedId = localStorage.getItem('spotify_client_id') || '';
+    if (savedId) {
+      document.getElementById('client-id-input').value = savedId;
+    }
   }
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -1667,7 +1688,7 @@ async function handleOAuthCallback() {
     document.getElementById('auth-loading').style.display = 'block';
 
     const verifier = sessionStorage.getItem('spotify_pkce_verifier') || '';
-    const clientId = localStorage.getItem('spotify_client_id') || '';
+    const clientId = getActiveClientId();
 
     try {
       const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
@@ -1735,7 +1756,14 @@ window.onload = handleOAuthCallback;
 """.encode("utf-8")
 
 def _handle_spotify(sock):
-    _send_status(sock, 200, "OK", _SPOTIFY_HTML, content_type="text/html")
+    cid = ""
+    try:
+        from oreoOS import config
+        cid = config.get("SPOTIFY_CLIENT_ID", "")
+    except Exception:
+        pass
+    body = _SPOTIFY_HTML.replace(b"__PRECONFIGURED_CLIENT_ID__", cid.encode())
+    _send_status(sock, 200, "OK", body, content_type="text/html")
 
 
 def _handle_api_spotify(sock, headers, body_prefix, qs, method):

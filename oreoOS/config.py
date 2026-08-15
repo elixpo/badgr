@@ -50,6 +50,7 @@ WEATHER_LON       = float(_env.get("WEATHER_LON", 88.36) or 88.36)
 WEATHER_NAME      = _env.get("WEATHER_NAME", "")
 BT_AUTO_ENABLE    = False
 TIMEZONE_OFFSET   = float(_env.get("TIMEZONE_OFFSET", 5.5) or 5.5)
+SPOTIFY_CLIENT_ID = _env.get("SPOTIFY_CLIENT_ID", "")
 DEBUG             = _env.get("DEBUG", "1").lower() in ("1", "true", "yes")
 
 def get(key, default=""):
