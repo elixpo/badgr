@@ -27,6 +27,14 @@ firmware.bin
 secrets.py
 *.swp
 *.env
-.deploy_hashes.json
-dist/
-legal/
+# Runtime state and highscores
+*.txt
+!apps/commits/cache.txt
+
+# Store downloads, caches & non-stock market apps installed locally
+apps/Colors/
+apps/Oreo Pet/
+store_cache.json
+store_icons/
+store_details/
+state_pet.txt
