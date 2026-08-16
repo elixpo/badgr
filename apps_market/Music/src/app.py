@@ -1,12 +1,14 @@
-"""Spotify — Real-time Spotify Connect & Media Player for Oreo OS.
+"""Spotify — Real-time Spotify Connect & Hierarchical Media Player for Oreo OS.
 
 Features:
+  • Hierarchical Tree Library (Liked Songs, Top Tracks, Recently Played, User Playlists).
+  • Memory-Safe Lazy Fetching & Bounded Local Caching (ESP32-S3 PSRAM safe).
   • Fully Asynchronous Zero-Lag Polling (Runs in decoupled background workers).
-  • 60fps Instant Optimistic UI (Volume, Play/Pause, Skip respond with 0ms latency).
+  • 60fps / 30fps Instant Optimistic UI (Volume, Play/Pause, Skip respond with 0ms latency).
   • Interaction Lockout: Server polling never overwrites user volume adjustments.
   • Smooth Sub-second Scrubber Interpolation & Text Marquee.
   • Manifest-driven app branding ("Spotify").
-  • High-Resolution Album Cover Art rendering with memory caching.
+  • High-Resolution Album Cover Art rendering with bounded 5-slot memory caching.
   • Instant Cloud Pairing QR Screen with 6-character PIN code.
 
 Controls:
@@ -16,18 +18,19 @@ Controls:
     LEFT     Previous track
     UP       Volume Up (+5%, instant 0ms response)
     DOWN     Volume Down (-5%, instant 0ms response)
-    B        Toggle Spotify Library Drawer
+    B        Toggle Spotify Tree Library Drawer
     C        Unlink / Disconnect Spotify
     HOME     Exit to launcher drawer
 
-  LIBRARY VIEW:
-    UP/DOWN  Scroll through tracks
-    A        Play selected track & return to player
-    B        Return to player view
+  TREE LIBRARY VIEW:
+    UP/DOWN  Navigate folders, playlists, or tracks
+    A / >    Open folder / Play track
+    B / <    Back up folder level / Return to Player
     C        Unlink / Disconnect Spotify
 """
 
 import time
+import unicodedata
 import oreoOS
 from oreoOS import api, theme, widgets
 
@@ -64,8 +67,8 @@ COL_WARN     = api.rgb(240, 160,  40)  # Offline / Warning amber
 
 DEFAULT_LIBRARY_TRACKS = [
     {"title": "Hola Amigo",      "artist": "KR$NA, Seedhe Maut",     "album": "FAR FROM OVER", "duration": 226, "category": "Top",    "uri": "spotify:track:5W17yyFN1l8JL5MNUCvrYS"},
-    {"title": "Sweater Weather", "artist": "The Neighbourhood",      "album": "I Love You.",   "duration": 240, "category": "Saved",  "uri": "spotify:track:6jhzQyn6cwPHc85PE4qBp0"},
-    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk",  "album": "Starboy",      "duration": 230, "category": "Saved",  "uri": "spotify:track:7MXVkk9YMctZqd1Srtv4MB"},
+    {"title": "Sweater Weather", "artist": "The Neighbourhood",      "album": "I Love You.",   "duration": 240, "category": "Liked",  "uri": "spotify:track:6jhzQyn6cwPHc85PE4qBp0"},
+    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk",  "album": "Starboy",      "duration": 230, "category": "Liked",  "uri": "spotify:track:7MXVkk9YMctZqd1Srtv4MB"},
     {"title": "Midnight City",   "artist": "M83",                    "album": "Hurry Up",      "duration": 243, "category": "Recent", "uri": "spotify:track:6GyFP1nfCDB8lbD2bG0Hq9"},
     {"title": "G-Class",         "artist": "YUNG SAMMY, Urban Poet", "album": "G-Class",      "duration": 166, "category": "Recent", "uri": "spotify:track:2yBum3qnYBlzeGjpWQLenu"},
     {"title": "Blinding Lights", "artist": "The Weeknd",             "album": "After Hours",   "duration": 200, "category": "Top",    "uri": "spotify:track:0VjIjW4GlUZAMYd2vXMi3b"},
@@ -105,7 +108,22 @@ def _format_time(seconds):
     return "%02d:%02d" % (m, s)
 
 
+def _clean_text(s):
+    """Sanitize Unicode & diacritics into readable ASCII characters safely."""
+    if not s:
+        return ""
+    try:
+        s_norm = "".join(c for c in unicodedata.normalize("NFKD", str(s)) if unicodedata.category(c) != "Mn")
+        cleaned = "".join(c if 32 <= ord(c) <= 126 else "" for c in s_norm)
+        while "  " in cleaned:
+            cleaned = cleaned.replace("  ", " ")
+        return cleaned.strip() or str(s)
+    except Exception:
+        return str(s)
+
+
 def _marquee(text, max_chars, scroll_offset):
+    text = _clean_text(text)
     if len(text) <= max_chars:
         return text
     overflow = len(text) - max_chars
@@ -122,22 +140,14 @@ def _marquee(text, max_chars, scroll_offset):
 
 def _draw_icon_prev(d, x, y, color):
     d.rect(x, y, 2, 10, color, fill=True)
-    for col in range(5):
-        h = (col + 1) * 2
-        d.rect(x + 3 + col, y + (10 - h) // 2, 1, h, color, fill=True)
-    for col in range(5):
-        h = (col + 1) * 2
-        d.rect(x + 8 + col, y + (10 - h) // 2, 1, h, color, fill=True)
+    d.rect(x + 3, y + 2, 4, 6, color, fill=True)
+    d.rect(x + 7, y + 1, 4, 8, color, fill=True)
 
 
 def _draw_icon_next(d, x, y, color):
-    for col in range(5):
-        h = 10 - col * 2
-        d.rect(x + col, y + (10 - h) // 2, 1, h, color, fill=True)
-    for col in range(5):
-        h = 10 - col * 2
-        d.rect(x + 5 + col, y + (10 - h) // 2, 1, h, color, fill=True)
-    d.rect(x + 11, y, 2, 10, color, fill=True)
+    d.rect(x, y + 1, 4, 8, color, fill=True)
+    d.rect(x + 4, y + 2, 4, 6, color, fill=True)
+    d.rect(x + 9, y, 2, 10, color, fill=True)
 
 
 def _draw_icon_play(d, x, y, color):
@@ -179,11 +189,27 @@ class App(oreoOS.App):
         self._wifi_online = _is_wifi_up()
         self._last_wifi_check = _ticks_ms()
 
-        # Library Navigation State
-        self._lib_idx = 0
-        self._lib_scroll = 0
-        self._library_tracks = list(DEFAULT_LIBRARY_TRACKS)
-        self._lib_loading = False
+        # Hierarchical Tree Navigation State
+        self._tree_state = "ROOT"   # "ROOT" (Folders) | "TRACKS" (Track List) | "PLAYLISTS" (Playlist List)
+        self._tree_idx = 0
+        self._tree_scroll = 0
+        self._tree_title = "LIBRARY"
+        self._tree_loading = False
+
+        # Tree Data Caches
+        self._tree_folders = [
+            {"id": "liked",     "label": "Liked Songs",     "icon": "DIR",  "count": 0},
+            {"id": "top",       "label": "Top Tracks",      "icon": "DIR",  "count": 0},
+            {"id": "recent",    "label": "Recently Played", "icon": "DIR",  "count": 0},
+            {"id": "playlists", "label": "Playlists",       "icon": "DIR",  "count": 0},
+        ]
+        self._folder_tracks_cache = {
+            "liked": list(DEFAULT_LIBRARY_TRACKS),
+            "top": [],
+            "recent": [],
+        }
+        self._playlists_cache = []
+        self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
 
         # Player State
         self._title = "Spotify Connect"
@@ -215,7 +241,7 @@ class App(oreoOS.App):
         self._qr_matrix = None
         self._qr_poll_t = _ticks_ms()
 
-        # High-Responsiveness Volume Engine (0ms Optimistic UI + Graceful Buffer)
+        # High-Responsiveness Volume Engine
         self._vol_buffered = False
         self._vol_settle_t = 0
         self._vol_user_interacting_until = 0
@@ -227,32 +253,136 @@ class App(oreoOS.App):
 
         if self._spotify.is_configured():
             self._trigger_async_poll()
-            self._load_spotify_user_library()
+            self._prefetch_library_tree()
         else:
             self._start_qr_session()
 
-    def _load_spotify_user_library(self):
-        """Asynchronously fetch user's real Spotify tracks."""
+    def _prefetch_library_tree(self):
+        """Asynchronously pre-fetch folder counts and tracks for the tree."""
         if not self._spotify.is_configured():
             return
-        self._lib_loading = True
+        self._tree_loading = True
+
         def _worker():
             try:
-                user_tracks = self._spotify.get_user_tracks(25)
-                if user_tracks:
-                    merged = user_tracks + [t for t in DEFAULT_LIBRARY_TRACKS if not any(u["title"].lower() == t["title"].lower() for u in user_tracks)]
-                    self._library_tracks = merged
-                    self._dirty = True
+                # 1. Fetch Liked Tracks
+                liked = self._spotify.get_saved_tracks(25)
+                if liked:
+                    self._folder_tracks_cache["liked"] = liked
+                    self._tree_folders[0]["count"] = len(liked)
+                else:
+                    self._tree_folders[0]["count"] = len(DEFAULT_LIBRARY_TRACKS)
+
+                # 2. Fetch Top Tracks
+                top = self._spotify.get_top_tracks(20)
+                if top:
+                    self._folder_tracks_cache["top"] = top
+                    self._tree_folders[1]["count"] = len(top)
+
+                # 3. Fetch Recently Played
+                recents = self._spotify.get_recently_played(20)
+                if recents:
+                    self._folder_tracks_cache["recent"] = recents
+                    self._tree_folders[2]["count"] = len(recents)
+
+                # 4. Fetch User Playlists
+                pls = self._spotify.get_user_playlists(15)
+                if pls:
+                    self._playlists_cache = pls
+                    self._tree_folders[3]["count"] = len(pls)
+
+                # Update current active list if on Liked
+                if self._tree_state == "TRACKS" and self._tree_title == "LIKED SONGS":
+                    self._current_track_list = self._folder_tracks_cache["liked"]
+
+                self._dirty = True
             except Exception:
                 pass
             finally:
-                self._lib_loading = False
+                self._tree_loading = False
+                self._dirty = True
+
+        try:
+            import threading
+            threading.Thread(target=_worker, daemon=True).start()
+        except Exception:
+            self._tree_loading = False
+
+    def _open_folder(self, folder_id, label):
+        """Open a folder in the tree view and load its tracks."""
+        self._tree_title = label.upper()
+        self._tree_idx = 0
+        self._tree_scroll = 0
+
+        if folder_id == "playlists":
+            self._tree_state = "PLAYLISTS"
+            self._dirty = True
+            return
+
+        # Regular Track Folder (liked, top, recent)
+        self._tree_state = "TRACKS"
+        cached_tracks = self._folder_tracks_cache.get(folder_id, [])
+        if cached_tracks:
+            self._current_track_list = cached_tracks
+        else:
+            self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+        self._dirty = True
+
+        # Fetch fresh in background if empty
+        if not cached_tracks and self._spotify.is_configured():
+            self._tree_loading = True
+            def _load_worker():
+                try:
+                    if folder_id == "liked":
+                        res = self._spotify.get_saved_tracks(25)
+                    elif folder_id == "top":
+                        res = self._spotify.get_top_tracks(25)
+                    elif folder_id == "recent":
+                        res = self._spotify.get_recently_played(25)
+                    else:
+                        res = []
+                    if res:
+                        self._folder_tracks_cache[folder_id] = res
+                        self._current_track_list = res
+                except Exception:
+                    pass
+                finally:
+                    self._tree_loading = False
+                    self._dirty = True
+            try:
+                import threading
+                threading.Thread(target=_load_worker, daemon=True).start()
+            except Exception:
+                self._tree_loading = False
+
+    def _open_playlist(self, pl):
+        """Open a specific playlist from the playlists list."""
+        self._tree_title = _clean_text(pl.get("name", "PLAYLIST")).upper()
+        self._tree_state = "TRACKS"
+        self._tree_idx = 0
+        self._tree_scroll = 0
+        self._current_track_list = []
+        self._tree_loading = True
+        self._dirty = True
+
+        pl_id = pl.get("id")
+        def _worker():
+            try:
+                tracks = self._spotify.get_playlist_tracks(pl_id, 25)
+                if tracks:
+                    self._current_track_list = tracks
+                else:
+                    self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+            except Exception:
+                self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+            finally:
+                self._tree_loading = False
                 self._dirty = True
         try:
             import threading
             threading.Thread(target=_worker, daemon=True).start()
         except Exception:
-            pass
+            self._tree_loading = False
 
     def _set_volume_async(self, vol):
         if not self._spotify.is_configured():
@@ -290,7 +420,7 @@ class App(oreoOS.App):
         self._dirty = True
 
     def _trigger_async_poll(self):
-        """Non-blocking background poller that keeps UI running at 60fps."""
+        """Non-blocking background poller that keeps UI running at 60fps / 30fps."""
         if self._poll_in_progress or not self._spotify.is_configured():
             return
         self._poll_in_progress = True
@@ -308,23 +438,20 @@ class App(oreoOS.App):
                     server_playing = bool(state.get("is_playing", False))
                     self._device_name = state.get("device_name", "Spotify Connect")
 
-                    # Only update playing state from server if not within an action grace window
                     if _ticks_diff(now, self._poll_skip_until) >= 0:
                         self._is_playing = server_playing
 
                     title = state.get("title", "")
                     if active and title and title not in ("No Active Playback", "Ready", "Spotify Connected", "No Active Device"):
-                        self._title = title
-                        self._artist = state.get("artist", self._artist)
-                        self._album = state.get("album", "")
+                        self._title = _clean_text(title)
+                        self._artist = _clean_text(state.get("artist", self._artist))
+                        self._album = _clean_text(state.get("album", ""))
                         self._duration = state.get("duration_s", self._duration)
 
-                        # Calibrate progress without jumpy artifacts
                         server_progress = state.get("progress_s", 0.0)
                         if abs(self._progress - server_progress) > 2.0 or not self._is_playing:
                             self._progress = server_progress
 
-                        # Only update volume from server if user hasn't recently adjusted it locally
                         if _ticks_diff(now, self._vol_user_interacting_until) >= 0:
                             self._volume = state.get("volume", self._volume)
                             self._last_synced_vol = self._volume
@@ -367,7 +494,7 @@ class App(oreoOS.App):
                 if self._spotify.reload_persisted():
                     self._show_qr = False
                     self._trigger_async_poll()
-                    self._load_spotify_user_library()
+                    self._prefetch_library_tree()
                 else:
                     self._start_qr_session()
             self._dirty = True
@@ -377,9 +504,10 @@ class App(oreoOS.App):
         if btn == api.BTN_C:
             if self._spotify.is_configured():
                 self._spotify.disconnect()
-                self._library_tracks = list(DEFAULT_LIBRARY_TRACKS)
-                self._lib_idx = 0
-                self._lib_scroll = 0
+                self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+                self._tree_state = "ROOT"
+                self._tree_idx = 0
+                self._tree_scroll = 0
                 self._title = "Spotify Connect"
                 self._artist = "Scan QR to Pair"
                 self._album = "Ready"
@@ -394,63 +522,131 @@ class App(oreoOS.App):
             self._dirty = True
             return
 
-        # ── Library View Controls ─────────────────────────────────────────
+        # ── Hierarchical Tree Library View ────────────────────────────────
         if self._view_mode == "LIBRARY":
-            if btn == api.BTN_B:
-                self._view_mode = "PLAYER"
-                self._dirty = True
-                return
-            elif btn == api.BTN_UP:
-                if self._lib_idx > 0:
-                    self._lib_idx -= 1
-                    if self._lib_idx < self._lib_scroll:
-                        self._lib_scroll = self._lib_idx
-                    self._dirty = True
-                return
-            elif btn == api.BTN_DOWN:
-                if self._library_tracks and self._lib_idx < len(self._library_tracks) - 1:
-                    self._lib_idx += 1
-                    if self._lib_idx >= self._lib_scroll + 5:
-                        self._lib_scroll = self._lib_idx - 4
-                    self._dirty = True
-                return
-            elif btn == api.BTN_A:
-                if self._library_tracks:
-                    t = self._library_tracks[self._lib_idx]
-                    self._title = t["title"]
-                    self._artist = t["artist"]
-                    self._album = t["album"]
-                    self._duration = t["duration"]
-                    self._progress = 0.0
-                    self._is_playing = True
-                    self._cover_art = None
-                    self._title_scroll_t = 0.0
+            # 1. ROOT State (Folder Selection)
+            if self._tree_state == "ROOT":
+                if btn in (api.BTN_B, api.BTN_LEFT):
                     self._view_mode = "PLAYER"
-                    self._poll_skip_until = _ticks_ms() + 3000
+                    self._dirty = True
+                    return
+                elif btn == api.BTN_UP:
+                    if self._tree_idx > 0:
+                        self._tree_idx -= 1
+                        if self._tree_idx < self._tree_scroll:
+                            self._tree_scroll = self._tree_idx
+                        self._dirty = True
+                    return
+                elif btn == api.BTN_DOWN:
+                    if self._tree_idx < len(self._tree_folders) - 1:
+                        self._tree_idx += 1
+                        if self._tree_idx >= self._tree_scroll + 5:
+                            self._tree_scroll = self._tree_idx - 4
+                        self._dirty = True
+                    return
+                elif btn in (api.BTN_A, api.BTN_RIGHT):
+                    # Enter Folder
+                    f = self._tree_folders[self._tree_idx]
+                    self._open_folder(f["id"], f["label"])
+                    return
 
-                    track_target = t.get("uri") or (t["title"] + " " + t["artist"])
-                    def _play_worker(target):
+            # 2. PLAYLISTS State (List of User Playlists)
+            elif self._tree_state == "PLAYLISTS":
+                if btn in (api.BTN_B, api.BTN_LEFT):
+                    self._tree_state = "ROOT"
+                    self._tree_idx = 3  # Return cursor to Playlists item
+                    self._tree_scroll = 0
+                    self._dirty = True
+                    return
+                elif btn == api.BTN_UP:
+                    if self._tree_idx > 0:
+                        self._tree_idx -= 1
+                        if self._tree_idx < self._tree_scroll:
+                            self._tree_scroll = self._tree_idx
+                        self._dirty = True
+                    return
+                elif btn == api.BTN_DOWN:
+                    if self._playlists_cache and self._tree_idx < len(self._playlists_cache) - 1:
+                        self._tree_idx += 1
+                        if self._tree_idx >= self._tree_scroll + 5:
+                            self._tree_scroll = self._tree_idx - 4
+                        self._dirty = True
+                    return
+                elif btn in (api.BTN_A, api.BTN_RIGHT):
+                    # Open selected playlist
+                    if self._playlists_cache:
+                        pl = self._playlists_cache[self._tree_idx]
+                        self._open_playlist(pl)
+                    return
+
+            # 3. TRACKS State (Track List inside Folder/Playlist)
+            elif self._tree_state == "TRACKS":
+                if btn in (api.BTN_B, api.BTN_LEFT):
+                    # Back up to playlists if inside a playlist, else root
+                    if self._tree_folders[3]["label"].upper() in self._tree_title:
+                        self._tree_state = "PLAYLISTS"
+                    else:
+                        self._tree_state = "ROOT"
+                    self._tree_idx = 0
+                    self._tree_scroll = 0
+                    self._dirty = True
+                    return
+                elif btn == api.BTN_UP:
+                    if self._tree_idx > 0:
+                        self._tree_idx -= 1
+                        if self._tree_idx < self._tree_scroll:
+                            self._tree_scroll = self._tree_idx
+                        self._dirty = True
+                    return
+                elif btn == api.BTN_DOWN:
+                    if self._current_track_list and self._tree_idx < len(self._current_track_list) - 1:
+                        self._tree_idx += 1
+                        if self._tree_idx >= self._tree_scroll + 5:
+                            self._tree_scroll = self._tree_idx - 4
+                        self._dirty = True
+                    return
+                elif btn == api.BTN_A:
+                    # Select & Play song
+                    if self._current_track_list:
+                        t = self._current_track_list[self._tree_idx]
+                        self._title = _clean_text(t["title"])
+                        self._artist = _clean_text(t["artist"])
+                        self._album = _clean_text(t["album"])
+                        self._duration = t["duration"]
+                        self._progress = 0.0
+                        self._is_playing = True
+                        self._cover_art = None
+                        self._title_scroll_t = 0.0
+                        self._view_mode = "PLAYER"
+                        self._poll_skip_until = _ticks_ms() + 3000
+
+                        track_target = t.get("uri") or (t["title"] + " " + t["artist"])
+                        def _play_worker(target):
+                            try:
+                                self._spotify.play_track(target)
+                                time.sleep(0.8)
+                                self._trigger_async_poll()
+                            except Exception:
+                                pass
                         try:
-                            self._spotify.play_track(target)
-                            time.sleep(0.8)
-                            self._trigger_async_poll()
+                            import threading
+                            threading.Thread(target=_play_worker, args=(track_target,), daemon=True).start()
                         except Exception:
                             pass
-                    try:
-                        import threading
-                        threading.Thread(target=_play_worker, args=(track_target,), daemon=True).start()
-                    except Exception:
-                        pass
-                self._dirty = True
-                return
+                    self._dirty = True
+                    return
             return
 
         # ── Player View Controls (0ms Latency Optimistic Responses) ────────
         now = _ticks_ms()
 
         if btn == api.BTN_B:
+            # Open Tree Library Drawer
             self._view_mode = "LIBRARY"
-            self._load_spotify_user_library()
+            self._tree_state = "ROOT"
+            self._tree_idx = 0
+            self._tree_scroll = 0
+            self._prefetch_library_tree()
             self._dirty = True
 
         elif btn == api.BTN_A:
@@ -458,8 +654,8 @@ class App(oreoOS.App):
             self._is_playing = not self._is_playing
             self._poll_skip_until = now + 2500
             current_target = None
-            if self._library_tracks:
-                t = self._library_tracks[self._lib_idx]
+            if self._current_track_list:
+                t = self._current_track_list[0]
                 current_target = t.get("uri") or (t["title"] + " " + t["artist"])
 
             def _toggle_worker(should_play, target):
@@ -482,7 +678,6 @@ class App(oreoOS.App):
             self._dirty = True
 
         elif btn == api.BTN_RIGHT:
-            # Skip Next (0ms visual feedback + background dispatch)
             self._poll_skip_until = now + 2000
             def _next_worker():
                 try:
@@ -499,7 +694,6 @@ class App(oreoOS.App):
             self._dirty = True
 
         elif btn == api.BTN_LEFT:
-            # Skip Prev (0ms visual feedback + background dispatch)
             self._poll_skip_until = now + 2000
             def _prev_worker():
                 try:
@@ -516,7 +710,6 @@ class App(oreoOS.App):
             self._dirty = True
 
         elif btn == api.BTN_UP:
-            # Volume Up (Instant 0ms UI feedback + Lockout server overwrite)
             self._volume = min(100, self._volume + 5)
             self._vol_buffered = True
             self._vol_settle_t = now + 250
@@ -524,7 +717,6 @@ class App(oreoOS.App):
             self._dirty = True
 
         elif btn == api.BTN_DOWN:
-            # Volume Down (Instant 0ms UI feedback + Lockout server overwrite)
             self._volume = max(0, self._volume - 5)
             self._vol_buffered = True
             self._vol_settle_t = now + 250
@@ -534,19 +726,19 @@ class App(oreoOS.App):
     def update(self, dt):
         now = _ticks_ms()
 
-        # Check WiFi status periodically (lightweight)
+        # Check WiFi status periodically
         if _ticks_diff(now, self._last_wifi_check) > 2500:
             self._last_wifi_check = now
             self._wifi_online = _is_wifi_up()
 
-        # Volume Debounce Flush (Sends after 250ms of quiet)
+        # Volume Debounce Flush
         if self._vol_buffered and _ticks_diff(now, self._vol_settle_t) >= 0:
             self._vol_buffered = False
             if self._volume != self._last_synced_vol:
                 self._last_synced_vol = self._volume
                 self._set_volume_async(self._volume)
 
-        # Update QR Pairing Session (Non-blocking check)
+        # Update QR Pairing Session
         if self._show_qr and self._qr_session_id:
             if _ticks_diff(now, self._qr_poll_t) > 2000:
                 self._qr_poll_t = now
@@ -558,7 +750,7 @@ class App(oreoOS.App):
                             if self._spotify.reload_persisted():
                                 self._show_qr = False
                                 self._trigger_async_poll()
-                                self._load_spotify_user_library()
+                                self._prefetch_library_tree()
                                 self._dirty = True
                     except Exception:
                         pass
@@ -584,7 +776,8 @@ class App(oreoOS.App):
 
         # Smooth Text Marquee Ticker
         self._title_scroll_t += dt * 3.5
-        self._dirty = True
+        if len(self._title) > 16 or len(self._artist) > 16:
+            self._dirty = True
 
     def draw(self, d):
         if not self._dirty:
@@ -598,9 +791,9 @@ class App(oreoOS.App):
             self._dirty = False
             return
 
-        # ── Library Drawer View ───────────────────────────────────────────
+        # ── Hierarchical Tree Library View ────────────────────────────────
         if self._view_mode == "LIBRARY":
-            self._draw_library(d)
+            self._draw_library_tree(d)
             self._dirty = False
             return
 
@@ -609,23 +802,19 @@ class App(oreoOS.App):
         self._dirty = False
 
     def _draw_player(self, d):
-        # 1. Header
         app_title = "SPOTIFY CONNECT" if self._spotify.is_configured() else "SPOTIFY"
         widgets.draw_header(d, app_title)
 
-        # 2. Hero Album Cover Art + Track Metadata
         csz = self._cover_size
         cover_box_x = 8
         cover_box_y = widgets.HEADER_H + 5
 
-        # Cover Art Photo Frame (76x76 container)
         d.rect(cover_box_x - 2, cover_box_y - 2, csz + 4, csz + 4, COL_CARD_BD, fill=True)
         d.rect(cover_box_x - 2, cover_box_y - 2, csz + 4, csz + 4, COL_SPOTIFY if self._is_playing else COL_CARD_BD, fill=False)
 
         if self._cover_art:
             d.blit(self._cover_art, cover_box_x, cover_box_y, csz, csz)
         else:
-            # Retro Vinyl Graphic Placeholder
             d.rect(cover_box_x, cover_box_y, csz, csz, api.rgb(20, 22, 28), fill=True)
             cx = cover_box_x + csz // 2
             cy = cover_box_y + csz // 2
@@ -634,7 +823,6 @@ class App(oreoOS.App):
             d.rect(cx - 11, cy - 11, 22, 22, COL_SPOTIFY, fill=True)
             d.rect(cx - 3, cy - 3, 6, 6, api.BLACK, fill=True)
 
-        # Metadata Card (Full space utilization: 26 chars)
         meta_x = cover_box_x + csz + 6
         meta_w = SW - meta_x - 8
         meta_y = cover_box_y - 2
@@ -645,22 +833,18 @@ class App(oreoOS.App):
 
         max_chars = (meta_w - 14) // 8
 
-        # Line 1: Title (smooth marquee)
         display_title = _marquee(self._title, max_chars, self._title_scroll_t)
         d.text(display_title, meta_x + 7, meta_y + 7, api.WHITE)
 
-        # Line 2: Artist (smooth marquee)
         display_artist = _marquee(self._artist, max_chars, self._title_scroll_t * 0.8)
         d.text(display_artist, meta_x + 7, meta_y + 23, COL_SPOTIFY)
 
-        # Line 3: Album
-        album_str = self._album or "Single"
+        album_str = _clean_text(self._album or "Single")
         if len(album_str) > max_chars:
             album_str = album_str[:max_chars - 2] + ".."
         d.text(album_str, meta_x + 7, meta_y + 39, COL_MUTED)
 
-        # Line 4: Device Streaming Pill Badge
-        dev_tag = self._device_name or "Spotify Connect"
+        dev_tag = _clean_text(self._device_name or "Spotify Connect")
         if len(dev_tag) > max_chars - 3:
             dev_tag = dev_tag[:max_chars - 5] + ".."
         pill_w = len(dev_tag) * 8 + 14
@@ -669,25 +853,21 @@ class App(oreoOS.App):
         d.rect(meta_x + 11, meta_y + 58, 3, 3, COL_SPOTIFY, fill=True)
         d.text(dev_tag, meta_x + 18, meta_y + 57, COL_CYAN)
 
-        # 3. Playback Timeline Card
         prog_card_y = cover_box_y + csz + 8
         prog_card_h = 46
         d.rect(8, prog_card_y, SW - 16, prog_card_h, COL_CARD, fill=True)
         d.rect(8, prog_card_y, SW - 16, prog_card_h, COL_CARD_BD, fill=False)
 
-        # Time Labels
         cur_time_str = _format_time(self._progress)
         tot_time_str = _format_time(self._duration)
         d.text(cur_time_str, 16, prog_card_y + 8, api.WHITE)
         d.text(tot_time_str, SW - 16 - len(tot_time_str) * 8, prog_card_y + 8, api.WHITE)
 
-        # State Pill Badge
         status_label = "PLAYING" if self._is_playing else "PAUSED"
         stat_w = len(status_label) * 8
         stat_x = (SW - stat_w) // 2
         d.text(status_label, stat_x, prog_card_y + 8, COL_SPOTIFY if self._is_playing else theme.GOLD)
 
-        # Timeline Scrubber Bar
         bar_x = 16
         bar_y = prog_card_y + 26
         bar_w = SW - 32
@@ -700,16 +880,13 @@ class App(oreoOS.App):
         knob_x = min(bar_x + bar_w - 3, max(bar_x, bar_x + fill_w))
         d.rect(knob_x - 2, bar_y - 2, 5, 10, api.WHITE, fill=True)
 
-        # 4. Minimal Transport Controls & Volume Footer
         ctrl_y = prog_card_y + prog_card_h + 6
         ctrl_h = 36
         d.rect(8, ctrl_y, SW - 16, ctrl_h, COL_CARD, fill=True)
         d.rect(8, ctrl_y, SW - 16, ctrl_h, COL_CARD_BD, fill=False)
 
-        # Transport: Prev Track
         _draw_icon_prev(d, 28, ctrl_y + 13, api.WHITE)
 
-        # Transport: Hero Play/Pause Capsule Button
         btn_x = 58
         btn_y = ctrl_y + 6
         btn_w = 34
@@ -722,10 +899,8 @@ class App(oreoOS.App):
         else:
             _draw_icon_play(d, btn_x + 13, btn_y + 6, icon_fg)
 
-        # Transport: Next Track
         _draw_icon_next(d, 108, ctrl_y + 13, api.WHITE)
 
-        # Volume Section: Speaker Icon + Progress Slider Bar + % Readout
         _draw_icon_speaker(d, 160, ctrl_y + 13, COL_SPOTIFY, self._volume)
         vx = 182
         vy = ctrl_y + 16
@@ -738,7 +913,6 @@ class App(oreoOS.App):
         d.rect(vx + min(vw - 2, max(0, v_fill - 1)), vy - 2, 3, 9, api.WHITE, fill=True)
         d.text("%d%%" % self._volume, 264, ctrl_y + 14, api.WHITE)
 
-        # 5. Toast Notification Overlay if active
         now = _ticks_ms()
         if self._toast_until > 0 and _ticks_diff(now, self._toast_until) < 0:
             tw = len(self._toast_msg) * 8 + 24
@@ -748,15 +922,19 @@ class App(oreoOS.App):
             d.rect(tx, ty, tw, 22, theme.GOLD, fill=False)
             d.text(self._toast_msg, tx + 12, ty + 7, theme.GOLD)
 
-        # 6. Bottom Hint Bar
         c_act = "C:Unlink" if self._spotify.is_configured() else "C:Link"
         widgets.draw_hint(d, "A:Play  <>:Skip  ^v:Vol  B:Lib  " + c_act)
 
-    def _draw_library(self, d):
-        # Header
-        widgets.draw_header(d, "SPOTIFY LIBRARY")
+    def _draw_library_tree(self, d):
+        # 1. Header (Clean concise section title)
+        if self._tree_state == "ROOT":
+            header_str = "LIBRARY"
+        elif self._tree_state == "PLAYLISTS":
+            header_str = "PLAYLISTS"
+        else:
+            header_str = self._tree_title[:14]
+        widgets.draw_header(d, header_str)
 
-        # Container Card
         card_x = 8
         card_y = widgets.HEADER_H + 4
         card_w = SW - 16
@@ -764,63 +942,147 @@ class App(oreoOS.App):
         d.rect(card_x, card_y, card_w, card_h, COL_CARD, fill=True)
         d.rect(card_x, card_y, card_w, card_h, COL_CARD_BD, fill=False)
 
-        tracks = self._library_tracks
-        row_h = 34
-        visible_count = 5
-        for i in range(visible_count):
-            item_idx = self._lib_scroll + i
-            if item_idx >= len(tracks):
-                break
-            t = tracks[item_idx]
-            ry = card_y + 4 + i * (row_h + 2)
-            rx = card_x + 4
-            rw = card_w - 14
+        # ── STATE 1: ROOT FOLDERS TREE ────────────────────────────────────
+        if self._tree_state == "ROOT":
+            folders = self._tree_folders
+            row_h = 34
+            for i, f in enumerate(folders):
+                ry = card_y + 4 + i * (row_h + 2)
+                rx = card_x + 4
+                rw = card_w - 8
+                is_sel = (i == self._tree_idx)
 
-            is_selected = (item_idx == self._lib_idx)
-            is_active_track = (t["title"].lower() == self._title.lower())
+                if is_sel:
+                    d.rect(rx, ry, rw, row_h, api.rgb(38, 44, 60), fill=True)
+                    d.rect(rx, ry, 3, row_h, COL_SPOTIFY, fill=True)
+                else:
+                    d.rect(rx, ry, rw, row_h, api.rgb(20, 22, 28), fill=True)
 
-            # Row Background
-            if is_selected:
-                d.rect(rx, ry, rw, row_h, api.rgb(38, 44, 60), fill=True)
-                d.rect(rx, ry, 3, row_h, COL_SPOTIFY, fill=True)
+                # Folder Icon graphic
+                fx = rx + 8
+                fy = ry + 11
+                d.rect(fx, fy, 4, 2, COL_SPOTIFY, fill=True)
+                d.rect(fx, fy + 2, 14, 9, COL_SPOTIFY if is_sel else COL_MUTED, fill=False)
+                d.rect(fx + 2, fy + 4, 10, 5, COL_SPOTIFY if is_sel else COL_MUTED, fill=True)
+
+                # Folder Label
+                lbl_color = api.WHITE if is_sel else api.rgb(210, 215, 225)
+                d.text(f["label"], rx + 30, ry + 8, lbl_color)
+
+                # Item Count / Status
+                cnt = f.get("count", 0)
+                sub_str = f"{cnt} tracks" if f["id"] != "playlists" else f"{cnt} playlists"
+                d.text(sub_str, rx + 30, ry + 20, COL_SPOTIFY if is_sel else COL_MUTED)
+
+                # Right Arrow
+                d.text(">", rx + rw - 14, ry + 12, COL_SPOTIFY if is_sel else COL_MUTED)
+
+            widgets.draw_hint(d, "A:Open  ^v:Select  B:Player  C:Unlink")
+            return
+
+        # ── STATE 2: PLAYLIST LIST ────────────────────────────────────────
+        if self._tree_state == "PLAYLISTS":
+            pls = self._playlists_cache
+            if not pls:
+                d.text("No Playlists Found", card_x + 40, card_y + 50, COL_MUTED)
+                d.text("Press B to go back", card_x + 40, card_y + 70, COL_SPOTIFY)
             else:
-                d.rect(rx, ry, rw, row_h, api.rgb(20, 22, 28), fill=True)
+                row_h = 34
+                vis_count = 5
+                for i in range(vis_count):
+                    item_idx = self._tree_scroll + i
+                    if item_idx >= len(pls): break
+                    pl = pls[item_idx]
+                    ry = card_y + 4 + i * (row_h + 2)
+                    rx = card_x + 4
+                    rw = card_w - 14
+                    is_sel = (item_idx == self._tree_idx)
 
-            # Track Number / Equalizer Icon
-            if is_active_track and self._is_playing:
-                d.rect(rx + 8, ry + 12, 2, 8, COL_SPOTIFY, fill=True)
-                d.rect(rx + 12, ry + 8, 2, 12, COL_SPOTIFY, fill=True)
-                d.rect(rx + 16, ry + 14, 2, 6, COL_SPOTIFY, fill=True)
-            else:
-                num_str = "%02d" % (item_idx + 1)
-                d.text(num_str, rx + 8, ry + 12, COL_SPOTIFY if is_selected else COL_MUTED)
+                    if is_sel:
+                        d.rect(rx, ry, rw, row_h, api.rgb(38, 44, 60), fill=True)
+                        d.rect(rx, ry, 3, row_h, COL_SPOTIFY, fill=True)
+                    else:
+                        d.rect(rx, ry, rw, row_h, api.rgb(20, 22, 28), fill=True)
 
-            # Track Title
-            t_color = api.WHITE if is_selected else api.rgb(210, 215, 225)
-            d.text(t["title"][:18], rx + 28, ry + 6, t_color)
+                    # Playlist Icon
+                    d.text(">", rx + 8, ry + 12, COL_SPOTIFY if is_sel else COL_MUTED)
 
-            # Artist + Category
-            cat = t.get("category", "Spotify")
-            sub_str = "%s / %s" % (t["artist"][:14], cat)
-            d.text(sub_str, rx + 28, ry + 20, COL_SPOTIFY if is_selected else COL_MUTED)
+                    # Playlist Name (Cleaned)
+                    p_name = _clean_text(pl.get("name", "Playlist"))[:18]
+                    d.text(p_name, rx + 24, ry + 6, api.WHITE if is_sel else api.rgb(210, 215, 225))
 
-            # Duration
-            dur_str = _format_time(t["duration"])
-            d.text(dur_str, rx + rw - len(dur_str) * 8 - 4, ry + 12, COL_MUTED)
+                    # Track count
+                    t_cnt = pl.get("tracks_count", 0)
+                    d.text(f"{t_cnt} tracks", rx + 24, ry + 20, COL_SPOTIFY if is_sel else COL_MUTED)
 
-        # Right Scrollbar
-        sb_x = card_x + card_w - 6
-        sb_y = card_y + 6
-        sb_h = card_h - 12
-        d.rect(sb_x, sb_y, 2, sb_h, COL_BAR_BG, fill=True)
-        total_items = len(tracks)
-        thumb_h = max(14, int((visible_count / total_items) * sb_h))
-        thumb_y = sb_y + int((self._lib_scroll / max(1, total_items - visible_count)) * (sb_h - thumb_h))
-        d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
+                # Scrollbar
+                if len(pls) > vis_count:
+                    sb_x = card_x + card_w - 6
+                    sb_y = card_y + 6
+                    sb_h = card_h - 12
+                    d.rect(sb_x, sb_y, 2, sb_h, COL_BAR_BG, fill=True)
+                    thumb_h = max(14, int((vis_count / len(pls)) * sb_h))
+                    thumb_y = sb_y + int((self._tree_scroll / max(1, len(pls) - vis_count)) * (sb_h - thumb_h))
+                    d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
 
-        # Hint Bar
-        c_act = "C:Unlink" if self._spotify.is_configured() else "C:Link"
-        widgets.draw_hint(d, "A:Play  ^v:Select  B:Player  " + c_act)
+            widgets.draw_hint(d, "A:Open  ^v:Select  B:Folders  C:Unlink")
+            return
+
+        # ── STATE 3: TRACK LIST (Inside Category or Playlist) ─────────────
+        tracks = self._current_track_list
+        if not tracks:
+            d.text("Loading tracks...", card_x + 40, card_y + 50, COL_SPOTIFY)
+        else:
+            row_h = 34
+            visible_count = 5
+            for i in range(visible_count):
+                item_idx = self._tree_scroll + i
+                if item_idx >= len(tracks): break
+                t = tracks[item_idx]
+                ry = card_y + 4 + i * (row_h + 2)
+                rx = card_x + 4
+                rw = card_w - 14
+
+                is_selected = (item_idx == self._tree_idx)
+                clean_t_title = _clean_text(t.get("title", "Track"))
+                is_active_track = (clean_t_title.lower() == self._title.lower())
+
+                if is_selected:
+                    d.rect(rx, ry, rw, row_h, api.rgb(38, 44, 60), fill=True)
+                    d.rect(rx, ry, 3, row_h, COL_SPOTIFY, fill=True)
+                else:
+                    d.rect(rx, ry, rw, row_h, api.rgb(20, 22, 28), fill=True)
+
+                if is_active_track and self._is_playing:
+                    d.rect(rx + 8, ry + 12, 2, 8, COL_SPOTIFY, fill=True)
+                    d.rect(rx + 12, ry + 8, 2, 12, COL_SPOTIFY, fill=True)
+                    d.rect(rx + 16, ry + 14, 2, 6, COL_SPOTIFY, fill=True)
+                else:
+                    num_str = "%02d" % (item_idx + 1)
+                    d.text(num_str, rx + 8, ry + 12, COL_SPOTIFY if is_selected else COL_MUTED)
+
+                t_color = api.WHITE if is_selected else api.rgb(210, 215, 225)
+                d.text(clean_t_title[:18], rx + 28, ry + 6, t_color)
+
+                clean_artist = _clean_text(t.get("artist", "Artist"))
+                cat = t.get("category", "Spotify")
+                sub_str = ("%s / %s" % (clean_artist[:14], cat))[:22]
+                d.text(sub_str, rx + 28, ry + 20, COL_SPOTIFY if is_selected else COL_MUTED)
+
+                dur_str = _format_time(t.get("duration", 0))
+                d.text(dur_str, rx + rw - len(dur_str) * 8 - 4, ry + 12, COL_MUTED)
+
+            if len(tracks) > visible_count:
+                sb_x = card_x + card_w - 6
+                sb_y = card_y + 6
+                sb_h = card_h - 12
+                d.rect(sb_x, sb_y, 2, sb_h, COL_BAR_BG, fill=True)
+                total_items = len(tracks)
+                thumb_h = max(14, int((visible_count / total_items) * sb_h))
+                thumb_y = sb_y + int((self._tree_scroll / max(1, total_items - visible_count)) * (sb_h - thumb_h))
+                d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
+
+        widgets.draw_hint(d, "A:Play  ^v:Select  B:Back  C:Unlink")
 
     def _draw_qr_screen(self, d):
         widgets.draw_header(d, "LINK SPOTIFY")
@@ -839,19 +1101,16 @@ class App(oreoOS.App):
             qx = 16
             qy = widgets.HEADER_H + 14
 
-            # White quiet-zone backing
             d.rect(qx - 4, qy - 4, qr_w + 8, qr_h + 8, api.WHITE, fill=True)
             for r in range(rows):
                 for c in range(cols):
                     if mat[r][c]:
                         d.rect(qx + c * mod_sz, qy + r * mod_sz, mod_sz, mod_sz, api.BLACK, fill=True)
 
-            # Instructions & Prominent 6-Character Code Box
             tx = qx + qr_w + 14
             d.text("SCAN QR CODE", tx, qy + 2, COL_SPOTIFY)
             d.text("or visit on web:", tx, qy + 18, COL_MUTED)
 
-            # Prominent 6-Digit PIN Capsule Box
             code_str = str(self._qr_session_id or "------").upper()
             pin_box_w = max(100, len(code_str) * 16 + 24)
             d.rect(tx, qy + 32, pin_box_w, 32, api.rgb(38, 44, 60), fill=True)
