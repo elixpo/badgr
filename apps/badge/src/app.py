@@ -255,3 +255,12 @@ class App(oreoOS.App):
                 "",
                 "redeploy + press A."]):
             d.text(line, cx + 16, cy + 42 + i * 12, theme.TEXT_BRIGHT)
+
+    def on_exit(self):
+        """Free profile cache and sweep GC on exit."""
+        self._profile = None
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

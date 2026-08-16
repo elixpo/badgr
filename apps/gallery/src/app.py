@@ -446,6 +446,12 @@ class App(oreoOS.App):
 
     def on_exit(self):
         self._close_video()
+        self._cache.clear()
+        self._scaled_cache.clear()
+        try:
+            _gc.collect()
+        except Exception:
+            pass
 
     def _close_video(self):
         if self._video is not None:

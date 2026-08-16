@@ -148,3 +148,12 @@ class App(oreoOS.App):
                                   self._new_hi, self._blink)
 
         widgets.draw_hint(d, "A=start  B=pause  arrows=move")
+
+    def on_exit(self):
+        """Free cached sprites and sweep GC on exit."""
+        self._food_sprite = None
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

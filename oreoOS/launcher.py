@@ -146,6 +146,12 @@ def run_app(os_obj, app):
     AUTOREPEAT_BUTTONS = (api.BTN_UP, api.BTN_DOWN, api.BTN_LEFT, api.BTN_RIGHT)
     next_repeat_ms = {b: 0 for b in AUTOREPEAT_BUTTONS}
 
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+
     app.on_enter(os_obj)
     last = time.ticks_ms()
     try:
@@ -388,8 +394,18 @@ def run_app(os_obj, app):
             if elapsed < FRAME_MIN_MS:
                 time.sleep_ms(FRAME_MIN_MS - elapsed)
     finally:
-        app.on_exit()
-        gc.collect()
+        try:
+            hook = getattr(app, "on_exit", None)
+            if hook is not None:
+                hook()
+        except Exception as e:
+            print("[launcher] on_exit error in", getattr(app, "name", "?"), ":", e)
+        finally:
+            try:
+                import gc
+                gc.collect()
+            except Exception:
+                pass
 
 
 # ── crash screen ──────────────────────────────────────────────────────────────

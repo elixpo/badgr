@@ -155,3 +155,14 @@ class App(oreoOS.App):
                    SH - widgets.HINT_H - 12, theme.GOLD)
 
         self._dirty = False
+
+    def on_exit(self):
+        """Clean up button state maps and sweep GC on exit."""
+        self._counts = {}
+        self._held = {}
+        self._flash = {}
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

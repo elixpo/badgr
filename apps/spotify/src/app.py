@@ -40,11 +40,15 @@ try:
     from .qr import QRCode
 except Exception:
     try:
-        from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
-        from apps_market.Music.src.qr import QRCode
+        from apps_market.spotify.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
+        from apps_market.spotify.src.qr import QRCode
     except Exception:
-        from apps.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
-        from apps.Music.src.qr import QRCode
+        try:
+            from apps.spotify.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
+            from apps.spotify.src.qr import QRCode
+        except Exception:
+            from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
+            from apps_market.Music.src.qr import QRCode
 
 try:
     _ticks_ms = time.ticks_ms
@@ -182,6 +186,11 @@ class App(oreoOS.App):
     CONSUMES_C = True
 
     def on_enter(self, os):
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
         self._os = os
         self._spotify = SpotifyClient()
         self._view_mode = "PLAYER"
@@ -260,6 +269,17 @@ class App(oreoOS.App):
             self._prefetch_library_tree()
         else:
             self._start_qr_session()
+
+    def on_exit(self):
+        """Clean up memory, caches, and trigger garbage collection."""
+        self._cover_art = None
+        self._folder_tracks_cache = {}
+        self._playlists_cache = []
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
 
     def _prefetch_library_tree(self):
         """Asynchronously pre-fetch folder counts and tracks for the tree."""

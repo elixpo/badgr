@@ -167,3 +167,12 @@ class App(oreoOS.App):
             row_y += ROW_H
 
         widgets.draw_hint(d, "A=refresh  HOME=back")
+
+    def on_exit(self):
+        """Free usage calculation data and sweep GC on exit."""
+        self._usage = None
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

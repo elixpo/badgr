@@ -383,3 +383,12 @@ class App(oreoOS.App):
             display_url = display_url[:30] + "..."
 
         d.text(display_url, field_x + (field_w - len(display_url) * 8) // 2, field_y + 5, theme.TEXT_BRIGHT)
+
+    def on_exit(self):
+        """Free QR cache and sweep GC on exit."""
+        self._qr_cache = {}
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

@@ -432,3 +432,11 @@ class App(oreoOS.App):
                        right_x - chev_w - len(preview) * 8,
                        y + 7, theme.MUTED, scale=1)
             d.text(">", right_x - chev_w + 4, y + 6, theme.PRIMARY, scale=2)
+
+    def on_exit(self):
+        """Free rows and sweep GC on exit."""
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

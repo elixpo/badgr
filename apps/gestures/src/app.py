@@ -194,3 +194,11 @@ class App(oreoOS.App):
             msg = "enable Gestures to use these"
             d.text(msg, (SW - len(msg) * 8) // 2,
                    SH - 32, theme.MUTED, scale=1)
+
+    def on_exit(self):
+        """Free sensor states and sweep GC on exit."""
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

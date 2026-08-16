@@ -460,3 +460,12 @@ class App(oreoOS.App):
         # Small open square at the centre, dark outline + light interior
         d.rect(cx - 2, cy - 2, 5, 5, api.BLACK, fill=False)
         d.rect(cx - 1, cy - 1, 3, 3, api.WHITE, fill=False)
+
+    def on_exit(self):
+        """Free color splash buffers and sweep GC on exit."""
+        self._splash_data = None
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

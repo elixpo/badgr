@@ -59,6 +59,16 @@ class App(oreoOS.App):
         self._items = store.list_market()
         self._refresh(initial=False)
 
+    def on_exit(self):
+        """Free market item caches and trigger GC on exit."""
+        self._items = []
+        self._detail = None
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
+
     # ── input ──────────────────────────────────────────────────────────
     # Controls in list mode:
     #   A      = open details for the focused card

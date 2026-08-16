@@ -1,9 +1,0 @@
-{
-  "name": "DOOM",
-  "description": "Authentic id Software DOOM 1993 for Oreo OS. E1M1 Hangar, shotgun, demons, full status bar.",
-  "type": "app",
-  "version": "1.0.0",
-  "icon": "doom_icon.png",
-  "author": "sea-deep",
-  "category": "Games"
-}

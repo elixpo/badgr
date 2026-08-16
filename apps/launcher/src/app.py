@@ -907,3 +907,11 @@ class App(oreoOS.App):
             thumb_h = max(12, track_h * VISIBLE_CATS // n)
             thumb_y = track_y + (track_h - thumb_h) * self._cat_top // (n - VISIBLE_CATS)
             d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+
+    def on_exit(self):
+        """Perform garbage collection sweep on leaving the launcher."""
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

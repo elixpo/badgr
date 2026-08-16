@@ -468,3 +468,13 @@ class App(oreoOS.App):
             return RELEASE_DATE
         except Exception:
             return "—"
+
+    def on_exit(self):
+        """Free release/peek caches and sweep GC on exit."""
+        self._release = None
+        self._peeked = None
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

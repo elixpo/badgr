@@ -1,5 +1,13 @@
+"""Base class for Oreo OS apps with MicroPython heap & GC management."""
+
+try:
+    import gc
+except ImportError:
+    gc = None
+
+
 class App:
-    """Base class for Lix OS apps.
+    """Base class for Oreo OS apps.
 
     Lifecycle: on_enter -> (update + draw)* -> on_exit
     Subclass and override any of: on_enter, update, draw, on_exit,
@@ -7,12 +15,23 @@ class App:
     """
 
     name = "unnamed"
+    author = "sea-deep"
 
     def on_enter(self, os):
         self.os = os
+        if gc:
+            try:
+                gc.collect()
+            except Exception:
+                pass
 
     def on_exit(self):
-        pass
+        """Called automatically when switching apps or returning to launcher."""
+        if gc:
+            try:
+                gc.collect()
+            except Exception:
+                pass
 
     def update(self, dt):
         """Per-frame state update. dt = seconds since last frame."""

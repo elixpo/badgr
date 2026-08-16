@@ -225,3 +225,12 @@ class App(oreoOS.App):
             self._max_scroll = 0
 
         self._dirty = False
+
+    def on_exit(self):
+        """Free mascot sprite and sweep GC on exit."""
+        self._mascot = None
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

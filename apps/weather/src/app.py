@@ -294,3 +294,12 @@ class App(oreoOS.App):
         d.rect(20, 110, SW - 40,  2, theme.PRIMARY, fill=True)
         d.text("offline", (SW - 7 * 16) // 2, 118, theme.PRIMARY, scale=2)
         d.text(msg, (SW - len(msg) * 8) // 2, 138, theme.TEXT_BRIGHT)
+
+    def on_exit(self):
+        """Free weather panda sprites and sweep GC on exit."""
+        self._pandas = {}
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

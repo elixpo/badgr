@@ -735,3 +735,12 @@ class App(oreoOS.App):
             max_scroll = max(1, self._total_h - play_h)
             thumb_y = track_y + (track_h - thumb_h) * self._scroll // max_scroll
             d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+
+    def on_exit(self):
+        """Clear document blocks and sweep GC on exit."""
+        self._blocks = []
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

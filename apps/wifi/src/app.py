@@ -970,3 +970,12 @@ class App(oreoOS.App):
                        theme.TEAL, fill=True)
                 d.text(label, pill_x + pad_x, pill_y + pad_y,
                        theme.BG, scale=1)
+
+    def on_exit(self):
+        """Free network cache lists and sweep GC on exit."""
+        self._nets = []
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

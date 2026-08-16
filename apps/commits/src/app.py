@@ -382,3 +382,14 @@ class App(oreoOS.App):
         d.text(pill, card_x + card_w - pw - 4, lg_y, api.WHITE)
 
         self._dirty = False
+
+    def on_exit(self):
+        """Free caches and trigger GC on exit."""
+        self._levels = []
+        self._counts = []
+        self._dates = []
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass

@@ -36,7 +36,7 @@ def _base64_encode(s):
 
 
 def load_persisted_credentials():
-    for fpath in (STATE_FILE, "apps_market/Music/" + STATE_FILE, "apps/Music/" + STATE_FILE):
+    for fpath in (STATE_FILE, "apps_market/spotify/" + STATE_FILE, "apps/spotify/" + STATE_FILE, "apps_market/Music/" + STATE_FILE, "apps/Music/" + STATE_FILE):
         try:
             with open(fpath, "r") as f:
                 data = _json.loads(f.read())
@@ -96,7 +96,7 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
 
 def clear_credentials():
     """Wipe saved Spotify tokens and credentials from disk."""
-    for fpath in (STATE_FILE, "apps_market/Music/" + STATE_FILE, "apps/Music/" + STATE_FILE):
+    for fpath in (STATE_FILE, "apps_market/spotify/" + STATE_FILE, "apps/spotify/" + STATE_FILE, "apps_market/Music/" + STATE_FILE, "apps/Music/" + STATE_FILE):
         try:
             import os
             if os.path.exists(fpath):
