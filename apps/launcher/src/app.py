@@ -761,7 +761,7 @@ class App(oreoOS.App):
             for li, line in enumerate(self._labels[app_idx]):
                 lx = cx - len(line) * 4
                 ly = label_top + li * LABEL_LINE_H
-                color = theme.PRIMARY if sel else theme.TEXT_BRIGHT
+                color = theme.SEL_TEXT if sel else theme.TEXT_BRIGHT
                 d.text(line, lx, ly, color)
 
             # ── selection rectangle (only on selected, rounded + animated) ──

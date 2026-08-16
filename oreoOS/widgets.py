@@ -85,43 +85,48 @@ def _load_status_icon(name):
         return None
 
 
-def _icon_wifi(d, x, y, connected=False):
-    name = "wifi" if connected else "wifi_disabled"
-    icon = _load_status_icon(name)
-    if icon:
-        d.blit(icon[0], x, y, icon[1], icon[2])
-        return
-    c = api.WHITE if connected else theme.MUTED
-    d.rect(x + 5, y + 10, 3, 2, c, fill=True)
-    d.rect(x + 3, y + 7,  7, 2, c, fill=True)
-    d.rect(x + 1, y + 4, 11, 2, c, fill=True)
-    if not connected:
+def _icon_wifi(d, x, y, connected=False, color=None):
+    c = color or theme.STATUS_TEXT
+    if connected:
+        d.rect(x + 5, y + 10, 3, 2, c, fill=True)
+        d.rect(x + 3, y + 7,  7, 2, c, fill=True)
+        d.rect(x + 1, y + 4, 11, 2, c, fill=True)
+    else:
+        muted_c = theme.MUTED if theme.CURRENT_THEME.is_dark else api.rgb(180, 180, 180)
+        d.rect(x + 5, y + 10, 3, 2, muted_c, fill=True)
+        d.rect(x + 3, y + 7,  7, 2, muted_c, fill=True)
+        d.rect(x + 1, y + 4, 11, 2, muted_c, fill=True)
         d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
 
 
-def _icon_bt(d, x, y, active=False):
-    name = "bluetooth" if active else "bluetooth_disabled"
-    icon = _load_status_icon(name)
-    if icon:
-        d.blit(icon[0], x, y, icon[1], icon[2])
-        return
-    c = api.WHITE if active else theme.MUTED
-    d.rect(x + 5, y + 1,  2, 11, c, fill=True)
-    d.rect(x + 7, y + 3,  2,  2, c, fill=True)
-    d.rect(x + 5, y + 5,  2,  2, c, fill=True)
-    d.rect(x + 7, y + 7,  2,  2, c, fill=True)
-    d.rect(x + 5, y + 9,  2,  2, c, fill=True)
-    d.rect(x + 2, y + 3,  3,  2, c, fill=True)
-    d.rect(x + 2, y + 8,  3,  2, c, fill=True)
-    if not active:
+def _icon_bt(d, x, y, active=False, color=None):
+    c = color or theme.STATUS_TEXT
+    if active:
+        d.rect(x + 5, y + 1,  2, 11, c, fill=True)
+        d.rect(x + 7, y + 3,  2,  2, c, fill=True)
+        d.rect(x + 5, y + 5,  2,  2, c, fill=True)
+        d.rect(x + 7, y + 7,  2,  2, c, fill=True)
+        d.rect(x + 5, y + 9,  2,  2, c, fill=True)
+        d.rect(x + 2, y + 3,  3,  2, c, fill=True)
+        d.rect(x + 2, y + 8,  3,  2, c, fill=True)
+    else:
+        muted_c = theme.MUTED if theme.CURRENT_THEME.is_dark else api.rgb(180, 180, 180)
+        d.rect(x + 5, y + 1,  2, 11, muted_c, fill=True)
+        d.rect(x + 7, y + 3,  2,  2, muted_c, fill=True)
+        d.rect(x + 5, y + 5,  2,  2, muted_c, fill=True)
+        d.rect(x + 7, y + 7,  2,  2, muted_c, fill=True)
+        d.rect(x + 5, y + 9,  2,  2, muted_c, fill=True)
+        d.rect(x + 2, y + 3,  3,  2, muted_c, fill=True)
+        d.rect(x + 2, y + 8,  3,  2, muted_c, fill=True)
         d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
 
 
-def _icon_battery(d, x, y, pct=85):
-    d.rect(x,      y,     20, 10, api.WHITE, fill=False)
-    d.rect(x + 20, y + 3,  2,  4, api.WHITE, fill=True)
+def _icon_battery(d, x, y, pct=85, color=None):
+    c = color or theme.STATUS_TEXT
+    d.rect(x,      y,     20, 10, c, fill=False)
+    d.rect(x + 20, y + 3,  2,  4, c, fill=True)
     filled = max(1, min(18, int((pct / 100) * 18)))
-    d.rect(x + 1,  y + 1, filled, 8, api.WHITE, fill=True)
+    d.rect(x + 1,  y + 1, filled, 8, c, fill=True)
 
 
 # Lazy-loaded title font (Pixelify Sans 16)
@@ -142,11 +147,12 @@ def draw_header(d, title=None, color=None, accent=None):
     """Consistent OS status bar with Pixelify Sans title and full status cluster.
 
     color  : status bar bg colour (default theme.STATUS_BG)
-    accent : 1-px line under the header (default theme.PRIMARY)
+    accent : 1-px line under the header (default theme.STATUS_ACCENT)
     """
     SW = api.SCREEN_W
     bg = color  or theme.STATUS_BG
-    ac = accent or theme.PRIMARY
+    ac = accent or theme.STATUS_ACCENT or theme.PRIMARY
+    fg = theme.STATUS_TEXT
     d.rect(0, 0, SW, HEADER_H, bg, fill=True)
     d.rect(0, HEADER_H - 1, SW, 1, ac, fill=True)
 
@@ -154,7 +160,7 @@ def draw_header(d, title=None, color=None, accent=None):
 
     # Left: Live Clock
     time_str = status.get("time_str", "12:00")
-    d.text(time_str, 6, (HEADER_H - 8) // 2 + 1, api.WHITE)
+    d.text(time_str, 6, (HEADER_H - 8) // 2 + 1, fg)
 
     # Center: Pixelify Sans 16 Title with extra top padding
     if title:
@@ -162,10 +168,10 @@ def draw_header(d, title=None, color=None, accent=None):
         pf = _title_font()
         if pf:
             tw = pf.measure(title_str)
-            pf.text(d, title_str, (SW - tw) // 2, (HEADER_H - pf.h) // 2 + 1, api.WHITE)
+            pf.text(d, title_str, (SW - tw) // 2, (HEADER_H - pf.h) // 2 + 1, fg)
         else:
             tw = len(title_str) * 8
-            d.text(title_str, (SW - tw) // 2, (HEADER_H - 8) // 2 + 1, api.WHITE)
+            d.text(title_str, (SW - tw) // 2, (HEADER_H - 8) // 2 + 1, fg)
 
     # Right: Full OS Status Cluster (WiFi + BT + Battery % + Battery Icon)
     right_pad = 6
@@ -185,10 +191,10 @@ def draw_header(d, title=None, color=None, accent=None):
     text_y = (HEADER_H - 8) // 2 + 1
     bat_y  = (HEADER_H - 10) // 2 + 1
 
-    _icon_wifi   (d, wifi_x, icon_y, connected=status.get("wifi", False))
-    _icon_bt     (d, bt_x,   icon_y, active=status.get("bt", False))
-    d.text(pct_str, pct_x, text_y, api.WHITE)
-    _icon_battery(d, bat_x, bat_y, pct=status.get("battery_pct", 85))
+    _icon_wifi   (d, wifi_x, icon_y, connected=status.get("wifi", False), color=fg)
+    _icon_bt     (d, bt_x,   icon_y, active=status.get("bt", False), color=fg)
+    d.text(pct_str, pct_x, text_y, fg)
+    _icon_battery(d, bat_x, bat_y, pct=status.get("battery_pct", 85), color=fg)
 
 
 def draw_hint(d, text, color=None):
@@ -200,8 +206,9 @@ def draw_hint(d, text, color=None):
     SH = api.SCREEN_H
     y  = SH - HINT_H
     d.rect(0, y, SW, HINT_H, theme.DOCK_BG, fill=True)
+    d.rect(0, y, SW, 1, theme.MUTED2, fill=True)
     tx = (SW - len(text) * 8) // 2
-    d.text(text, tx, y + 4, color or theme.TEXT_BRIGHT)
+    d.text(text, tx, y + 4, color or theme.TEXT_DIM)
 
 
 def draw_panel(d, x, y, w, h, color=None, border=True):
