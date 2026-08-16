@@ -181,7 +181,15 @@ class App(oreoOS.App):
         elif btn == api.BTN_B:
             i = _MODELS.index(self._mode)
             self._mode = _MODELS[(i + 1) % len(_MODELS)]
-        if btn == api.BTN_A:
+        elif btn == api.BTN_C:
+            keys = [k for k in theme.PRESET_KEYS if k != "custom"]
+            self._preset_idx = (getattr(self, "_preset_idx", -1) + 1) % len(keys)
+            preset = theme.PRESETS[keys[self._preset_idx]]
+            self._rgb = preset.primary_rgb
+            theme.apply_theme(preset, save=True)
+            self._saved_msg = preset.name
+            self._saved_flash = 1.5
+        elif btn == api.BTN_A:
             # Save the active colour: persist to state file and apply harmonic OS theme.
             r, g, b = self._rgb
             theme.set_primary_color(r, g, b, save=True)
@@ -190,7 +198,8 @@ class App(oreoOS.App):
                 self._os.settings_set("color_picker_rgb", self._rgb)
             except Exception:
                 pass
-            self._saved_flash = 1.2
+            self._saved_msg = "Theme Applied!"
+            self._saved_flash = 1.5
         self._clamp_cursor()
         self._sample_color()
         self._dirty = True
@@ -265,19 +274,19 @@ class App(oreoOS.App):
 
         # ── header bar (pink, compact) ─────────────────────────────────────
         self._draw_header(d)
-        widgets.draw_hint(d, "arrows=pick  B=mode  A=save  HOME=back")
+        widgets.draw_hint(d, "arrows=pick  B=mode  C=preset  A=apply")
 
         # ── crosshair ──────────────────────────────────────────────────────
         self._draw_cursor(d)
 
-        # ── "Saved!" toast ────────────────────────────────────────────────
+        # ── "Theme Applied!" toast ────────────────────────────────────────────────
         if self._saved_flash > 0:
-            msg = "Saved!"
+            msg = getattr(self, "_saved_msg", "Theme Applied!")
             mw = len(msg) * 16
             tx = (SW - mw) // 2
-            ty = PLAY_BOT - 32
-            d.rect(tx - 8, ty - 4, mw + 16, 22, theme.GREEN, fill=True)
-            d.text(msg, tx, ty, api.WHITE, scale=2)
+            ty = PLAY_BOT - 28
+            d.rect(tx - 8, ty - 4, mw + 16, 20, theme.GREEN, fill=True)
+            d.text(msg, tx, ty + 2, api.WHITE, scale=2)
 
     # ── header pieces ─────────────────────────────────────────────────────
     def _draw_header(self, d):

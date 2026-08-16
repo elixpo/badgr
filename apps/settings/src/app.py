@@ -77,9 +77,6 @@ class App(oreoOS.App):
             self._pm = None
 
         self._rows = [
-            _Row("Theme",       "cycle",
-                 getter=lambda: theme.get_current_name(),
-                 setter=lambda delta: self._cycle_theme(delta)),
             _Row("WiFi",        "action",
                  getter=lambda: self._wifi_summary(),
                  setter=lambda v: self._open_wifi()),
