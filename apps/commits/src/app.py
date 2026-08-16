@@ -64,7 +64,7 @@ def _fetch_contributions(user):
         except ImportError:
             import requests as _req
         url = "https://github.com/users/%s/contributions" % user
-        r = _req.get(url, headers={"User-Agent": "OreoBadge"})
+        r = _req.get(url, headers={"User-Agent": "OreoBadge"}, timeout=4.0)
         body = r.text
         r.close()
 
@@ -119,12 +119,7 @@ def _fetch_contributions(user):
 
 
 def _save_cache(user, levels, counts, dates):
-    """Persist the fetched grid so re-opening the app is instant — no spinner.
-
-    Format: one line of metadata (user + timestamp) then three CSV lines
-    (levels, counts, dates). Keeping it text means it survives soft-resets
-    on the device's tiny filesystem without struct alignment surprises.
-    """
+    """Persist the fetched grid so re-opening the app is instant — no spinner."""
     try:
         import time as _t
         with open(CACHE_PATH, "w") as f:
@@ -221,22 +216,21 @@ def _fmt_count(n):
 
 class App(oreoOS.App):
     name         = "Commits"
-    SHOW_LOADING = True
+    SHOW_LOADING = False
 
     def on_enter(self, os):
         self._os = os
         from oreoOS import config
         self._user = config.get("GITHUB_USER") or "Circuit-Overtime"
+        self._fetching = False
 
-        # Show the disk cache immediately if present — no network spinner on
-        # re-entry. We then attempt a refresh in the background; if it works,
-        # the next frame swaps in the fresh data and re-saves the cache.
+        # 1. Instant Disk Cache Load — No UI freeze on entry!
         lv, ct, dt, age = _load_cache(self._user)
         if lv:
             self._levels = lv
             self._counts = ct
             self._dates  = dt
-            self._live   = False        # we'll flip to True once refresh lands
+            self._live   = (age < 3600)
             self._age    = age
         else:
             self._levels = _demo_grid()
@@ -245,46 +239,46 @@ class App(oreoOS.App):
             self._live   = False
             self._age    = None
 
-        # Try a fresh fetch; skip silently if WiFi/network isn't up so the
-        # cached grid stays on-screen instead of falling back to the demo.
-        lv, ct, dt = _fetch_contributions(self._user)
-        if lv:
-            self._levels = lv
-            self._counts = ct or [0] * len(lv)
-            self._dates  = dt or [""] * len(lv)
-            self._live   = True
-            self._age    = 0
-            _save_cache(self._user, self._levels, self._counts, self._dates)
-
         self._dirty = True
-        # Two-frame refresh state machine so the "Refreshing…" overlay paints
-        # before the blocking fetch locks the UI.
-        #   0 = idle, 1 = A pressed, 2 = overlay drawn → go fetch
-        self._refresh_state = 0
 
-    def on_button_press(self, btn):
-        if btn == api.BTN_A and self._refresh_state == 0:
-            self._refresh_state = 1
-            self._dirty         = True
+        # 2. Trigger asynchronous background refresh if stale or missing
+        self._start_fetch_thread()
 
-    def update(self, dt):
-        if self._refresh_state == 1:
-            # Wait one frame so draw() can paint the overlay first.
-            self._refresh_state = 2
+    def _start_fetch_thread(self):
+        if self._fetching:
             return
-        if self._refresh_state == 2:
-            lv, ct, dt2 = _fetch_contributions(self._user)
+        self._fetching = True
+        self._dirty = True
+        try:
+            import threading
+            t = threading.Thread(target=self._fetch_worker, daemon=True)
+            t.start()
+        except Exception:
+            # Fallback if threading unavailable
+            self._fetch_worker()
+
+    def _fetch_worker(self):
+        try:
+            lv, ct, dt = _fetch_contributions(self._user)
             if lv:
                 self._levels = lv
                 self._counts = ct or [0] * len(lv)
-                self._dates  = dt2 or [""] * len(lv)
+                self._dates  = dt or [""] * len(lv)
                 self._live   = True
                 self._age    = 0
                 _save_cache(self._user, self._levels, self._counts, self._dates)
-            else:
-                self._live = False
-            self._refresh_state = 0
-            self._dirty         = True
+        except Exception:
+            pass
+        finally:
+            self._fetching = False
+            self._dirty = True
+
+    def on_button_press(self, btn):
+        if btn == api.BTN_A and not self._fetching:
+            self._start_fetch_thread()
+
+    def update(self, dt):
+        pass
 
     def draw(self, d):
         if not self._dirty:
@@ -373,23 +367,18 @@ class App(oreoOS.App):
         d.text("more", lg_x + 36 + 5 * (CELL_PX + GAP_PX) + 4,
                lg_y + (CELL_PX - 8) // 2, theme.MUTED)
 
-        pill   = "LIVE" if self._live else "OFFLINE"
-        pill_c = theme.GREEN if self._live else theme.MUTED
-        pw     = len(pill) * 8 + 12
+        if getattr(self, "_fetching", False):
+            pill   = "SYNCING"
+            pill_c = theme.GOLD
+        elif self._live:
+            pill   = "LIVE"
+            pill_c = theme.GREEN
+        else:
+            pill   = "OFFLINE"
+            pill_c = theme.MUTED
+
+        pw = len(pill) * 8 + 12
         d.rect(card_x + card_w - pw - 10, lg_y - 2, pw, 12, pill_c, fill=True)
         d.text(pill, card_x + card_w - pw - 4, lg_y, api.WHITE)
-
-        # "Refreshing…" overlay — drawn on top while the next-frame fetch is
-        # pending so the user sees acknowledgement before the UI locks.
-        if self._refresh_state:
-            msg = "Refreshing..."
-            mw  = len(msg) * 16
-            ow  = mw + 32
-            oh  = 32
-            ox  = (SW - ow) // 2
-            oy  = (SH - oh) // 2
-            d.rect(ox + 2, oy + 2, ow, oh, theme.MUTED2, fill=True)
-            d.rect(ox,     oy,     ow, oh, theme.PRIMARY, fill=True)
-            d.text(msg, ox + 16, oy + (oh - 16) // 2, api.WHITE, scale=2)
 
         self._dirty = False
