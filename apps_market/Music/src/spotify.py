@@ -365,6 +365,23 @@ class SpotifyClient:
                 pass
         return False
 
+    def get_devices(self):
+        """Fetch list of available Spotify devices."""
+        if not self.token and not self.refresh_access_token():
+            return []
+        headers = {"Authorization": "Bearer " + str(self.token)}
+        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
+        if status == 401 and self.refresh_access_token():
+            headers = {"Authorization": "Bearer " + str(self.token)}
+            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
+        if status == 200 and body:
+            try:
+                data = _json.loads(body.decode('utf-8'))
+                return data.get("devices", []) or []
+            except Exception:
+                pass
+        return []
+
     def get_playback(self):
         if not self.token:
             if not self.refresh_access_token():
@@ -400,81 +417,108 @@ class SpotifyClient:
                 "repeat":      "off"
             }
 
-        if status == 204 or not body:
-            devices = self.get_devices()
-            dev_name = "Spotify (Ready)"
-            if devices:
-                for d in devices:
-                    if d.get("is_active"):
-                        dev_name = d.get("name", dev_name)
-                        break
-                else:
-                    dev_name = devices[0].get("name", dev_name)
-
-            return {
-                "connected":   True,
-                "active":      False,
-                "is_playing":  False,
-                "title":       "",
-                "artist":      "",
-                "album":       "",
-                "image_url":   "",
-                "duration_s":  0,
-                "progress_s":  0,
-                "volume":      70,
-                "device_name": dev_name,
-                "shuffle":     False,
-                "repeat":      "off"
-            }
-
-    def get_devices(self):
-        """Fetch list of available Spotify devices."""
-        if not self.token and not self.refresh_access_token():
-            return []
-        headers = {"Authorization": "Bearer " + str(self.token)}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
-        if status == 401 and self.refresh_access_token():
-            headers = {"Authorization": "Bearer " + str(self.token)}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
+        # 1. If /v1/me/player returned 200 with track item
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                return data.get("devices", []) or []
+                item = data.get("item")
+                if item:
+                    artists = item.get("artists", [])
+                    artist_names = ", ".join(a.get("name", "") for a in artists) or "Unknown Artist"
+                    images = (item.get("album") or {}).get("images", [])
+                    image_url = images[-1].get("url", "") if images else ""
+
+                    dev = data.get("device", {})
+                    is_active = bool(data.get("is_playing", False)) or bool(dev.get("is_active", False))
+                    self.device_name = dev.get("name", "Spotify") if dev else "Spotify (Ready)"
+
+                    return {
+                        "connected":   True,
+                        "active":      is_active,
+                        "is_playing":  bool(data.get("is_playing", False)),
+                        "title":       item.get("name", ""),
+                        "artist":      artist_names,
+                        "album":       (item.get("album") or {}).get("name", ""),
+                        "image_url":   image_url,
+                        "duration_s":  (item.get("duration_ms", 0) or 0) / 1000.0,
+                        "progress_s":  (data.get("progress_ms", 0) or 0) / 1000.0,
+                        "volume":      dev.get("volume_percent", 70),
+                        "device_name": self.device_name,
+                        "shuffle":     bool(data.get("shuffle_state", False)),
+                        "repeat":      data.get("repeat_state", "off"),
+                    }
             except Exception:
                 pass
-        return []
 
-        if status == 200 and body:
+        # 2. Fallback: Query /v1/me/player/currently-playing (reliable for Web Player & desktop apps)
+        status_cp, body_cp = self._http_request(self.API_HOST, "GET", "/v1/me/player/currently-playing", headers)
+        if status_cp == 200 and body_cp:
             try:
-                data = _json.loads(body.decode('utf-8'))
-                item = data.get("item") or {}
-                artists = item.get("artists", [])
-                artist_names = ", ".join(a.get("name", "") for a in artists) or "Unknown Artist"
-                images = (item.get("album") or {}).get("images", [])
-                image_url = images[-1].get("url", "") if images else ""
+                data_cp = _json.loads(body_cp.decode('utf-8'))
+                item = data_cp.get("item")
+                if item:
+                    artists = item.get("artists", [])
+                    artist_names = ", ".join(a.get("name", "") for a in artists) or "Unknown Artist"
+                    images = (item.get("album") or {}).get("images", [])
+                    image_url = images[-1].get("url", "") if images else ""
 
-                dev = data.get("device", {})
-                is_active = bool(data.get("is_playing", False)) or bool(dev.get("is_active", False))
-                self.device_name = dev.get("name", "Spotify") if dev else "No Active Device"
+                    devs = self.get_devices()
+                    dev_name = "Spotify (Ready)"
+                    vol = 70
+                    if devs:
+                        for d in devs:
+                            if d.get("is_active"):
+                                dev_name = d.get("name", dev_name)
+                                vol = d.get("volume_percent", 70)
+                                break
+                        else:
+                            dev_name = devs[0].get("name", dev_name)
+                            vol = devs[0].get("volume_percent", 70)
 
-                return {
-                    "connected":   True,
-                    "active":      is_active,
-                    "is_playing":  bool(data.get("is_playing", False)),
-                    "title":       item.get("name", "No Active Playback"),
-                    "artist":      artist_names,
-                    "album":       (item.get("album") or {}).get("name", ""),
-                    "image_url":   image_url,
-                    "duration_s":  (item.get("duration_ms", 0) or 0) / 1000.0,
-                    "progress_s":  (data.get("progress_ms", 0) or 0) / 1000.0,
-                    "volume":      dev.get("volume_percent", 70),
-                    "device_name": self.device_name,
-                    "shuffle":     bool(data.get("shuffle_state", False)),
-                    "repeat":      data.get("repeat_state", "off"),
-                }
-            except Exception as e:
-                self.last_error = "parse: " + str(e)
-                return None
+                    return {
+                        "connected":   True,
+                        "active":      True,
+                        "is_playing":  bool(data_cp.get("is_playing", False)),
+                        "title":       item.get("name", ""),
+                        "artist":      artist_names,
+                        "album":       (item.get("album") or {}).get("name", ""),
+                        "image_url":   image_url,
+                        "duration_s":  (item.get("duration_ms", 0) or 0) / 1000.0,
+                        "progress_s":  (data_cp.get("progress_ms", 0) or 0) / 1000.0,
+                        "volume":      vol,
+                        "device_name": dev_name,
+                        "shuffle":     False,
+                        "repeat":      "off",
+                    }
+            except Exception:
+                pass
+
+        # 3. Truly idle / stopped state
+        devs = self.get_devices()
+        dev_name = "Spotify (Ready)"
+        if devs:
+            for d in devs:
+                if d.get("is_active"):
+                    dev_name = d.get("name", dev_name)
+                    break
+            else:
+                dev_name = devs[0].get("name", dev_name)
+
+        return {
+            "connected":   True,
+            "active":      False,
+            "is_playing":  False,
+            "title":       "",
+            "artist":      "",
+            "album":       "",
+            "image_url":   "",
+            "duration_s":  0,
+            "progress_s":  0,
+            "volume":      70,
+            "device_name": dev_name,
+            "shuffle":     False,
+            "repeat":      "off"
+        }
 
         return None
 
