@@ -467,21 +467,19 @@ class App(oreoOS.App):
                     now = _ticks_ms()
                     active = state.get("active", False)
                     server_playing = bool(state.get("is_playing", False))
+                    self._is_playing = server_playing
                     self._device_name = state.get("device_name", "Spotify Connect")
-
-                    if _ticks_diff(now, self._poll_skip_until) >= 0:
-                        self._is_playing = server_playing
 
                     title = state.get("title", "")
                     if active and title and title not in ("No Active Playback", "Ready", "Spotify Connected", "No Active Device"):
                         self._title = _clean_text(title)
                         self._artist = _clean_text(state.get("artist", self._artist))
                         self._album = _clean_text(state.get("album", ""))
-                        self._duration = state.get("duration_s", self._duration)
+                        self._duration = max(0.0, float(state.get("duration_s", self._duration)))
 
-                        server_progress = state.get("progress_s", 0.0)
-                        if abs(self._progress - server_progress) > 2.0 or not self._is_playing:
-                            self._progress = server_progress
+                        server_progress = max(0.0, float(state.get("progress_s", 0.0)))
+                        if abs(self._progress - server_progress) > 1.5 or not self._is_playing:
+                            self._progress = min(server_progress, self._duration if self._duration > 0 else server_progress)
 
                         if _ticks_diff(now, self._vol_user_interacting_until) >= 0:
                             self._volume = state.get("volume", self._volume)
@@ -702,7 +700,7 @@ class App(oreoOS.App):
                     return
             return
 
-        # ── Player View Controls (0ms Latency Optimistic Responses) ────────
+        # ── Player View Controls (Responsive & Synchronized) ──────────────
         now = _ticks_ms()
 
         if btn == api.BTN_B:
@@ -715,39 +713,32 @@ class App(oreoOS.App):
             self._dirty = True
 
         elif btn == api.BTN_A:
-            # Instant 0ms Play / Pause toggle
-            self._is_playing = not self._is_playing
-            self._poll_skip_until = now + 2500
-            current_target = None
-            if self._current_track_list:
-                t = self._current_track_list[0]
-                current_target = t.get("uri") or (t["title"] + " " + t["artist"])
+            # Instant Responsive Play / Pause toggle
+            target_play = not self._is_playing
+            self._is_playing = target_play
+            self._dirty = True
 
-            def _toggle_worker(should_play, target):
+            def _toggle_worker(should_play):
                 try:
                     if should_play:
-                        res = self._spotify.play()
-                        if not res and target:
-                            self._spotify.play_track(target)
+                        self._spotify.play()
                     else:
                         self._spotify.pause()
-                    time.sleep(0.6)
+                    time.sleep(0.35)
                     self._trigger_async_poll()
                 except Exception:
                     pass
             try:
                 import threading
-                threading.Thread(target=_toggle_worker, args=(self._is_playing, current_target), daemon=True).start()
+                threading.Thread(target=_toggle_worker, args=(target_play,), daemon=True).start()
             except Exception:
                 pass
-            self._dirty = True
 
         elif btn == api.BTN_RIGHT:
-            self._poll_skip_until = now + 2000
             def _next_worker():
                 try:
                     self._spotify.next_track()
-                    time.sleep(0.8)
+                    time.sleep(0.4)
                     self._trigger_async_poll()
                 except Exception:
                     pass
@@ -759,11 +750,10 @@ class App(oreoOS.App):
             self._dirty = True
 
         elif btn == api.BTN_LEFT:
-            self._poll_skip_until = now + 2000
             def _prev_worker():
                 try:
                     self._spotify.prev_track()
-                    time.sleep(0.8)
+                    time.sleep(0.4)
                     self._trigger_async_poll()
                 except Exception:
                     pass
@@ -827,15 +817,15 @@ class App(oreoOS.App):
 
         # Periodic Asynchronous Playback Polling
         if not self._show_qr and self._spotify.is_configured():
-            if _ticks_diff(now, self._poll_skip_until) >= 0:
-                if _ticks_diff(now, self._last_poll_t) > self._poll_interval:
-                    self._last_poll_t = now
-                    self._trigger_async_poll()
+            if _ticks_diff(now, self._last_poll_t) > self._poll_interval:
+                self._last_poll_t = now
+                self._trigger_async_poll()
 
         # Smooth Sub-second Playback Progress
         if self._is_playing:
             self._progress += dt
             if self._duration > 0 and self._progress >= self._duration:
+                self._progress = self._duration
                 self._trigger_async_poll()
             self._dirty = True
 
