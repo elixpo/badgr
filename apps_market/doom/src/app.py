@@ -31,6 +31,7 @@ SW = api.SCREEN_W
 SH = api.SCREEN_H
 DOOM_W = 320
 DOOM_H = 200
+PLAY_H = SH - widgets.HINT_H  # 224 px
 
 # DOOM Key Constants from doomkeys.h / m_controls.c
 KEY_RIGHTARROW = 0xAE  # 174
@@ -46,7 +47,7 @@ KEY_TAB        = 0x09  # 9   (KEY_TAB)
 
 class App(oreoOS.App):
     name = "DOOM"
-    author = "id-oreo"
+    author = "sea-deep"
     FULLSCREEN = True
     NO_HEADER = True
     HIDE_HEADER = True
@@ -60,6 +61,9 @@ class App(oreoOS.App):
         self._doom_lib = None
         self._active_weapon_num = 2
         self._key_states = {}
+        # Clear screen on enter to eliminate loading overlay remnants
+        if hasattr(os_obj, "display"):
+            os_obj.display.clear(api.BLACK)
         self._init_embedded_engine()
 
     def _init_embedded_engine(self):
@@ -157,11 +161,13 @@ class App(oreoOS.App):
                 if hasattr(d, "_surface"):
                     import pygame
                     surf = pygame.image.frombytes(raw_bytes, (w, h), "RGBA")
-                    d._surface.blit(surf, (0, 0))
+                    # Seamlessly fill play area (320x224) directly above the 16px hint bar
+                    scaled = pygame.transform.scale(surf, (SW, PLAY_H))
+                    d._surface.blit(scaled, (0, 0))
                 else:
                     d.clear(api.BLACK)
 
-            # Standard Oreo OS hint bar at the bottom
+            # Standard Oreo OS hint bar at the bottom (Y: 224..240)
             widgets.draw_hint(d, "A=fire  B=use  C=weapon  HOME=back")
             self._dirty = False
             return
