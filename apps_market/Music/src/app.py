@@ -606,8 +606,33 @@ class App(oreoOS.App):
                             self._tree_scroll = self._tree_idx - 4
                         self._dirty = True
                     return
-                elif btn in (api.BTN_A, api.BTN_RIGHT):
-                    # Open selected playlist
+                elif btn == api.BTN_A:
+                    # Instant 1-click Play Playlist on Spotify
+                    if self._playlists_cache:
+                        pl = self._playlists_cache[self._tree_idx]
+                        pl_uri = pl.get("uri")
+                        self._title = _clean_text(pl.get("name", "Playlist"))
+                        self._artist = _clean_text(pl.get("owner", "Spotify"))
+                        self._album = "Playlist"
+                        self._is_playing = True
+                        self._view_mode = "PLAYER"
+                        self._poll_skip_until = _ticks_ms() + 3000
+                        def _play_pl_worker(target_uri):
+                            try:
+                                self._spotify.play(context_uri=target_uri)
+                                time.sleep(0.8)
+                                self._trigger_async_poll()
+                            except Exception:
+                                pass
+                        try:
+                            import threading
+                            threading.Thread(target=_play_pl_worker, args=(pl_uri,), daemon=True).start()
+                        except Exception:
+                            pass
+                    self._dirty = True
+                    return
+                elif btn == api.BTN_RIGHT:
+                    # Open playlist tracks list if user wants to inspect songs
                     if self._playlists_cache:
                         pl = self._playlists_cache[self._tree_idx]
                         self._open_playlist(pl)
@@ -1070,7 +1095,7 @@ class App(oreoOS.App):
                     thumb_y = sb_y + int((self._tree_scroll / max(1, len(pls) - vis_count)) * (sb_h - thumb_h))
                     d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
 
-            widgets.draw_hint(d, "A:Open  ^v:Select  B:Folders  C:Unlink")
+            widgets.draw_hint(d, "A:Play  >:Tracks  ^v:Select  B:Back")
             return
 
         # ── STATE 3: TRACK LIST (Inside Category or Playlist) ─────────────
@@ -1079,8 +1104,9 @@ class App(oreoOS.App):
             d.text("Loading Tracks...", card_x + 36, card_y + 50, COL_SPOTIFY)
             d.text("Fetching playlist...", card_x + 36, card_y + 70, COL_MUTED)
         elif not tracks:
-            d.text("Playlist is empty", card_x + 36, card_y + 50, COL_MUTED)
-            d.text("Press B to go back", card_x + 36, card_y + 70, COL_SPOTIFY)
+            d.text(self._tree_title[:18], card_x + 36, card_y + 40, api.WHITE)
+            d.text("Press A to Play All", card_x + 36, card_y + 60, COL_SPOTIFY)
+            d.text("Press B for Playlists", card_x + 36, card_y + 80, COL_MUTED)
         else:
             row_h = 34
             visible_count = 5

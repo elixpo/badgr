@@ -595,8 +595,15 @@ class SpotifyClient:
                     if not pl or not isinstance(pl, dict): continue
                     name = pl.get("name")
                     if not name: continue
+                    items_info = pl.get("items") or {}
                     tracks_info = pl.get("tracks") or {}
-                    t_count = tracks_info.get("total", 0) if isinstance(tracks_info, dict) else 0
+                    t_count = 0
+                    if isinstance(items_info, dict) and "total" in items_info:
+                        t_count = items_info.get("total", 0)
+                    elif isinstance(tracks_info, dict) and "total" in tracks_info:
+                        t_count = tracks_info.get("total", 0)
+                    elif "total_tracks" in pl:
+                        t_count = pl.get("total_tracks", 0)
                     owner_info = pl.get("owner") or {}
                     owner_name = owner_info.get("display_name", "Spotify") if isinstance(owner_info, dict) else "Spotify"
                     playlists.append({
