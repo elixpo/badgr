@@ -838,7 +838,15 @@ def install(name):
 
     if _exists(tmp_root + "/main.py"):
         _rm_tree(target_root)
-        _os.rename(tmp_root, target_root)
+        try:
+            _os.rename(tmp_root, target_root)
+        except Exception as e:
+            try:
+                from oreoOS import config
+                if getattr(config, "DEBUG", True):
+                    print("[store] rename error:", e)
+            except Exception:
+                pass
         
     ok = is_installed(name)
     if ok:

@@ -44,6 +44,8 @@ def list_apps():
     except OSError:
         return apps
     for entry in entries:
+        if entry.startswith(".") or entry.startswith("_"):
+            continue
         try:
             with open("%s/%s/manifest.json" % (APPS_DIR, entry)) as f:
                 manifest = json.loads(f.read())
