@@ -28,81 +28,81 @@ HINT_H   = 16
 # Forest-green header for the home screen (matches the bg image's tones).
 HEADER_HOME_BG = api.rgb(46, 102,  74)
 
-# Cached link state for the header WiFi pip. The actual `wifi.rssi()`
-# call is cheap (~1 ms) but we still amortise it to keep header draws
-# free of network-module syscalls on tight game loops.
-_WIFI_POLL_MS    = 2000
-_wifi_cache      = {"connected": False, "rssi": None, "metered": False,
-                    "last_ms":   None}
+# ── status bar cache & polling ────────────────────────────────────────────────
+_STATUS_POLL_MS = 2000
+_status_cache = {
+    "wifi": False,
+    "bt": False,
+    "battery_pct": 85,
+    "last_ms": None,
+    "time_str": "12:00"
+}
 
 
-def _poll_wifi():
-    """Refresh the cached WiFi snapshot on a 2 s cadence. Returns the
-    dict so draw_header() can render the right-aligned icon without
-    poking the network module on every paint."""
+def _poll_status():
+    """Refresh the cached status bar indicators (WiFi, BT, Battery, Clock)."""
     now = _ticks_ms() if _time else 0
-    last = _wifi_cache["last_ms"]
-    if last is not None and _time and \
-       _ticks_diff(now, last) < _WIFI_POLL_MS:
-        return _wifi_cache
+    last = _status_cache["last_ms"]
+    if last is not None and _time and _ticks_diff(now, last) < _STATUS_POLL_MS:
+        return _status_cache
+
+    try:
+        from oreoOS import timeutil
+        h, m, *_ = timeutil.now()
+        _status_cache["time_str"] = "%02d:%02d" % (h, m)
+    except Exception:
+        pass
+
     try:
         from oreoWare import wifi as _w
-        _wifi_cache["connected"] = bool(_w.is_connected())
-        try:
-            _wifi_cache["rssi"] = _w.rssi() if _wifi_cache["connected"] else None
-        except Exception:
-            _wifi_cache["rssi"] = None
-        try:
-            _wifi_cache["metered"] = bool(_w.is_metered()) \
-                                     if _wifi_cache["connected"] else False
-        except Exception:
-            _wifi_cache["metered"] = False
+        _status_cache["wifi"] = bool(_w.is_connected())
     except Exception:
-        # WiFi module not importable — leave cache as-is.
         pass
-    _wifi_cache["last_ms"] = now
-    return _wifi_cache
+
+    try:
+        from oreoWare import bt as _b
+        _status_cache["bt"] = bool(_b.is_active())
+    except Exception:
+        pass
+
+    try:
+        from oreoWare import battery as _bat
+        _status_cache["battery_pct"] = int(_bat.read_percent())
+    except Exception:
+        pass
+
+    _status_cache["last_ms"] = now
+    return _status_cache
 
 
-def _draw_wifi_pip(d, x, y, w, h, state):
-    """4-bar WiFi indicator. Hollow bars when disconnected, full bars
-    by RSSI when associated, with a tiny "$" tucked next to a metered
-    link so the user knows OTA + store won't auto-fetch on it."""
-    bars     = 4
-    bar_w    = 2
-    gap      = 1
-    block_w  = bars * bar_w + (bars - 1) * gap
-    bx       = x + (w - block_w) // 2
-    by_base  = y + h - 1
-    rssi     = state.get("rssi")
-    connected = state.get("connected")
-    # Pick a fill count by RSSI thresholds; disconnected → 0.
+def _icon_wifi(d, x, y, connected=False):
+    c = api.WHITE if connected else theme.MUTED
+    d.rect(x + 5, y + 10, 3, 2, c, fill=True)
+    d.rect(x + 3, y + 7,  7, 2, c, fill=True)
+    d.rect(x + 1, y + 4, 11, 2, c, fill=True)
     if not connected:
-        fill = 0
-    elif rssi is None:
-        fill = 2
-    elif rssi >= -55:
-        fill = 4
-    elif rssi >= -65:
-        fill = 3
-    elif rssi >= -75:
-        fill = 2
-    elif rssi >= -85:
-        fill = 1
-    else:
-        fill = 1
-    for i in range(bars):
-        bh = 2 + i * 2     # ascending 2,4,6,8 px
-        bx_i = bx + i * (bar_w + gap)
-        if i < fill:
-            d.rect(bx_i, by_base - bh, bar_w, bh, api.WHITE, fill=True)
-        else:
-            # Hollow outline for the empty cells so the gauge stays
-            # readable even at full bars.
-            d.rect(bx_i, by_base - bh, bar_w, 1, theme.MUTED, fill=True)
-    # Metered marker: a tiny "$" 8 px to the left of the pip cluster.
-    if connected and state.get("metered"):
-        d.text("$", bx - 10, y + (h - 8) // 2, theme.GOLD, scale=1)
+        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
+
+
+def _icon_bt(d, x, y, active=False):
+    c = api.WHITE if active else theme.MUTED
+    d.rect(x + 5, y + 1,  2, 11, c, fill=True)
+    d.rect(x + 7, y + 3,  2,  2, c, fill=True)
+    d.rect(x + 5, y + 5,  2,  2, c, fill=True)
+    d.rect(x + 7, y + 7,  2,  2, c, fill=True)
+    d.rect(x + 5, y + 9,  2,  2, c, fill=True)
+    d.rect(x + 2, y + 3,  3,  2, c, fill=True)
+    d.rect(x + 2, y + 8,  3,  2, c, fill=True)
+    if not active:
+        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
+
+
+def _icon_battery(d, x, y, pct=85):
+    d.rect(x,      y,     20, 10, api.WHITE, fill=False)
+    d.rect(x + 20, y + 3,  2,  4, api.WHITE, fill=True)
+    filled = max(1, min(18, int((pct / 100) * 18)))
+    d.rect(x + 1,  y + 1, filled, 8, api.WHITE, fill=True)
+
 
 # Lazy-loaded title font (Pixelify Sans 16 — fits the 28-px header bar nicely).
 _TITLE_FONT = None
@@ -119,9 +119,9 @@ def _title_font():
 
 
 def draw_header(d, title, color=None, accent=None):
-    """App header bar with a centred Pixelify Sans title.
+    """App header bar with a centred Pixelify Sans title and full OS status cluster.
 
-    color  : header bg colour (default theme.STATUS_BG — crimson)
+    color  : header bg colour (default theme.STATUS_BG)
     accent : 1-px line under the header (default theme.PRIMARY)
     """
     SW = api.SCREEN_W
@@ -130,6 +130,13 @@ def draw_header(d, title, color=None, accent=None):
     d.rect(0, 0, SW, HEADER_H, bg, fill=True)
     d.rect(0, HEADER_H - 1, SW, 1, ac, fill=True)
 
+    status = _poll_status()
+
+    # Left: Live Clock
+    time_str = status.get("time_str", "12:00")
+    d.text(time_str, 8, (HEADER_H - 8) // 2, api.WHITE)
+
+    # Center: App Title
     pf = _title_font()
     if pf:
         tw = pf.measure(title)
@@ -138,14 +145,25 @@ def draw_header(d, title, color=None, accent=None):
         tx = (SW - len(title) * 16) // 2
         d.text(title, tx, (HEADER_H - 16) // 2, api.WHITE, scale=2)
 
-    # Top-right WiFi pip. Polled on a 2 s cadence so this paint stays
-    # cheap. Renders nothing on top of the header bg when WiFi is
-    # off — the empty space reads as "no link" without an extra glyph.
-    pip_w = 16
-    pip_h = HEADER_H - 4
-    pip_x = SW - pip_w - 6
-    pip_y = 2
-    _draw_wifi_pip(d, pip_x, pip_y, pip_w, pip_h, _poll_wifi())
+    # Right: Full OS Status Cluster (WiFi + BT + Battery % + Battery Icon)
+    right_pad = 8
+    bat_w     = 22
+    icon_w    = 13
+    gap       = 4
+    y_center  = (HEADER_H - 10) // 2
+
+    pct_str = "%d%%" % status.get("battery_pct", 85)
+    pct_w   = len(pct_str) * 8
+
+    bat_x   = SW - right_pad - bat_w
+    pct_x   = bat_x - gap - pct_w
+    bt_x    = pct_x - gap - icon_w
+    wifi_x  = bt_x  - gap - icon_w
+
+    _icon_wifi(d, wifi_x, y_center - 1, status.get("wifi", False))
+    _icon_bt(d, bt_x, y_center - 1, status.get("bt", False))
+    d.text(pct_str, pct_x, (HEADER_H - 8) // 2, api.WHITE)
+    _icon_battery(d, bat_x, y_center, status.get("battery_pct", 85))
 
 
 def draw_hint(d, text, color=None):
