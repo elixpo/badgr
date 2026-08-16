@@ -1,0 +1,8 @@
+{
+  "name": "DOOM",
+  "description": "Classic DOOM 3D for Oreo OS. Raycasting engine, E1M1, demons, shotgun, status bar.",
+  "type": "app",
+  "version": "1.0",
+  "icon": "doom_icon.png",
+  "author": "id-oreo"
+}
