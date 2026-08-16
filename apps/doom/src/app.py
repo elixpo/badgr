@@ -12,7 +12,12 @@ Controls:
   HOME          Exit / Pause Menu
 """
 
-import ctypes
+try:
+    import ctypes
+except ImportError:
+    ctypes = None
+
+import gc
 import math
 import os
 import random
@@ -63,12 +68,29 @@ class App(oreoOS.App):
         self._active_weapon_idx = 0  # Next press cycles to 1 (Fists)
         self._key_states = {}
         self._key_pulses = {}
+        try:
+            gc.collect()
+        except Exception:
+            pass
+
         # Clear screen on enter to eliminate loading overlay remnants
         if hasattr(os_obj, "display"):
             os_obj.display.clear(api.BLACK)
         self._init_embedded_engine()
 
+    def on_exit(self):
+        """Free memory and trigger garbage collection when exiting DOOM."""
+        try:
+            gc.collect()
+        except Exception:
+            pass
+
     def _init_embedded_engine(self):
+        if ctypes is None:
+            self._engine_type = "FALLBACK"
+            self._init_fallback_engine()
+            return
+
         try:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             so_path = os.path.join(base_dir, "src", "libdoom.so")
