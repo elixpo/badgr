@@ -231,10 +231,7 @@ class App(oreoOS.App):
     def _start_qr_session(self):
         self._qr_session_id, self._qr_url = create_relay_session()
         if self._qr_url:
-            qr = QRCode()
-            qr.add_data(self._qr_url)
-            qr.make()
-            self._qr_matrix = qr.get_matrix()
+            self._qr_matrix = QRCode.encode(self._qr_url)
             self._show_qr = True
         self._dirty = True
 

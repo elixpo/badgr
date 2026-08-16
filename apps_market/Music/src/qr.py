@@ -75,6 +75,21 @@ def _bch_format(ec_level=1, mask=0):
 
 
 class QRCode:
+    def __init__(self):
+        self._data = ""
+        self._matrix = None
+
+    def add_data(self, data):
+        self._data = str(data)
+
+    def make(self):
+        self._matrix = self.encode(self._data)
+
+    def get_matrix(self):
+        if self._matrix is None:
+            self.make()
+        return self._matrix
+
     @staticmethod
     def encode(text):
         """Encode text or URL into a 2D boolean matrix where True = black module."""
