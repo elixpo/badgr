@@ -722,6 +722,15 @@ def _invalidate_launcher_cache():
 
 
 def install(name):
+    import sys
+    sys._store_installing = True
+    try:
+        return _install_internal(name)
+    finally:
+        sys._store_installing = False
+
+
+def _install_internal(name):
     """Install an app to `apps/<name>/`. Checks local `apps_market/<name>/`
     first (for local dev/offline testing), otherwise downloads every file
     from GitHub. Returns True iff main.py landed cleanly."""

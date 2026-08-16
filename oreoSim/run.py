@@ -83,6 +83,9 @@ def _start_hot_reloader():
         while True:
             time.sleep(0.5)
             curr = _get_max_mtime()
+            if getattr(sys, '_store_installing', False):
+                initial_mtime = curr
+                continue
             if curr > initial_mtime:
                 print("\n[HotReload] File change detected! Hot-reloading native emulator...\n")
                 try:
@@ -98,5 +101,10 @@ _start_hot_reloader()
 
 # 3. Boot OS
 if __name__ == '__main__':
+    if not os.path.exists('.env'):
+        print("\n\033[93m[WARNING] No .env file found! OreoOS will boot with default empty credentials.")
+        print("          Apps like Spotify, GitHub, and Weather will not function properly.")
+        print("          To fix this, run: cp .env.example .env and fill in your keys.\033[0m\n")
+        time.sleep(2)
     from oreoOS import boot
     boot()
