@@ -124,8 +124,22 @@ def _icon_battery(d, x, y, pct=85):
     d.rect(x + 1,  y + 1, filled, 8, api.WHITE, fill=True)
 
 
+# Lazy-loaded title font
+_TITLE_FONT = None
+
+
+def _title_font():
+    global _TITLE_FONT
+    if _TITLE_FONT is None:
+        try:
+            _TITLE_FONT = pixelfont.load("pixelify_16")
+        except (ImportError, AttributeError):
+            _TITLE_FONT = False
+    return _TITLE_FONT if _TITLE_FONT else None
+
+
 def draw_header(d, title=None, color=None, accent=None):
-    """App status bar matching the Home status bar exactly.
+    """App status bar matching the Home status bar exactly, with centered page title.
 
     color  : status bar bg colour (default theme.STATUS_BG)
     accent : 1-px line under the bar (default theme.PRIMARY)
@@ -141,6 +155,17 @@ def draw_header(d, title=None, color=None, accent=None):
     # Left: Live Clock
     time_str = status.get("time_str", "12:00")
     d.text(time_str, 6, 7, api.WHITE)
+
+    # Center: Page / App Title (if provided)
+    if title:
+        title_str = str(title).strip().upper()
+        pf = _title_font()
+        if pf:
+            tw = pf.measure(title_str)
+            pf.text(d, title_str, (SW - tw) // 2, (HEADER_H - pf.h) // 2, api.WHITE)
+        else:
+            tw = len(title_str) * 8
+            d.text(title_str, (SW - tw) // 2, (HEADER_H - 8) // 2, api.WHITE)
 
     # Right: Full OS Status Cluster (WiFi + BT + Battery % + Battery Icon)
     right_pad = 6
