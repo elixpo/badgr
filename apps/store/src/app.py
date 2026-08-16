@@ -21,11 +21,11 @@ from oreoOS import store
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-LIST_TOP_Y    = widgets.HEADER_H + 6
+LIST_TOP_Y    = widgets.HEADER_H + 4
 HEADER_CARD_H = 36
-CARD_H        = 44
-CARD_GAP      = 4
-ROW_PAD_X     = 10
+CARD_H        = 38
+CARD_GAP      = 3
+ROW_PAD_X     = 8
 ICON_BOX      = 32
 ACT_W         = 78
 ACT_H         = 18
@@ -321,11 +321,11 @@ class App(oreoOS.App):
             letter = (item["name"] or "?")[0].upper()
             d.text(letter, ROW_PAD_X + 8, y + 8, theme.PRIMARY, scale=3)
 
-        tx = ROW_PAD_X + ICON_BOX + 10
-        d.text(item["name"][:18], tx, y + 6, theme.TEXT_BRIGHT, scale=2)
+        tx = ROW_PAD_X + ICON_BOX + 8
+        d.text(item["name"][:18], tx, y + 4, theme.TEXT_BRIGHT, scale=2)
         author = item.get("author") or ""
         if author:
-            d.text(("by " + author)[:24], tx, y + 26, theme.MUTED, scale=1)
+            d.text(("by " + author)[:24], tx, y + 22, theme.MUTED, scale=1)
 
         # List view is browse-only: A opens the details page where the
         # install/uninstall button lives. We keep a small "INSTALLED"
