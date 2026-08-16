@@ -57,14 +57,7 @@ COL_BAR_BG   = api.rgb(38,  40,  52)   # Empty progress / vol bar
 COL_CYAN     = api.rgb(80,  200, 255)  # Device pill cyan
 COL_WARN     = api.rgb(240, 160,  40)  # Offline / Warning amber
 
-DEFAULT_LIBRARY_TRACKS = [
-    {"title": "Hola Amigo",      "artist": "KR$NA, Seedhe Maut",     "album": "FAR FROM OVER", "duration": 226, "category": "Top",    "uri": "spotify:track:5W17yyFN1l8JL5MNUCvrYS"},
-    {"title": "Sweater Weather", "artist": "The Neighbourhood",      "album": "I Love You.",   "duration": 240, "category": "Liked",  "uri": "spotify:track:6jhzQyn6cwPHc85PE4qBp0"},
-    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk",  "album": "Starboy",      "duration": 230, "category": "Liked",  "uri": "spotify:track:7MXVkk9YMctZqd1Srtv4MB"},
-    {"title": "Midnight City",   "artist": "M83",                    "album": "Hurry Up",      "duration": 243, "category": "Recent", "uri": "spotify:track:6GyFP1nfCDB8lbD2bG0Hq9"},
-    {"title": "G-Class",         "artist": "YUNG SAMMY, Urban Poet", "album": "G-Class",      "duration": 166, "category": "Recent", "uri": "spotify:track:2yBum3qnYBlzeGjpWQLenu"},
-    {"title": "Blinding Lights", "artist": "The Weeknd",             "album": "After Hours",   "duration": 200, "category": "Top",    "uri": "spotify:track:0VjIjW4GlUZAMYd2vXMi3b"},
-]
+
 
 
 def _is_wifi_up():
@@ -204,22 +197,22 @@ class App(oreoOS.App):
             {"id": "playlists", "label": "Playlists",       "icon": "DIR",  "count": 0},
         ]
         self._folder_tracks_cache = {
-            "liked": list(DEFAULT_LIBRARY_TRACKS),
+            "liked": [],
             "top": [],
             "recent": [],
         }
         self._playlists_cache = []
-        self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+        self._current_track_list = []
 
         # Player State
-        self._title = "Spotify Connect"
-        self._artist = "Open Spotify / Pick Song"
-        self._album = "Spotify"
+        self._title = "No Active Playback"
+        self._artist = "Open Spotify on device"
+        self._album = "Ready"
         self._duration = 0.0
         self._progress = 0.0
         self._volume = 80
         self._is_playing = False
-        self._device_name = "Spotify Connect"
+        self._device_name = "Ready"
 
         # Cover Art State
         self._cover_art = None
@@ -282,7 +275,7 @@ class App(oreoOS.App):
                     self._folder_tracks_cache["liked"] = liked
                     self._tree_folders[0]["count"] = len(liked)
                 else:
-                    self._tree_folders[0]["count"] = len(DEFAULT_LIBRARY_TRACKS)
+                    self._tree_folders[0]["count"] = 0
 
                 # 2. Fetch Top Tracks
                 top = self._spotify.get_top_tracks(20)
@@ -358,10 +351,7 @@ class App(oreoOS.App):
         self._tree_scroll = 0
 
         cached_tracks = self._folder_tracks_cache.get(folder_id, [])
-        if cached_tracks:
-            self._current_track_list = cached_tracks
-        else:
-            self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+        self._current_track_list = cached_tracks if cached_tracks else []
         self._dirty = True
 
         # Fetch fresh in background if empty
@@ -505,8 +495,15 @@ class App(oreoOS.App):
                             except Exception:
                                 self._cover_art = None
                     else:
-                        # Idle / Paused / Dormant Session: Retain last known track metadata and set PAUSED
+                        # Idle / Stopped / Not in sync: reset to clean placeholders
                         self._is_playing = False
+                        self._title = "No Active Playback"
+                        self._artist = "Open Spotify on device"
+                        self._album = "Ready"
+                        self._duration = 0.0
+                        self._progress = 0.0
+                        self._cover_art = None
+                        self._last_image_url = ""
                         if state.get("device_name"):
                             self._device_name = state.get("device_name")
             except Exception:
@@ -541,11 +538,11 @@ class App(oreoOS.App):
         if btn == api.BTN_C:
             if self._spotify.is_configured():
                 self._spotify.disconnect()
-                self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+                self._current_track_list = []
                 self._tree_state = "ROOT"
                 self._tree_idx = 0
                 self._tree_scroll = 0
-                self._title = "Spotify Connect"
+                self._title = "No Active Playback"
                 self._artist = "Scan QR to Pair"
                 self._album = "Ready"
                 self._duration = 0.0
