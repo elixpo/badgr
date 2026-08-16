@@ -22,7 +22,7 @@ except (ImportError, AttributeError):
     _ticks_ms = lambda: int(_time.time() * 1000)
     _ticks_diff = lambda a, b: a - b
 
-HEADER_H = 28
+HEADER_H = 22
 HINT_H   = 16
 
 # Forest-green header for the home screen (matches the bg image's tones).
@@ -75,7 +75,22 @@ def _poll_status():
     return _status_cache
 
 
+def _load_status_icon(name):
+    """Try to load a pre-baked 13×13 status icon. Returns (data,w,h) or None."""
+    try:
+        mod = __import__("assets.status.optimized.%s" % name,
+                         None, None, ["DATA", "W", "H"])
+        return (mod.DATA, mod.W, mod.H)
+    except Exception:
+        return None
+
+
 def _icon_wifi(d, x, y, connected=False):
+    name = "wifi" if connected else "wifi_disabled"
+    icon = _load_status_icon(name)
+    if icon:
+        d.blit(icon[0], x, y, icon[1], icon[2])
+        return
     c = api.WHITE if connected else theme.MUTED
     d.rect(x + 5, y + 10, 3, 2, c, fill=True)
     d.rect(x + 3, y + 7,  7, 2, c, fill=True)
@@ -85,6 +100,11 @@ def _icon_wifi(d, x, y, connected=False):
 
 
 def _icon_bt(d, x, y, active=False):
+    name = "bluetooth" if active else "bluetooth_disabled"
+    icon = _load_status_icon(name)
+    if icon:
+        d.blit(icon[0], x, y, icon[1], icon[2])
+        return
     c = api.WHITE if active else theme.MUTED
     d.rect(x + 5, y + 1,  2, 11, c, fill=True)
     d.rect(x + 7, y + 3,  2,  2, c, fill=True)
@@ -104,25 +124,11 @@ def _icon_battery(d, x, y, pct=85):
     d.rect(x + 1,  y + 1, filled, 8, api.WHITE, fill=True)
 
 
-# Lazy-loaded title font (Pixelify Sans 16 — fits the 28-px header bar nicely).
-_TITLE_FONT = None
+def draw_header(d, title=None, color=None, accent=None):
+    """App status bar matching the Home status bar exactly.
 
-
-def _title_font():
-    global _TITLE_FONT
-    if _TITLE_FONT is None:
-        try:
-            _TITLE_FONT = pixelfont.load("pixelify_16")
-        except (ImportError, AttributeError):
-            _TITLE_FONT = False
-    return _TITLE_FONT if _TITLE_FONT else None
-
-
-def draw_header(d, title, color=None, accent=None):
-    """App header bar with a centred Pixelify Sans title and full OS status cluster.
-
-    color  : header bg colour (default theme.STATUS_BG)
-    accent : 1-px line under the header (default theme.PRIMARY)
+    color  : status bar bg colour (default theme.STATUS_BG)
+    accent : 1-px line under the bar (default theme.PRIMARY)
     """
     SW = api.SCREEN_W
     bg = color  or theme.STATUS_BG
@@ -134,36 +140,30 @@ def draw_header(d, title, color=None, accent=None):
 
     # Left: Live Clock
     time_str = status.get("time_str", "12:00")
-    d.text(time_str, 8, (HEADER_H - 8) // 2, api.WHITE)
-
-    # Center: App Title
-    pf = _title_font()
-    if pf:
-        tw = pf.measure(title)
-        pf.text(d, title, (SW - tw) // 2, (HEADER_H - pf.h) // 2, api.WHITE)
-    else:
-        tx = (SW - len(title) * 16) // 2
-        d.text(title, tx, (HEADER_H - 16) // 2, api.WHITE, scale=2)
+    d.text(time_str, 6, 7, api.WHITE)
 
     # Right: Full OS Status Cluster (WiFi + BT + Battery % + Battery Icon)
-    right_pad = 8
+    right_pad = 6
     bat_w     = 22
     icon_w    = 13
     gap       = 4
-    y_center  = (HEADER_H - 10) // 2
 
     pct_str = "%d%%" % status.get("battery_pct", 85)
-    pct_w   = len(pct_str) * 8
+    text_w  = len(pct_str) * 8
 
     bat_x   = SW - right_pad - bat_w
-    pct_x   = bat_x - gap - pct_w
+    pct_x   = bat_x - gap - text_w
     bt_x    = pct_x - gap - icon_w
     wifi_x  = bt_x  - gap - icon_w
 
-    _icon_wifi(d, wifi_x, y_center - 1, status.get("wifi", False))
-    _icon_bt(d, bt_x, y_center - 1, status.get("bt", False))
-    d.text(pct_str, pct_x, (HEADER_H - 8) // 2, api.WHITE)
-    _icon_battery(d, bat_x, y_center, status.get("battery_pct", 85))
+    icon_y = (HEADER_H - icon_w) // 2     # vertical-centre 13-px icon (4px)
+    text_y = (HEADER_H - 8) // 2          # vertical-centre 8-px text (7px)
+    bat_y  = (HEADER_H - 10) // 2         # vertical-centre 10-px battery (6px)
+
+    _icon_wifi   (d, wifi_x, icon_y, connected=status.get("wifi", False))
+    _icon_bt     (d, bt_x,   icon_y, active=status.get("bt", False))
+    d.text(pct_str, pct_x, text_y, api.WHITE)
+    _icon_battery(d, bat_x, bat_y, pct=status.get("battery_pct", 85))
 
 
 def draw_hint(d, text, color=None):

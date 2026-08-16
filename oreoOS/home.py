@@ -48,14 +48,21 @@ _NET_INTERVAL_MS = 5000          # 5 s — cron-style refresh while ANY screen i
 _net_cache = {"wifi": False, "bt": False, "checked_ms": None, "ever_checked": False}
 
 
+try:
+    _ticks_ms = time.ticks_ms
+    _ticks_diff = time.ticks_diff
+except (AttributeError, ImportError):
+    _ticks_ms = lambda: int(time.time() * 1000)
+    _ticks_diff = lambda a, b: a - b
+
+
 def _poll_network():
     """Refresh the wifi/bt cache if the interval has elapsed. Cheap on miss
     (clock compare only); cheap on hit (just `isconnected()` / `active()` —
     both are non-blocking radio-state queries, not scans)."""
-    import time
-    now = time.ticks_ms()
+    now = _ticks_ms()
     last = _net_cache["checked_ms"]
-    if last is not None and time.ticks_diff(now, last) < _NET_INTERVAL_MS:
+    if last is not None and _ticks_diff(now, last) < _NET_INTERVAL_MS:
         return False
     _net_cache["checked_ms"] = now
     try:
@@ -305,9 +312,8 @@ class Home(oreoOS.App):
         # Battery: re-sample every ~30 s. ADC reads are ~1 ms, but the
         # percentage changes slowly enough that anything more frequent is
         # noise.
-        import time as _t
-        now = _t.ticks_ms()
-        if self._last_batt_ms is None or _t.ticks_diff(now, self._last_batt_ms) > 30000:
+        now = _ticks_ms()
+        if self._last_batt_ms is None or _ticks_diff(now, self._last_batt_ms) > 30000:
             self._last_batt_ms = now
             try:
                 from oreoWare import battery
@@ -366,36 +372,7 @@ class Home(oreoOS.App):
             self._status_dirty = False
 
     def _draw_status_bar(self, d, h, m):
-        # Forest-green to match the bg image's foliage; thin pink accent line.
-        d.rect(0, 0, SW, _STATUS_H, _HOME_STATUS_BG, fill=True)
-        d.rect(0, _STATUS_H - 1, SW, 1, theme.PRIMARY, fill=True)
-        d.text("%02d:%02d" % (h, m), 6, 7, api.WHITE)
-
-        # Right-anchored cluster aligned to a single baseline. Layout (R→L):
-        #   [WiFi 13px] [4px] [BT 13px] [4px] [PCT text] [4px] [BAT 22px]   right edge=6px
-        # All icons start at y=4 (top of cluster) so they share a baseline;
-        # the battery icon is 10 px tall and the text is 8 px so we centre
-        # them visually using y=6 for the battery body and y=7 for the text.
-        right_pad = 6
-        bat_w     = 22
-        icon_w    = 13
-        gap       = 4
-
-        pct_str = "%d%%" % self._battery_pct
-        text_w  = len(pct_str) * 8
-
-        bat_x   = SW - right_pad - bat_w
-        pct_x   = bat_x - gap - text_w
-        bt_x    = pct_x - gap - icon_w
-        wifi_x  = bt_x  - gap - icon_w
-
-        icon_y = (_STATUS_H - icon_w) // 2     # vertical-centre 13-px icon
-        text_y = (_STATUS_H - 8) // 2          # vertical-centre 8-px text
-
-        _icon_wifi   (d, wifi_x, icon_y, connected=self._wifi_ok)
-        _icon_bt     (d, bt_x,   icon_y, active=self._bt_on)
-        d.text(pct_str, pct_x, text_y, api.WHITE)
-        _icon_battery(d, bat_x, (_STATUS_H - 10) // 2, pct=self._battery_pct)
+        widgets.draw_header(d, color=_HOME_STATUS_BG)
 
     def _draw_clock_area(self, d, h, m, wd, day, mon, yr):
         # Repaint just the clock band over the (cached) background.
