@@ -94,6 +94,23 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
         return False
 
 
+def clear_credentials():
+    """Wipe saved Spotify tokens and credentials from disk."""
+    for fpath in (STATE_FILE, "apps_market/Music/" + STATE_FILE, "apps/Music/" + STATE_FILE):
+        try:
+            import os
+            if os.path.exists(fpath):
+                os.remove(fpath)
+        except Exception:
+            pass
+    try:
+        with open(STATE_FILE, "w") as f:
+            f.write("{}")
+    except Exception:
+        pass
+    return True
+
+
 _COVER_CACHE = {}
 
 def create_relay_session():
@@ -200,6 +217,15 @@ class SpotifyClient:
         if ci: self.client_id = ci
         if cs: self.client_secret = cs
         return self.is_configured()
+
+    def disconnect(self):
+        """Wipe memory tokens and clear persisted credentials on disk."""
+        self.token = None
+        self.refresh_token = None
+        self.client_id = None
+        self.client_secret = None
+        self.device_name = ""
+        clear_credentials()
 
     def _http_request(self, host, method, path, headers=None, body_data=None):
         if not _RAW_OK:

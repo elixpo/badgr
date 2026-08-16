@@ -33,14 +33,14 @@ import oreoOS
 from oreoOS import api, theme, widgets
 
 try:
-    from .spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials
+    from .spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
     from .qr import QRCode
 except Exception:
     try:
-        from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials
+        from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
         from apps_market.Music.src.qr import QRCode
     except Exception:
-        from apps.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials
+        from apps.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
         from apps.Music.src.qr import QRCode
 
 try:
@@ -208,6 +208,10 @@ class App(oreoOS.App):
         self._last_synced_vol = self._volume
         self._vol_syncing = False
 
+        # Toast Message State
+        self._toast_msg = ""
+        self._toast_until = 0
+
         if self._mode == "SPOTIFY":
             self._poll_spotify()
             self._load_spotify_user_library()
@@ -297,10 +301,28 @@ class App(oreoOS.App):
             self._dirty = True
             return
 
-        # ── Toggle QR Screen (BTN_C) ──────────────────────────────────────
+        # ── Toggle QR / Disconnect Screen (BTN_C) ─────────────────────────
         if btn == api.BTN_C:
             if self._show_qr:
                 self._show_qr = False
+            elif self._mode == "SPOTIFY":
+                # Disconnect & wipe Spotify credentials
+                self._spotify.disconnect()
+                self._mode = "DEMO"
+                self._library_tracks = list(DEFAULT_LIBRARY_TRACKS)
+                self._lib_idx = 0
+                self._lib_scroll = 0
+                t0 = self._library_tracks[0]
+                self._title = t0["title"]
+                self._artist = t0["artist"]
+                self._album = t0["album"]
+                self._duration = t0["duration"]
+                self._progress = 0.0
+                self._is_playing = False
+                self._cover_art = None
+                self._device_name = "Offline"
+                self._toast_msg = "SPOTIFY UNLINKED"
+                self._toast_until = _ticks_ms() + 2500
             else:
                 self._start_qr_session()
             self._dirty = True
@@ -628,8 +650,19 @@ class App(oreoOS.App):
         d.rect(vx + min(vw - 2, max(0, v_fill - 1)), vy - 2, 3, 9, api.WHITE, fill=True)
         d.text("%d%%" % self._volume, 264, ctrl_y + 14, api.WHITE)
 
-        # 5. Bottom Hint Bar
-        widgets.draw_hint(d, "A:Play  <>:Skip  ^v:Vol  B:Lib  C:QR")
+        # 5. Toast Notification Overlay if active
+        now = _ticks_ms()
+        if self._toast_until > 0 and _ticks_diff(now, self._toast_until) < 0:
+            tw = len(self._toast_msg) * 8 + 24
+            tx = (SW - tw) // 2
+            ty = widgets.HEADER_H + 6
+            d.rect(tx, ty, tw, 22, api.rgb(20, 22, 28), fill=True)
+            d.rect(tx, ty, tw, 22, theme.GOLD, fill=False)
+            d.text(self._toast_msg, tx + 12, ty + 7, theme.GOLD)
+
+        # 6. Bottom Hint Bar
+        c_act = "C:Unlink" if self._mode == "SPOTIFY" else "C:Link"
+        widgets.draw_hint(d, "A:Play  <>:Skip  ^v:Vol  B:Lib  " + c_act)
 
     def _draw_library(self, d):
         # Header
@@ -699,7 +732,8 @@ class App(oreoOS.App):
         d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
 
         # Hint Bar
-        widgets.draw_hint(d, "A:Play  ^v:Select  B:Player  C:QR")
+        c_act = "C:Unlink" if self._mode == "SPOTIFY" else "C:Link"
+        widgets.draw_hint(d, "A:Play  ^v:Select  B:Player  " + c_act)
 
     def _draw_qr_screen(self, d):
         widgets.draw_header(d, "LINK SPOTIFY")
