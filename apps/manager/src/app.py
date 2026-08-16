@@ -60,6 +60,11 @@ def _calc_dir_footprint(path):
     file_count = 0
     stack = [path]
 
+    try:
+        from oreoOS.storage import _SKIP_DIRS
+    except ImportError:
+        _SKIP_DIRS = ("__pycache__", "raw", "transparent", ".git", ".venv", "node_modules")
+
     while stack:
         cur = stack.pop()
         try:
@@ -68,6 +73,8 @@ def _calc_dir_footprint(path):
             continue
 
         for entry in entries:
+            if entry in _SKIP_DIRS:
+                continue
             full = cur + "/" + entry
             try:
                 st = os.stat(full)
