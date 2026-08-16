@@ -382,7 +382,10 @@ class SpotifyClient:
 
         return None
 
-    def play(self):
+    def play(self, uris=None):
+        if uris:
+            body = _json.dumps({"uris": uris})
+            return self._send_control("PUT", "/v1/me/player/play", body_data=body)
         return self._send_control("PUT", "/v1/me/player/play")
 
     def pause(self):
@@ -398,15 +401,55 @@ class SpotifyClient:
         pct = max(0, min(100, int(volume_pct)))
         return self._send_control("PUT", "/v1/me/player/volume?volume_percent=%d" % pct)
 
-    def _send_control(self, method, path):
+    def get_user_tracks(self, limit=10):
+        """Fetch user recently played tracks from Spotify Web API."""
+        if not self.token:
+            if not self.refresh_access_token():
+                return []
+        headers = {"Authorization": "Bearer " + self.token}
+        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers)
+        if status == 401 and self.refresh_access_token():
+            headers = {"Authorization": "Bearer " + self.token}
+            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers)
+        if status == 200 and body:
+            try:
+                data = _json.loads(body.decode('utf-8'))
+                items = data.get("items", [])
+                tracks = []
+                seen = set()
+                for entry in items:
+                    tr = entry.get("track") or {}
+                    name = tr.get("name")
+                    if not name or name in seen:
+                        continue
+                    seen.add(name)
+                    artists = ", ".join(a.get("name", "") for a in tr.get("artists", []))
+                    tracks.append({
+                        "title": name,
+                        "artist": artists or "Unknown Artist",
+                        "album": (tr.get("album") or {}).get("name", ""),
+                        "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
+                        "uri": tr.get("uri", ""),
+                        "category": "Recent"
+                    })
+                return tracks
+            except Exception:
+                pass
+        return []
+
+    def _send_control(self, method, path, body_data=None):
         if not self.token:
             if not self.refresh_access_token():
                 return False
 
         headers = {"Authorization": "Bearer " + self.token}
-        status, _ = self._http_request(self.API_HOST, method, path, headers)
+        if body_data:
+            headers["Content-Type"] = "application/json"
+        status, _ = self._http_request(self.API_HOST, method, path, headers, body_data=body_data)
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + self.token}
-            status, _ = self._http_request(self.API_HOST, method, path, headers)
+            if body_data:
+                headers["Content-Type"] = "application/json"
+            status, _ = self._http_request(self.API_HOST, method, path, headers, body_data=body_data)
 
         return 200 <= status < 300

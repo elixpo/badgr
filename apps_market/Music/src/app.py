@@ -1,10 +1,11 @@
-"""Music — Spotify Connect & Media Player for Oreo OS.
+"""Spotify — Real-time Spotify Connect & Media Player for Oreo OS.
 
 Features:
   • Real-time Spotify Playback Sync (Track, Artist, Album, Duration, Progress, Volume).
   • Minimal, uncluttered transport controls (Prev, Play/Pause, Next, Speaker & Volume slider).
-  • Fast, zero-lag asynchronous volume control engine.
-  • Interactive Library & Playlist Drawer (B button) with smooth track switching.
+  • Buffered & debounced volume engine (350ms settle timer for rapid/long presses).
+  • Interactive Library & Playlist Drawer (B button) with instant track switching.
+  • Manifest-driven app branding ("Spotify" from manifest.json).
   • High-Resolution Album Cover Art photo rendering with memory caching.
   • Dynamic streaming device badge and marquee title scrolling.
   • Offline Demo fallback playlist when not linked to Spotify.
@@ -14,9 +15,9 @@ Controls:
     A        Play / Pause toggle
     RIGHT    Next track (Skip)
     LEFT     Previous track
-    UP       Volume Up (+5%, instant)
-    DOWN     Volume Down (-5%, instant)
-    B        Toggle Library & Playlists
+    UP       Volume Up (+5%, buffered)
+    DOWN     Volume Down (-5%, buffered)
+    B        Toggle Library Drawer
     C        Open Setup QR Screen
     HOME     Exit to launcher drawer
 
@@ -61,18 +62,32 @@ COL_MUTED    = api.rgb(150, 155, 170)  # Subtext / timer
 COL_BAR_BG   = api.rgb(38,  40,  52)   # Empty progress / vol bar
 COL_CYAN     = api.rgb(80,  200, 255)  # Device pill cyan
 
-LIBRARY_TRACKS = [
-    {"title": "Chalo Chalein",   "artist": "Ritviz, Seedhe Maut", "album": "Chalo Chalein", "duration": 210, "category": "Hip-Hop"},
-    {"title": "Hola Amigo",      "artist": "KR$NA, Seedhe Maut",  "album": "FAR FROM OVER",  "duration": 226, "category": "Hip-Hop"},
-    {"title": "Nanchaku",        "artist": "Seedhe Maut, MC Stan","album": "Nayaab",         "duration": 195, "category": "Hip-Hop"},
-    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk","album": "Starboy",       "duration": 230, "category": "Synthwave"},
-    {"title": "Midnight City",   "artist": "M83",                 "album": "Hurry Up",       "duration": 244, "category": "Synthwave"},
-    {"title": "Resonance",       "artist": "HOME",                "album": "Odyssey",        "duration": 212, "category": "Lo-Fi"},
-    {"title": "Get Lucky",       "artist": "Daft Punk, Pharrell", "album": "RAM",            "duration": 248, "category": "Funk"},
-    {"title": "Blinding Lights", "artist": "The Weeknd",          "album": "After Hours",    "duration": 200, "category": "Synthwave"},
-    {"title": "Do I Wanna Know?","artist": "Arctic Monkeys",      "album": "AM",             "duration": 272, "category": "Indie"},
-    {"title": "Sweater Weather", "artist": "The Neighbourhood",   "album": "I Love You.",    "duration": 240, "category": "Indie"},
+DEFAULT_LIBRARY_TRACKS = [
+    {"title": "G-Class",         "artist": "YUNG SAMMY, Urban Poet", "album": "G-Class",        "duration": 166, "category": "Rap",       "uri": ""},
+    {"title": "Chalo Chalein",   "artist": "Ritviz, Seedhe Maut",    "album": "Chalo Chalein",  "duration": 210, "category": "Hip-Hop",   "uri": ""},
+    {"title": "Hola Amigo",      "artist": "KR$NA, Seedhe Maut",     "album": "FAR FROM OVER",   "duration": 226, "category": "Hip-Hop",   "uri": ""},
+    {"title": "Nanchaku",        "artist": "Seedhe Maut, MC Stan",   "album": "Nayaab",          "duration": 195, "category": "Hip-Hop",   "uri": ""},
+    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk",  "album": "Starboy",        "duration": 230, "category": "Synthwave", "uri": ""},
+    {"title": "Midnight City",   "artist": "M83",                    "album": "Hurry Up",        "duration": 244, "category": "Synthwave", "uri": ""},
+    {"title": "Resonance",       "artist": "HOME",                   "album": "Odyssey",         "duration": 212, "category": "Lo-Fi",     "uri": ""},
+    {"title": "Get Lucky",       "artist": "Daft Punk, Pharrell",    "album": "RAM",             "duration": 248, "category": "Funk",      "uri": ""},
+    {"title": "Blinding Lights", "artist": "The Weeknd",             "album": "After Hours",     "duration": 200, "category": "Synthwave", "uri": ""},
+    {"title": "Do I Wanna Know?","artist": "Arctic Monkeys",         "album": "AM",              "duration": 272, "category": "Indie",     "uri": ""},
+    {"title": "Sweater Weather", "artist": "The Neighbourhood",      "album": "I Love You.",     "duration": 240, "category": "Indie",     "uri": ""},
 ]
+
+
+def _get_manifest_name():
+    for p in ("apps/Music/manifest.json", "apps_market/Music/manifest.json"):
+        try:
+            import json
+            with open(p) as f:
+                d = json.load(f)
+                if "name" in d:
+                    return d["name"]
+        except Exception:
+            pass
+    return "Spotify"
 
 
 def _format_time(seconds):
@@ -97,7 +112,6 @@ def _marquee(text, max_chars, scroll_offset):
 
 
 def _draw_icon_prev(d, x, y, color):
-    """Draw a crisp 14x10 Previous Track glyph: bar on left + 2 left-pointing triangles."""
     d.rect(x, y, 2, 10, color, fill=True)
     for col in range(5):
         h = (col + 1) * 2
@@ -108,7 +122,6 @@ def _draw_icon_prev(d, x, y, color):
 
 
 def _draw_icon_next(d, x, y, color):
-    """Draw a crisp 14x10 Next Track glyph: 2 right-pointing triangles + bar on right."""
     for col in range(5):
         h = 10 - col * 2
         d.rect(x + col, y + (10 - h) // 2, 1, h, color, fill=True)
@@ -119,20 +132,17 @@ def _draw_icon_next(d, x, y, color):
 
 
 def _draw_icon_play(d, x, y, color):
-    """Draw a sharp 10x12 right-pointing Play triangle."""
     for col in range(5):
         h = 12 - col * 2
         d.rect(x + col * 2, y + col, 2, h, color, fill=True)
 
 
 def _draw_icon_pause(d, x, y, color):
-    """Draw two crisp 3x12 Pause bars."""
     d.rect(x, y, 3, 12, color, fill=True)
     d.rect(x + 6, y, 3, 12, color, fill=True)
 
 
 def _draw_icon_speaker(d, x, y, color, vol=100):
-    """Draw a 14x10 Speaker icon with dynamic volume soundwaves."""
     d.rect(x, y + 3, 3, 4, color, fill=True)
     d.rect(x + 3, y + 2, 1, 6, color, fill=True)
     d.rect(x + 4, y + 1, 1, 8, color, fill=True)
@@ -146,7 +156,7 @@ def _draw_icon_speaker(d, x, y, color, vol=100):
 
 
 class App(oreoOS.App):
-    name = "Music"
+    name = _get_manifest_name()
     SHOW_LOADING = False
     CONSUMES_C = True
 
@@ -154,15 +164,15 @@ class App(oreoOS.App):
         self._os = os
         self._spotify = SpotifyClient()
         self._mode = "SPOTIFY" if self._spotify.is_configured() else "DEMO"
-        self._view_mode = "PLAYER"  # "PLAYER" or "LIBRARY"
+        self._view_mode = "PLAYER"
 
         # Library Navigation State
         self._lib_idx = 0
         self._lib_scroll = 0
+        self._library_tracks = list(DEFAULT_LIBRARY_TRACKS)
 
         # Player State
-        self._track_idx = 0
-        t0 = LIBRARY_TRACKS[0]
+        t0 = self._library_tracks[0]
         self._title = t0["title"]
         self._artist = t0["artist"]
         self._album = t0["album"]
@@ -177,7 +187,7 @@ class App(oreoOS.App):
         self._last_image_url = ""
         self._cover_size = 72
 
-        # UI & Animation timers
+        # Polling & Timers
         self._last_poll = _ticks_ms()
         self._poll_interval = 2500
         self._title_scroll_t = 0.0
@@ -190,43 +200,47 @@ class App(oreoOS.App):
         self._qr_matrix = None
         self._qr_poll_t = _ticks_ms()
 
-        # Volume Async Dispatcher State
-        self._pending_vol = None
+        # Volume Buffer & Debounce State
+        self._vol_buffered = False
+        self._vol_settle_t = 0
+        self._last_synced_vol = self._volume
         self._vol_syncing = False
 
         if self._mode == "SPOTIFY":
             self._poll_spotify()
+            self._load_spotify_user_library()
 
-    def _set_volume_async(self, vol):
-        """Immediately update local volume and debounced-sync to Spotify in background."""
-        if self._mode != "SPOTIFY":
-            return
-        self._pending_vol = vol
-        if not self._vol_syncing:
-            self._vol_syncing = True
+    def _load_spotify_user_library(self):
+        """Asynchronously fetch user's Spotify tracks to merge into the library."""
+        def _worker():
             try:
-                import threading
-                t = threading.Thread(target=self._vol_worker, daemon=True)
-                t.start()
+                user_tracks = self._spotify.get_user_tracks(10)
+                if user_tracks:
+                    # Merge with default tracks
+                    merged = user_tracks + [t for t in DEFAULT_LIBRARY_TRACKS if not any(u["title"].lower() == t["title"].lower() for u in user_tracks)]
+                    self._library_tracks = merged
+                    self._dirty = True
             except Exception:
-                self._spotify.set_volume(vol)
-                self._vol_syncing = False
-
-    def _vol_worker(self):
+                pass
         try:
-            while True:
-                target = self._pending_vol
-                if target is None:
-                    break
-                self._pending_vol = None
-                self._spotify.set_volume(target)
-                time.sleep(0.08)
-                if self._pending_vol is None:
-                    break
+            import threading
+            threading.Thread(target=_worker, daemon=True).start()
         except Exception:
             pass
-        finally:
-            self._vol_syncing = False
+
+    def _set_volume_async(self, vol):
+        if self._mode != "SPOTIFY":
+            return
+        def _worker():
+            try:
+                self._spotify.set_volume(vol)
+            except Exception:
+                pass
+        try:
+            import threading
+            threading.Thread(target=_worker, daemon=True).start()
+        except Exception:
+            self._spotify.set_volume(vol)
 
     def _start_qr_session(self):
         self._qr_session_id, self._qr_url = create_relay_session()
@@ -248,7 +262,10 @@ class App(oreoOS.App):
                 self._is_playing = state.get("is_playing", self._is_playing)
                 self._duration = state.get("duration_s", self._duration)
                 self._progress = state.get("progress_s", self._progress)
-                self._volume = state.get("volume", self._volume)
+                # Only update volume from server if not actively buffering local user presses
+                if not self._vol_buffered:
+                    self._volume = state.get("volume", self._volume)
+                    self._last_synced_vol = self._volume
                 self._device_name = state.get("device_name", "")
 
                 img_url = state.get("image_url", "")
@@ -299,14 +316,14 @@ class App(oreoOS.App):
                         self._lib_scroll = self._lib_idx
                     self._dirty = True
             elif btn == api.BTN_DOWN:
-                if self._lib_idx < len(LIBRARY_TRACKS) - 1:
+                if self._lib_idx < len(self._library_tracks) - 1:
                     self._lib_idx += 1
                     if self._lib_idx >= self._lib_scroll + 5:
                         self._lib_scroll = self._lib_idx - 4
                     self._dirty = True
             elif btn == api.BTN_A:
                 # Select & Play
-                t = LIBRARY_TRACKS[self._lib_idx]
+                t = self._library_tracks[self._lib_idx]
                 self._title = t["title"]
                 self._artist = t["artist"]
                 self._album = t["album"]
@@ -316,10 +333,20 @@ class App(oreoOS.App):
                 self._cover_art = None
                 self._title_scroll_t = 0.0
                 self._view_mode = "PLAYER"
+
                 if self._mode == "SPOTIFY":
+                    track_uri = t.get("uri")
+                    def _play_worker():
+                        try:
+                            if track_uri:
+                                self._spotify.play(uris=[track_uri])
+                            else:
+                                self._spotify.play()
+                        except Exception:
+                            pass
                     try:
                         import threading
-                        threading.Thread(target=self._spotify.play, daemon=True).start()
+                        threading.Thread(target=_play_worker, daemon=True).start()
                     except Exception:
                         pass
                 self._dirty = True
@@ -329,6 +356,7 @@ class App(oreoOS.App):
         if btn == api.BTN_B:
             # Open Library Drawer
             self._view_mode = "LIBRARY"
+            self._load_spotify_user_library()
             self._dirty = True
 
         elif btn == api.BTN_A:
@@ -361,8 +389,8 @@ class App(oreoOS.App):
                 except Exception:
                     pass
             else:
-                self._lib_idx = (self._lib_idx + 1) % len(LIBRARY_TRACKS)
-                t = LIBRARY_TRACKS[self._lib_idx]
+                self._lib_idx = (self._lib_idx + 1) % len(self._library_tracks)
+                t = self._library_tracks[self._lib_idx]
                 self._title, self._artist, self._album, self._duration = t["title"], t["artist"], t["album"], t["duration"]
                 self._progress = 0.0
                 self._cover_art = None
@@ -378,8 +406,8 @@ class App(oreoOS.App):
                 except Exception:
                     pass
             else:
-                self._lib_idx = (self._lib_idx - 1) % len(LIBRARY_TRACKS)
-                t = LIBRARY_TRACKS[self._lib_idx]
+                self._lib_idx = (self._lib_idx - 1) % len(self._library_tracks)
+                t = self._library_tracks[self._lib_idx]
                 self._title, self._artist, self._album, self._duration = t["title"], t["artist"], t["album"], t["duration"]
                 self._progress = 0.0
                 self._cover_art = None
@@ -387,19 +415,28 @@ class App(oreoOS.App):
             self._dirty = True
 
         elif btn == api.BTN_UP:
-            # Volume Up (Instant local + async background Spotify sync)
+            # Volume Up (Buffered & debounced for fast/long presses)
             self._volume = min(100, self._volume + 5)
-            self._set_volume_async(self._volume)
+            self._vol_buffered = True
+            self._vol_settle_t = _ticks_ms() + 350
             self._dirty = True
 
         elif btn == api.BTN_DOWN:
-            # Volume Down (Instant local + async background Spotify sync)
+            # Volume Down (Buffered & debounced for fast/long presses)
             self._volume = max(0, self._volume - 5)
-            self._set_volume_async(self._volume)
+            self._vol_buffered = True
+            self._vol_settle_t = _ticks_ms() + 350
             self._dirty = True
 
     def update(self, dt):
         now = _ticks_ms()
+
+        # Volume Settle Buffer Flush (Debounce Dispatcher)
+        if self._vol_buffered and _ticks_diff(now, self._vol_settle_t) >= 0:
+            self._vol_buffered = False
+            if self._volume != self._last_synced_vol:
+                self._last_synced_vol = self._volume
+                self._set_volume_async(self._volume)
 
         # Update QR Pairing Session
         if self._show_qr and self._qr_session_id:
@@ -457,9 +494,9 @@ class App(oreoOS.App):
         self._dirty = False
 
     def _draw_player(self, d):
-        # 1. Header
-        header_title = "SPOTIFY CONNECT" if self._mode == "SPOTIFY" else "NOW PLAYING"
-        widgets.draw_header(d, header_title)
+        # 1. Header with Manifest App Name ("SPOTIFY" / "SPOTIFY CONNECT")
+        app_title = "SPOTIFY CONNECT" if self._mode == "SPOTIFY" else (self.name.upper() if self.name else "SPOTIFY")
+        widgets.draw_header(d, app_title)
 
         # 2. Hero Album Cover Art + Track Metadata
         csz = self._cover_size
@@ -604,17 +641,18 @@ class App(oreoOS.App):
         # Track List (5 items per page)
         row_h = 34
         visible_count = 5
+        tracks = self._library_tracks
         for i in range(visible_count):
             item_idx = self._lib_scroll + i
-            if item_idx >= len(LIBRARY_TRACKS):
+            if item_idx >= len(tracks):
                 break
-            t = LIBRARY_TRACKS[item_idx]
+            t = tracks[item_idx]
             ry = card_y + 4 + i * (row_h + 2)
             rx = card_x + 4
             rw = card_w - 14
 
             is_selected = (item_idx == self._lib_idx)
-            is_active_track = (t["title"] == self._title)
+            is_active_track = (t["title"].lower() == self._title.lower())
 
             # Row Background
             if is_selected:
@@ -625,7 +663,6 @@ class App(oreoOS.App):
 
             # Track Number / Equalizer Icon
             if is_active_track and self._is_playing:
-                # Mini Animated Equalizer
                 d.rect(rx + 8, ry + 12, 2, 8, COL_SPOTIFY, fill=True)
                 d.rect(rx + 12, ry + 8, 2, 12, COL_SPOTIFY, fill=True)
                 d.rect(rx + 16, ry + 14, 2, 6, COL_SPOTIFY, fill=True)
@@ -638,7 +675,8 @@ class App(oreoOS.App):
             d.text(t["title"][:18], rx + 28, ry + 6, t_color)
 
             # Artist + Category
-            sub_str = "%s • %s" % (t["artist"][:14], t["category"])
+            cat = t.get("category", "Track")
+            sub_str = "%s / %s" % (t["artist"][:14], cat)
             d.text(sub_str, rx + 28, ry + 20, COL_SPOTIFY if is_selected else COL_MUTED)
 
             # Duration
@@ -650,13 +688,13 @@ class App(oreoOS.App):
         sb_y = card_y + 6
         sb_h = card_h - 12
         d.rect(sb_x, sb_y, 2, sb_h, COL_BAR_BG, fill=True)
-        total_items = len(LIBRARY_TRACKS)
+        total_items = len(tracks)
         thumb_h = max(14, int((visible_count / total_items) * sb_h))
         thumb_y = sb_y + int((self._lib_scroll / max(1, total_items - visible_count)) * (sb_h - thumb_h))
         d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
 
         # Hint Bar
-        widgets.draw_hint(d, "A:Play  ^ v:Select  B:Player  C:QR")
+        widgets.draw_hint(d, "A:Play  ^v:Select  B:Player  C:QR")
 
     def _draw_qr_screen(self, d):
         widgets.draw_header(d, "LINK SPOTIFY")
