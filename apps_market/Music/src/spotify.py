@@ -71,6 +71,48 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
 
 _COVER_CACHE = {}
 
+def create_relay_session():
+    """Request a 6-character PIN session from oreo.elixpo.com."""
+    base_url = "https://oreo.elixpo.com/api/spotify/session"
+    try:
+        from oreoOS import config
+        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo.elixpo.com") + "/api/spotify/session"
+    except Exception:
+        pass
+
+    try:
+        import urllib.request
+        req = urllib.request.Request(base_url, headers={"User-Agent": "OreoBadge/1.0"})
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            data = _json.loads(resp.read().decode())
+            if data.get("status") == "ok":
+                return data.get("code"), data.get("url")
+    except Exception:
+        pass
+    return None, "https://oreo.elixpo.com/spotify"
+
+
+def poll_relay_session(code):
+    """Poll oreo.elixpo.com to check if the session code was authorized."""
+    if not code:
+        return None
+    base_url = "https://oreo.elixpo.com/api/spotify/poll?code=" + str(code)
+    try:
+        from oreoOS import config
+        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo.elixpo.com") + "/api/spotify/poll?code=" + str(code)
+    except Exception:
+        pass
+
+    try:
+        import urllib.request
+        req = urllib.request.Request(base_url, headers={"User-Agent": "OreoBadge/1.0"})
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            return _json.loads(resp.read().decode())
+    except Exception:
+        pass
+    return None
+
+
 def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
     if not url:
         return None

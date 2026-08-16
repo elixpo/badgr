@@ -24,14 +24,14 @@ import oreoOS
 from oreoOS import api, theme, widgets
 
 try:
-    from .spotify import SpotifyClient, fetch_cover_art_rgb565
+    from .spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials
     from .qr import QRCode
 except Exception:
     try:
-        from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565
+        from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials
         from apps_market.Music.src.qr import QRCode
     except Exception:
-        from apps.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565
+        from apps.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials
         from apps.Music.src.qr import QRCode
 
 try:
@@ -153,7 +153,14 @@ class App(oreoOS.App):
         pass
 
     def _build_qr(self):
-        self._qr_url = "https://oreo.elixpo.com/spotify"
+        try:
+            pin, url = create_relay_session()
+            self._session_pin = pin
+            self._qr_url = url or "https://oreo.elixpo.com/spotify"
+        except Exception:
+            self._session_pin = None
+            self._qr_url = "https://oreo.elixpo.com/spotify"
+
         try:
             self._qr_matrix = QRCode.encode(self._qr_url)
         except Exception:
@@ -290,10 +297,26 @@ class App(oreoOS.App):
         if self._vol_toast_t > 0:
             self._vol_toast_t = max(0.0, self._vol_toast_t - dt)
 
-        # Check for newly saved token
-        if _ticks_diff(now, self._last_check_token_ms) > 1000:
+        # Check for newly saved token or poll Cloud PIN Relay while on setup screen
+        if _ticks_diff(now, self._last_check_token_ms) > 1500:
             self._last_check_token_ms = now
-            if self._show_qr or self._mode != "SPOTIFY":
+            if self._show_qr and getattr(self, "_session_pin", None):
+                try:
+                    res = poll_relay_session(self._session_pin)
+                    if res and res.get("status") == "authorized":
+                        save_credentials(
+                            token=res.get("access_token"),
+                            refresh_token=res.get("refresh_token"),
+                            client_id=res.get("client_id")
+                        )
+                        self._spotify.reload_persisted()
+                        self._show_qr = False
+                        self._mode = "SPOTIFY"
+                        self._poll_spotify()
+                        self._dirty = True
+                except Exception:
+                    pass
+            elif self._show_qr or self._mode != "SPOTIFY":
                 if self._spotify.reload_persisted():
                     self._mode = "SPOTIFY"
                     self._show_qr = False
@@ -337,10 +360,10 @@ class App(oreoOS.App):
 
             if self._qr_matrix:
                 n = len(self._qr_matrix)
-                scale = max(2, min(4, (card_h - 48) // n))
+                scale = max(2, min(3, (card_h - 60) // n))
                 qr_px = n * scale
                 qr_x = card_x + (card_w - qr_px) // 2
-                qr_y = card_y + 8
+                qr_y = card_y + 6
 
                 pad = 4
                 d.rect(qr_x - pad, qr_y - pad, qr_px + pad * 2, qr_px + pad * 2, api.WHITE, fill=True)
@@ -351,16 +374,23 @@ class App(oreoOS.App):
                         if row[c]:
                             d.rect(qr_x + c * scale, qr_y + r * scale, scale, scale, api.BLACK, fill=True)
 
-                text_y = qr_y + qr_px + pad + 8
+                text_y = qr_y + qr_px + pad + 6
             else:
-                text_y = card_y + 30
+                text_y = card_y + 24
 
-            caption = "Scan with phone camera"
-            d.text(caption, card_x + (card_w - len(caption) * 8) // 2, text_y, COL_SPOTIFY)
-
-            url_txt = self._qr_url
-            if len(url_txt) > 30: url_txt = url_txt[:28] + ".."
-            d.text(url_txt, card_x + (card_w - len(url_txt) * 8) // 2, text_y + 16, api.WHITE)
+            if getattr(self, "_session_pin", None):
+                pin_str = "PIN: " + self._session_pin
+                d.text(pin_str, card_x + (card_w - len(pin_str) * 8) // 2, text_y, COL_SPOTIFY)
+                caption = "Scan QR or visit:"
+                d.text(caption, card_x + (card_w - len(caption) * 8) // 2, text_y + 14, api.WHITE)
+                url_short = "oreo.elixpo.com/spotify"
+                d.text(url_short, card_x + (card_w - len(url_short) * 8) // 2, text_y + 26, COL_CYAN)
+            else:
+                caption = "Scan with phone camera"
+                d.text(caption, card_x + (card_w - len(caption) * 8) // 2, text_y, COL_SPOTIFY)
+                url_txt = self._qr_url
+                if len(url_txt) > 28: url_txt = url_txt[:26] + ".."
+                d.text(url_txt, card_x + (card_w - len(url_txt) * 8) // 2, text_y + 14, api.WHITE)
 
             widgets.draw_hint(d, "A=demo mode  C=close")
             self._dirty = False
