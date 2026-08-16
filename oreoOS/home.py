@@ -252,7 +252,8 @@ class _DockEntry:
 # ── Home app ─────────────────────────────────────────────────────────────────
 
 class Home(oreoOS.App):
-    name = "home"
+    name       = "home"
+    FULLSCREEN = True
 
     def __init__(self, app_list):
         self._apps         = app_list

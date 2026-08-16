@@ -137,6 +137,7 @@ class _Enemy:
 
 class App(oreoOS.App):
     name         = "Racer"
+    FULLSCREEN   = True
     SHOW_LOADING = True
     BLOCK_IDLE   = True
 

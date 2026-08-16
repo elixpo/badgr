@@ -326,6 +326,25 @@ def run_app(os_obj, app):
             try:
                 app.update(dt)
                 app.draw(os_obj.display)
+
+                # ── Persistent OS Top Bar ─────────────────────────────────
+                # Always persist the top header unless the app explicitly
+                # declares FULLSCREEN = True or NO_HEADER = True.
+                # When notification panel is active/sliding, it takes full
+                # precedence so the top bar is never drawn over notifications.
+                hide_top = (
+                    getattr(app, "FULLSCREEN", False)
+                    or getattr(app, "NO_HEADER", False)
+                    or getattr(app, "HIDE_HEADER", False)
+                    or getattr(app, "HIDE_TOP", False)
+                )
+                panel_open = panel.is_active() or getattr(panel, "_t", 0.0) > 0.0
+                if not hide_top and not panel_open:
+                    from oreoOS import widgets as _w_mod
+                    header_title = getattr(app, "HEADER_TITLE", None) or getattr(app, "name", "").upper()
+                    if header_title:
+                        _w_mod.draw_header(os_obj.display, header_title)
+
                 panel.draw(os_obj.display)
                 # Pair prompt is the topmost layer — drawn last so the
                 # 6-digit code can never be obscured by a panel slide-in.
