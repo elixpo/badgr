@@ -234,36 +234,43 @@ def play_area():
     SW = api.SCREEN_W
     SH = api.SCREEN_H
 def draw_scrollbar(d, x, y, w, h, total, current, visible=1, horizontal=False, fg=None, bg=None):
-    """Draw a sleek, proportional scrollbar indicator.
+    """Draw a sleek, high-visibility proportional scrollbar indicator.
 
     total: Total number of items/pages/rows.
     current: Currently active/focused index (0-based) or top item index.
     visible: Number of items visible on screen at once (default: 1).
     horizontal: False for vertical scrollbar, True for horizontal scrollbar.
     fg: Thumb/slider color (defaults to theme.PRIMARY).
-    bg: Track background color (defaults to theme.CARD_BORDER or theme.MUTED2).
+    bg: Track background color (defaults to theme.MUTED2).
     """
     if total <= visible or total <= 1:
         return
 
     fg = fg if fg is not None else theme.PRIMARY
-    bg = bg if bg is not None else getattr(theme, "CARD_BORDER", theme.MUTED2)
+    bg = bg if bg is not None else getattr(theme, "MUTED2", api.rgb(200, 190, 180))
 
     current = max(0, min(current, total - 1))
     max_scroll = max(1, total - visible)
 
     if horizontal:
+        # Track
         d.rect(x, y, w, h, bg, fill=True)
-        thumb_w = max(6, int((visible / total) * w))
+        # High-visibility thumb (slightly expanded for tactile prominence)
+        thumb_w = max(16, int((visible / total) * w))
         max_thumb_x = w - thumb_w
-        thumb_x = x + int((current / max_scroll) * max_thumb_x) if max_scroll > 0 else x
-        d.rect(thumb_x, y, thumb_w, h, fg, fill=True)
+        thumb_x = x + (int((current / max_scroll) * max_thumb_x) if max_scroll > 0 else 0)
+        d.rect(thumb_x, max(0, y - 1), thumb_w, h + 2, fg, fill=True)
     else:
+        # Track
         d.rect(x, y, w, h, bg, fill=True)
-        thumb_h = max(6, int((visible / total) * h))
+        # High-visibility thumb (4px wide centered on track, min 16px height)
+        thumb_h = max(16, int((visible / total) * h))
         max_thumb_y = h - thumb_h
-        thumb_y = y + int((current / max_scroll) * max_thumb_y) if max_scroll > 0 else y
-        d.rect(x, thumb_y, w, thumb_h, fg, fill=True)
+        thumb_y = y + (int((current / max_scroll) * max_thumb_y) if max_scroll > 0 else 0)
+        # Wider thumb popping out over track for clear visibility
+        thumb_w = max(4, w + 2)
+        thumb_x = max(0, x - (thumb_w - w) // 2)
+        d.rect(thumb_x, thumb_y, thumb_w, thumb_h, fg, fill=True)
 
 
 def show_loading(os_obj, label, author=None, subtitle=None):
