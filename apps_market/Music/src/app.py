@@ -512,25 +512,33 @@ class App(oreoOS.App):
         d.rect(meta_x, meta_y, meta_w, meta_h, COL_CARD, fill=True)
         d.rect(meta_x, meta_y, meta_w, meta_h, COL_CARD_BD, fill=False)
 
-        # Title: Smooth natural left marquee
-        max_chars = 17
-        display_title = _marquee(self._title, max_chars, self._title_scroll_t)
-        d.text(display_title, meta_x + 6, meta_y + 8, api.WHITE)
+        # Full available text capacity (26 characters per line)
+        max_chars = (meta_w - 14) // 8
 
-        # Artist
-        artist_str = self._artist
-        if len(artist_str) > 17: artist_str = artist_str[:15] + ".."
-        d.text(artist_str, meta_x + 6, meta_y + 24, COL_SPOTIFY)
+        # Title: Smooth natural marquee across full width
+        display_title = _marquee(self._title, max_chars, self._title_scroll_t)
+        d.text(display_title, meta_x + 7, meta_y + 7, api.WHITE)
+
+        # Artist: Full marquee across full width
+        display_artist = _marquee(self._artist, max_chars, self._title_scroll_t * 0.8)
+        d.text(display_artist, meta_x + 7, meta_y + 23, COL_SPOTIFY)
 
         # Album
         album_str = self._album or "Single"
-        if len(album_str) > 17: album_str = album_str[:15] + ".."
-        d.text(album_str, meta_x + 6, meta_y + 40, COL_MUTED)
+        if len(album_str) > max_chars:
+            album_str = album_str[:max_chars - 2] + ".."
+        d.text(album_str, meta_x + 7, meta_y + 39, COL_MUTED)
 
-        # Device tag
-        dev_tag = self._device_name or ("Spotify" if self._mode == "SPOTIFY" else "Badge")
-        if len(dev_tag) > 15: dev_tag = dev_tag[:13] + ".."
-        d.text("[" + dev_tag + "]", meta_x + 6, meta_y + 56, COL_CYAN)
+        # Device tag with subtle container pill
+        dev_tag = self._device_name or ("Spotify Connect" if self._mode == "SPOTIFY" else "Badge Player")
+        if len(dev_tag) > max_chars - 3:
+            dev_tag = dev_tag[:max_chars - 5] + ".."
+        pill_w = len(dev_tag) * 8 + 14
+        d.rect(meta_x + 7, meta_y + 54, pill_w, 13, COL_CARD_BD, fill=True)
+        d.rect(meta_x + 7, meta_y + 54, pill_w, 13, COL_SPOTIFY, fill=False)
+        # Active streaming dot
+        d.rect(meta_x + 11, meta_y + 58, 3, 3, COL_SPOTIFY, fill=True)
+        d.text(dev_tag, meta_x + 18, meta_y + 57, COL_CYAN)
 
         # ── Playback Progress & Timeline Card ────────────────────────────
         prog_card_y = cover_box_y + csz + 8
