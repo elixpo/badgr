@@ -338,6 +338,14 @@ class App(oreoOS.App):
         elif btn == api.BTN_A:
             # Perform Uninstallation
             app_dir = self._detail_app["dir"]
+            if app_dir:
+                app_dir = os.path.basename(app_dir.rstrip("/"))
+            if not app_dir or app_dir == '..':
+                self._mode = "LIST"
+                self._toast_msg = "Invalid app dir"
+                self._toast_until = _ticks_ms() + 2500
+                self._dirty = True
+                return
             _rm_tree_safe("apps/" + app_dir)
 
             # Invalidate launcher apps roster cache

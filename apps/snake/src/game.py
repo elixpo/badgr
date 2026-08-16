@@ -51,6 +51,8 @@ def random_food(snake):
     """Pick a cell that the snake doesn't currently occupy. Loops until
     one is found — fine because the arena is far larger than any
     plausible snake."""
+    if len(snake) >= COLS * ROWS:
+        return None
     snake_set = set(snake)
     while True:
         c = rand() % COLS

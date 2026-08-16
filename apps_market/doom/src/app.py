@@ -23,6 +23,10 @@ import os
 import random
 import time
 import oreoOS
+try:
+    import pygame
+except ImportError:
+    pygame = None
 from oreoOS import api, theme, widgets
 
 from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
@@ -195,12 +199,12 @@ class App(oreoOS.App):
     def draw(self, d):
         if self._engine_type == "EMBEDDED" and self._doom_lib:
             fb_ptr = self._doom_lib.doom_get_framebuffer()
+            if not fb_ptr: return
             w = self._doom_lib.doom_get_width()
             h = self._doom_lib.doom_get_height()
-            if fb_ptr and w > 0 and h > 0:
+            if w > 0 and h > 0:
                 raw_bytes = ctypes.string_at(fb_ptr, w * h * 4)
-                if hasattr(d, "_surface"):
-                    import pygame
+                if hasattr(d, "_surface") and pygame:
                     surf = pygame.image.frombytes(raw_bytes, (w, h), "RGBA")
                     scaled = pygame.transform.scale(surf, (SW, PLAY_H))
                     d._surface.blit(scaled, (0, 0))

@@ -142,8 +142,14 @@ def _list_docs():
 
 def _read_lines(path):
     try:
+        MAX_LINES = 500
+        lines = []
         with open(path) as f:
-            return f.read().splitlines()
+            for line in f:
+                lines.append(line.rstrip('\n\r'))
+                if len(lines) >= MAX_LINES:
+                    break
+        return lines
     except OSError:
         return []
 

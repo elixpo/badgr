@@ -94,7 +94,7 @@ def _handle_dirty_tree(version, dry, force, yes):
             ans = "n"
     if ans not in ("y", "yes"):
         sys.exit("Aborted. Commit / stash manually and re-run.")
-    run(["git", "add", "-A"], dry)
+    run(["git", "add", "-u"], dry)
     run(["git", "commit", "-m", "release: %s (auto)" % version], dry)
     return True
 

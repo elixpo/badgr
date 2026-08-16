@@ -247,10 +247,11 @@ def _get_local_ip():
     try:
         import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
+        try:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+        finally:
+            s.close()
     except Exception:
         return "127.0.0.1"
 
@@ -1529,8 +1530,9 @@ def _handle_upload(sock, headers, body_prefix, qs):
     closing = b"\r\n" + boundary_marker
     tail_keep = len(closing) + 4
     written = 0
+    tmp_path = dst_path + ".tmp"
     try:
-        f = open(dst_path, "wb")
+        f = open(tmp_path, "wb")
     except Exception:
         _send_status(sock, 500, "Internal Error",
                      b"write failed (out of space?)")
@@ -1613,11 +1615,17 @@ def _handle_upload(sock, headers, body_prefix, qs):
 
     if written <= 0:
         try:
-            _os.remove(dst_path)
+            _os.remove(tmp_path)
         except Exception:
             pass
         _send_status(sock, 400, "Bad Request", b"empty upload")
         return
+        
+    try:
+        if _os is not None:
+            _os.rename(tmp_path, dst_path)
+    except Exception:
+        pass
 
     # Mark the upload on the session so the WiFi UI can show "got 2
     # files from session ABCD12" instead of just "approved".

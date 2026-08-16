@@ -196,3 +196,21 @@ def rm_tree(path):
         return False
     except OSError:
         return True
+
+def atomic_write(path, data):
+    """Write data to path+'.tmp' then os.rename for atomic update."""
+    if os is None:
+        return False
+    tmp = path + ".tmp"
+    try:
+        mode = "w" if isinstance(data, str) else "wb"
+        with open(tmp, mode) as f:
+            f.write(data)
+        os.rename(tmp, path)
+        return True
+    except Exception:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return False

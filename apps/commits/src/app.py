@@ -65,8 +65,10 @@ def _fetch_contributions(user):
             import requests as _req
         url = "https://github.com/users/%s/contributions" % user
         r = _req.get(url, headers={"User-Agent": "OreoBadge"}, timeout=4.0)
-        body = r.text
-        r.close()
+        try:
+            body = r.text
+        finally:
+            r.close()
 
         weeks = 53
         days = 7

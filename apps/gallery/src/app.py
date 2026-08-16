@@ -495,6 +495,11 @@ class App(oreoOS.App):
     def _photo(self, idx):
         name = self._names[idx]
         if name not in self._cache:
+            if len(self._cache) >= 3:
+                oldest = next(iter(self._cache))
+                del self._cache[oldest]
+                self._scaled_cache = {k: v for k, v in self._scaled_cache.items() if k[0] != oldest}
+                _gc.collect()
             self._cache[name] = _load_photo(name)
         return self._cache.get(name)
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/spotifySessionStore";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,15 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code") || "";
+
+    if (!code) {
+      return new NextResponse("Missing session code", { status: 400 });
+    }
+
+    const session = await getSession(code);
+    if (!session || session.status !== "pending") {
+      return new NextResponse("Invalid or expired session code. Please restart login on your badge.", { status: 400 });
+    }
 
     const clientId = process.env.SPOTIFY_CLIENT_ID;
     if (!clientId) {

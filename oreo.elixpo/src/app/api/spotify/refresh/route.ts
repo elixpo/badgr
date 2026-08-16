@@ -35,38 +35,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const refreshToken = searchParams.get("refresh_token");
 
-    if (!refreshToken) {
-      return NextResponse.json(
-        { status: "error", message: "Missing refresh_token query parameter" },
-        {
-          status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "no-store, no-cache, must-revalidate",
-          },
-        }
-      );
-    }
-
-    return await handleRefresh(refreshToken);
-  } catch (err) {
-    return NextResponse.json(
-      { status: "error", message: (err as Error).message || "Internal error" },
-      {
-        status: 500,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-        },
-      }
-    );
-  }
-}
 
 async function handleRefresh(refreshToken: string) {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -145,7 +114,7 @@ export async function OPTIONS() {
     status: 204,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     },
   });

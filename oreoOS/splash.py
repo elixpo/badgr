@@ -270,7 +270,7 @@ def show_shake_mascot(os_obj, duration_ms=2400):
         s     = abs(_math.cos(phase * _math.pi))      # 1 → 0 → 1 cycle
         new_w = max(2, int(mw * (0.25 + 0.75 * s)))   # never zero
         if new_w == last_w:
-            try: _sleep_ms(20)
+            try: time.sleep_ms(20)
             except Exception: pass
             continue
         last_w = new_w

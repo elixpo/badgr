@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 /**
  * Temporary PIN Session Store for Oreo Badge Spotify Auth.
  * 
@@ -7,8 +9,9 @@
 
 export interface SpotifySession {
   code: string;
-  status: "pending" | "authorized" | "expired";
+  status: "pending" | "authorized" | "expired" | "consumed";
   createdAt: number;
+  consumedAt?: number;
   accessToken?: string;
   refreshToken?: string;
   clientId?: string;
@@ -31,7 +34,7 @@ const PIN_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 export function generatePin(len = 6): string {
   let res = "";
   for (let i = 0; i < len; i++) {
-    const idx = Math.floor(Math.random() * PIN_CHARS.length);
+    const idx = crypto.randomInt(PIN_CHARS.length);
     res += PIN_CHARS[idx];
   }
   return res;
@@ -40,7 +43,9 @@ export function generatePin(len = 6): string {
 export function cleanExpiredSessions(): void {
   const now = Date.now();
   for (const [code, session] of sessions.entries()) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
+    if (session.status === "consumed" && session.consumedAt && now - session.consumedAt > 30000) {
+      sessions.delete(code);
+    } else if (now - session.createdAt > SESSION_TTL_MS) {
       sessions.delete(code);
     }
   }
@@ -99,8 +104,10 @@ export async function consumeSession(code: string): Promise<SpotifySession | nul
   const normalized = (code || "").trim().toUpperCase();
   const s = sessions.get(normalized);
   if (!s) return null;
-
-  // Once consumed by the badge, delete from storage
-  sessions.delete(normalized);
+  // Mark as consumed with a grace period for retries
+  if (s.status === "authorized") {
+    s.status = "consumed";
+    s.consumedAt = Date.now();
+  }
   return s;
 }

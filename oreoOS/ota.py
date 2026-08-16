@@ -424,25 +424,99 @@ def _download_file(url, dest_remote, expected_sha=None):
     parent = stage_path.rsplit("/", 1)[0]
     _ensure_dir(parent)
     try:
-        from oreoOS import _http as _httpx
-    except Exception:
+        import socket as _socket
+        import ssl as _ssl
+    except ImportError:
         return False
-    body = _httpx.get_url(url, timeout_s=T_FILE)
-    if body is None:
+
+    if not url.startswith("https://"):
         return False
+    rest = url[len("https://"):]
+    slash = rest.find("/")
+    host = rest if slash < 0 else rest[:slash]
+    path = "/" if slash < 0 else rest[slash:]
+    
+    auth_hdr = ""
     try:
-        with open(stage_path, "wb") as f:
-            f.write(body)
+        from oreoOS.config import GH_TOKEN as _TOK
+        if _TOK:
+            auth_hdr = "Authorization: Bearer " + _TOK + "\r\n"
     except Exception:
-        return False
-    if expected_sha and _hashlib is not None:
-        if _hex(_hashlib.sha256(body).digest()) != expected_sha:
-            try:
-                _os.remove(stage_path)
-            except Exception:
-                pass
+        pass
+
+    s = None
+    raw = None
+    try:
+        addr = _socket.getaddrinfo(host, 443)[0][-1]
+        raw = _socket.socket()
+        raw.settimeout(T_FILE)
+        raw.connect(addr)
+        if hasattr(_ssl, "create_default_context"):
+            s = _ssl.create_default_context().wrap_socket(raw, server_hostname=host)
+        else:
+            s = _ssl.wrap_socket(raw, server_hostname=host)
+        s.settimeout(T_FILE)
+        
+        req = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: %s\r\n"
+            "User-Agent: %s\r\n"
+            "Accept: application/vnd.github.raw\r\n"
+            "%s"
+            "Connection: close\r\n\r\n"
+        ) % (path, host, USER_AGENT, auth_hdr)
+        s.write(req.encode())
+
+        # Read headers
+        buf = bytearray()
+        head_end = -1
+        while True:
+            chunk = s.read(1024)
+            if not chunk:
+                break
+            buf.extend(chunk)
+            head_end = buf.find(b"\r\n\r\n")
+            if head_end >= 0:
+                break
+        
+        if head_end < 0:
             return False
-    return True
+            
+        head = bytes(buf[:head_end])
+        body_start = buf[head_end + 4:]
+        
+        line0 = head.split(b"\r\n", 1)[0]
+        if b" 200 " not in line0:
+            return False
+
+        h = _hashlib.sha256() if expected_sha and _hashlib else None
+        
+        with open(stage_path, "wb") as f:
+            if body_start:
+                f.write(body_start)
+                if h: h.update(body_start)
+            while True:
+                chunk = s.read(2048)
+                if not chunk:
+                    break
+                f.write(chunk)
+                if h: h.update(chunk)
+                
+        if expected_sha and h:
+            if _hex(h.digest()) != expected_sha:
+                try: _os.remove(stage_path)
+                except OSError: pass
+                return False
+        return True
+    except Exception:
+        try: _os.remove(stage_path)
+        except OSError: pass
+        return False
+    finally:
+        for sock in (s, raw):
+            if sock:
+                try: sock.close()
+                except Exception: pass
 
 
 def is_pending():
@@ -485,7 +559,8 @@ def apply_pending():
         if parent:
             _ensure_dir(parent)
         try:
-            _copy_file(src, dst)
+            _copy_file(src, dst + ".tmp")
+            _os.rename(dst + ".tmp", dst)
         except Exception:
             # Half-applied state is the worst case; the manifest still
             # exists so apply_pending() will retry on the next boot.

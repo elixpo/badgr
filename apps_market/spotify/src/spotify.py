@@ -87,8 +87,10 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
             "client_secret": final_cs,
             "updated_at": int(time.time() if hasattr(time, 'time') else 0),
         }
-        with open(STATE_FILE, "w") as f:
+        import os
+        with open(STATE_FILE + ".tmp", "w") as f:
             f.write(_json.dumps(data))
+        os.rename(STATE_FILE + ".tmp", STATE_FILE)
         return True
     except Exception:
         return False
@@ -301,12 +303,15 @@ class SpotifyClient:
 
             # 4. Read Response
             resp = b""
+            MAX_BODY = 64 * 1024
             while True:
                 try:
                     chunk = s.read(1024)
                     if not chunk:
                         break
                     resp += chunk
+                    if len(resp) > MAX_BODY:
+                        break
                 except Exception:
                     break
 
@@ -335,6 +340,9 @@ class SpotifyClient:
             self.last_error = str(e)
             if s is not None:
                 try: s.close()
+                except Exception: pass
+            elif raw is not None:
+                try: raw.close()
                 except Exception: pass
             return 0, None
 

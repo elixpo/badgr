@@ -59,11 +59,14 @@ export async function GET(request: Request) {
 
     // Save tokens in session for the badge to pick up
     if (state) {
-      await setAuthorized(state, {
+      const ok = await setAuthorized(state, {
         accessToken: tokenData.access_token,
         refreshToken: tokenData.refresh_token || "",
         clientId,
       });
+      if (!ok) {
+        return NextResponse.redirect(`${origin}/spotify?error=Session+expired+or+invalid`);
+      }
     }
 
     return NextResponse.redirect(`${origin}/spotify/success?code=${encodeURIComponent(state)}`);

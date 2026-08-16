@@ -96,17 +96,22 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
 
         raw.settimeout(timeout_s)
         _bc("ssl")
-        if hasattr(_ssl, "create_default_context"):
-            ctx = _ssl.create_default_context()
-            s = ctx.wrap_socket(raw, server_hostname=host)
-        else:
-            s = _ssl.wrap_socket(raw, server_hostname=host)
-        # SSLSocket wraps raw — settimeout on raw doesn't always
-        # propagate. Set it again on the wrapper so .read() honours it.
         try:
-            s.settimeout(timeout_s)
-        except Exception:
-            pass
+            if hasattr(_ssl, "create_default_context"):
+                ctx = _ssl.create_default_context()
+                s = ctx.wrap_socket(raw, server_hostname=host)
+            else:
+                s = _ssl.wrap_socket(raw, server_hostname=host)
+            # SSLSocket wraps raw — settimeout on raw doesn't always
+            # propagate. Set it again on the wrapper so .read() honours it.
+            try:
+                s.settimeout(timeout_s)
+            except Exception:
+                pass
+        finally:
+            if s is None and raw is not None:
+                try: raw.close()
+                except Exception: pass
 
         req = (
             "GET %s HTTP/1.1\r\n"

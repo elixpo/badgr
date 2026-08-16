@@ -36,19 +36,21 @@ def _fetch_profile(username):
             import requests as _req
         r = _req.get("https://api.github.com/users/" + username,
                      headers={"User-Agent": "OreoBadge"})
-        if r.status_code != 200:
+        try:
+            if r.status_code != 200:
+                return None
+            data = r.json()
+            return {
+                "name":      data.get("name") or data.get("login") or username,
+                "login":     data.get("login", username),
+                "bio":       (data.get("bio") or "")[:60],
+                "location":  (data.get("location") or "")[:24],
+                "followers": data.get("followers", 0),
+                "following": data.get("following", 0),
+                "repos":     data.get("public_repos", 0),
+            }
+        finally:
             r.close()
-            return None
-        data = r.json(); r.close()
-        return {
-            "name":      data.get("name") or data.get("login") or username,
-            "login":     data.get("login", username),
-            "bio":       (data.get("bio") or "")[:60],
-            "location":  (data.get("location") or "")[:24],
-            "followers": data.get("followers", 0),
-            "following": data.get("following", 0),
-            "repos":     data.get("public_repos", 0),
-        }
     except Exception:
         return None
 

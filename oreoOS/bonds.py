@@ -78,6 +78,11 @@ def _load():
         data.setdefault("secrets", {})
         _state = data
     except Exception:
+        try:
+            import os
+            os.rename(BOND_FILE, BOND_FILE + ".bak")
+        except Exception:
+            pass
         _state = _empty()
     return _state
 
@@ -85,12 +90,8 @@ def _load():
 def _flush():
     if json is None:
         return False
-    try:
-        with open(BOND_FILE, "w") as f:
-            f.write(json.dumps(_state))
-        return True
-    except Exception:
-        return False
+    from oreoOS import storage
+    return storage.atomic_write(BOND_FILE, json.dumps(_state))
 
 
 # ── bond list ───────────────────────────────────────────────────────────

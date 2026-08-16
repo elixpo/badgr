@@ -45,14 +45,29 @@ LINKEDIN_USER     = _env.get("LINKEDIN_USER", "")
 TWITTER_USER      = _env.get("TWITTER_USER", "")
 WEBSITE_URL       = _env.get("WEBSITE_URL", "")
 
-WEATHER_LAT       = float(_env.get("WEATHER_LAT", 22.57) or 22.57)
-WEATHER_LON       = float(_env.get("WEATHER_LON", 88.36) or 88.36)
+try:
+    WEATHER_LAT = float(_env.get("WEATHER_LAT", 22.57) or 22.57)
+except ValueError:
+    WEATHER_LAT = 22.57
+try:
+    WEATHER_LON = float(_env.get("WEATHER_LON", 88.36) or 88.36)
+except ValueError:
+    WEATHER_LON = 88.36
 WEATHER_NAME      = _env.get("WEATHER_NAME", "")
 BT_AUTO_ENABLE    = False
-TIMEZONE_OFFSET   = float(_env.get("TIMEZONE_OFFSET", 5.5) or 5.5)
+try:
+    TIMEZONE_OFFSET = float(_env.get("TIMEZONE_OFFSET", 5.5) or 5.5)
+except ValueError:
+    TIMEZONE_OFFSET = 5.5
 SPOTIFY_CLIENT_ID = _env.get("SPOTIFY_CLIENT_ID", "")
 SPOTIFY_RELAY_URL = _env.get("SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app")
 SPOTIFY_AUTH_URL  = _env.get("SPOTIFY_AUTH_URL", "https://oreo-delta.vercel.app/spotify")
+GITHUB_REPO       = _env.get("GITHUB_REPO", "elixpo/oreo")
+GITHUB_API_URL    = _env.get("GITHUB_API_URL", "https://api.github.com")
+OWM_API_URL       = _env.get("OWM_API_URL", "https://api.openweathermap.org")
+NTP_HOST          = _env.get("NTP_HOST", "pool.ntp.org")
+OTA_REPO          = _env.get("OTA_REPO", _env.get("GITHUB_REPO", "elixpo/oreo"))
+STORE_REPO        = _env.get("STORE_REPO", _env.get("GITHUB_REPO", "elixpo/oreo"))
 DEBUG             = _env.get("DEBUG", "1").lower() in ("1", "true", "yes")
 
 def get(key, default=""):

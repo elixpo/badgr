@@ -460,14 +460,10 @@ def _load_cache_from_disk():
 def _save_cache_to_disk():
     if _json is None:
         return
-    try:
-        with open(CACHE_PATH, "w") as f:
-            f.write(_json.dumps({
-                "fetched_ms": _cache_ms,
-                "apps":       _catalogue or [],
-            }))
-    except Exception:
-        pass
+    storage.atomic_write(CACHE_PATH, _json.dumps({
+        "fetched_ms": _cache_ms,
+        "apps":       _catalogue or [],
+    }))
 
 
 def refresh(force=False):
@@ -663,11 +659,7 @@ def _details_disk_save(name_dir, payload):
     if _json is None:
         return
     _ensure_dir(_DETAILS_DIR)
-    try:
-        with open(_details_disk_path(name_dir), "w") as f:
-            f.write(_json.dumps(payload))
-    except Exception:
-        pass
+    storage.atomic_write(_details_disk_path(name_dir), _json.dumps(payload))
 
 
 def _details_disk_clear():
@@ -734,16 +726,18 @@ def install(name):
     first (for local dev/offline testing), otherwise downloads every file
     from GitHub. Returns True iff main.py landed cleanly."""
     target_root = APPS_DIR + "/" + name
+    tmp_root = APPS_DIR + "/.tmp_" + name
 
     # 1. Fast local install if the app directory exists on disk under apps_market/
     local_src = MARKET_PATH + "/" + name
     if _exists(local_src + "/manifest.json") and _exists(local_src + "/main.py"):
-        _ensure_dir(target_root)
+        _rm_tree(tmp_root)
+        _ensure_dir(tmp_root)
         stack = [local_src]
         while stack:
             curr_dir = stack.pop()
             rel_dir = curr_dir[len(local_src):].lstrip("/")
-            dst_dir = target_root + ("/" + rel_dir if rel_dir else "")
+            dst_dir = tmp_root + ("/" + rel_dir if rel_dir else "")
             _ensure_dir(dst_dir)
             try:
                 for item in _os.listdir(curr_dir):
@@ -757,7 +751,11 @@ def install(name):
                         with open(src_item, "rb") as sf, open(dst_item, "wb") as df:
                             df.write(sf.read())
             except Exception:
-                pass
+                _rm_tree(tmp_root)
+                return False
+        if _exists(tmp_root + "/main.py"):
+            _rm_tree(target_root)
+            _os.rename(tmp_root, target_root)
         ok = is_installed(name)
         if ok:
             _invalidate_launcher_cache()
@@ -779,13 +777,14 @@ def install(name):
         return False
 
     root_prefix = entry["path"] + "/"
+    _rm_tree(tmp_root)
 
     for f in files:
         rel = f["path"]
         if not rel.startswith(root_prefix):
             continue
         rel = rel[len(root_prefix):]
-        dst = target_root + "/" + rel
+        dst = tmp_root + "/" + rel
         parent = dst.rsplit("/", 1)[0] if "/" in dst else ""
         if parent:
             _ensure_dir(parent)
@@ -801,16 +800,18 @@ def install(name):
         body = _http_get(f["download_url"], accept_raw=False,
                          timeout_s=T_FILE)
         if body is None:
-            continue
+            _rm_tree(tmp_root)
+            return False
         try:
             with open(dst, "wb") as out:
                 out.write(body)
         except Exception:
-            pass
+            _rm_tree(tmp_root)
+            return False
         gc.collect()
 
     # Post-install integrity check: verify manifest.json
-    mf_path = target_root + "/manifest.json"
+    mf_path = tmp_root + "/manifest.json"
     if _json is not None:
         ok_mf = False
         try:
@@ -828,12 +829,22 @@ def install(name):
                 try:
                     with open(mf_path, "wb") as out:
                         out.write(body)
+                    ok_mf = True
                 except Exception:
                     pass
+            if not ok_mf:
+                _rm_tree(tmp_root)
+                return False
 
+    if _exists(tmp_root + "/main.py"):
+        _rm_tree(target_root)
+        _os.rename(tmp_root, target_root)
+        
     ok = is_installed(name)
     if ok:
         _invalidate_launcher_cache()
+    else:
+        _rm_tree(tmp_root)
     return ok
 
 

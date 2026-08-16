@@ -605,5 +605,6 @@ class App(oreoOS.App):
         self._scenery = None
         self._panda = None
         self._obstacles = []
+        _assets.clear()
         import gc
         gc.collect()

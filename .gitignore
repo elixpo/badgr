@@ -47,3 +47,10 @@ store_details/
 # Large binary assets (fetch separately or use LFS)
 apps_market/doom/assets/*.wad
 apps_market/doom/src/*.so
+
+# Added by tool
+.deploy_hashes.json
+dist/
+*.bin
+.*.bin
+shipready_results/

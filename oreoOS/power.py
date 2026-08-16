@@ -178,7 +178,7 @@ class PowerManager:
         try:
             import esp32
             esp32.wake_on_ext1(pins=[machine.Pin(p) for p in wake_pins],
-                               level=esp32.WAKEUP_ALL_LOW)
+                               level=esp32.WAKEUP_ANY_LOW)
         except Exception:
             pass
         machine.deepsleep()

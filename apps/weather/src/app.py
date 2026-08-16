@@ -125,20 +125,21 @@ def _fetch_owm(lat, lon, api_key, city_override=""):
         url = ("https://api.openweathermap.org/data/2.5/weather"
                "?lat=%.3f&lon=%.3f&units=metric&appid=%s" % (lat, lon, api_key))
         r = _req.get(url, headers={"User-Agent": "OreoBadge"})
-        if r.status_code != 200:
+        try:
+            if r.status_code != 200:
+                return None
+            j = r.json()
+            city_name = city_override or _clean_ascii(j.get("name") or "—")
+            return {
+                "temp":  round(float(j.get("main", {}).get("temp", 0))),
+                "feels": round(float(j.get("main", {}).get("feels_like", 0))),
+                "hum":   int(j.get("main", {}).get("humidity", 0)),
+                "wind":  float(j.get("wind", {}).get("speed", 0)),
+                "code":  int((j.get("weather") or [{"id": 0}])[0].get("id", 0)),
+                "city":  city_name,
+            }
+        finally:
             r.close()
-            return None
-        j = r.json()
-        r.close()
-        city_name = city_override or _clean_ascii(j.get("name") or "—")
-        return {
-            "temp":  round(float(j.get("main", {}).get("temp", 0))),
-            "feels": round(float(j.get("main", {}).get("feels_like", 0))),
-            "hum":   int(j.get("main", {}).get("humidity", 0)),
-            "wind":  float(j.get("wind", {}).get("speed", 0)),
-            "code":  int((j.get("weather") or [{"id": 0}])[0].get("id", 0)),
-            "city":  city_name,
-        }
     except Exception:
         return None
 

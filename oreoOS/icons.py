@@ -68,4 +68,8 @@ def load(app_dir: str, icon_filename: str | None = None) -> tuple | None:
                 continue
 
     _cache[key] = result
+    if len(_cache) > 16:
+        for k in _cache:
+            del _cache[k]
+            break
     return result
