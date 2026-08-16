@@ -31,23 +31,26 @@ SW = api.SCREEN_W
 SH = api.SCREEN_H
 DOOM_W = 320
 DOOM_H = 200
-NAV_H  = 40 # Bottom nav helper height (Y: 200..240)
 
-# DOOM Key Constants
-KEY_RIGHTARROW = 0xAE
-KEY_LEFTARROW  = 0xAC
-KEY_UPARROW    = 0xAD
-KEY_DOWNARROW  = 0xAF
-KEY_FIRE       = 0x9D  # KEY_RCTRL / Fire
-KEY_USE        = 0x20  # Space / Use
-KEY_ENTER      = 0x0D  # Enter
-KEY_ESCAPE     = 0x1B  # Escape
-KEY_TAB        = 0x09  # Automap
+# DOOM Key Constants from doomkeys.h / m_controls.c
+KEY_RIGHTARROW = 0xAE  # 174
+KEY_LEFTARROW  = 0xAC  # 172
+KEY_UPARROW    = 0xAD  # 173
+KEY_DOWNARROW  = 0xAF  # 175
+KEY_FIRE       = 0xA3  # 163 (KEY_FIRE)
+KEY_USE        = 0xA2  # 162 (KEY_USE)
+KEY_ENTER      = 0x0D  # 13  (KEY_ENTER)
+KEY_ESCAPE     = 0x1B  # 27  (KEY_ESCAPE)
+KEY_TAB        = 0x09  # 9   (KEY_TAB)
 
 
 class App(oreoOS.App):
     name = "DOOM"
     author = "id-oreo"
+    FULLSCREEN = True
+    NO_HEADER = True
+    HIDE_HEADER = True
+    HIDE_TOP = True
     SHOW_LOADING = True
     CONSUMES_C = True
 
@@ -56,6 +59,7 @@ class App(oreoOS.App):
         self._engine_type = "EMBEDDED" # "EMBEDDED" or "FALLBACK"
         self._doom_lib = None
         self._active_weapon_num = 2
+        self._key_states = {}
         self._init_embedded_engine()
 
     def _init_embedded_engine(self):
@@ -93,21 +97,8 @@ class App(oreoOS.App):
     # ─── BUTTON INPUT ────────────────────────────────────────────────────────
     def on_button_press(self, btn):
         if self._engine_type == "EMBEDDED" and self._doom_lib:
-            if btn == api.BTN_UP:
-                self._send_key(1, KEY_UPARROW)
-            elif btn == api.BTN_DOWN:
-                self._send_key(1, KEY_DOWNARROW)
-            elif btn == api.BTN_LEFT:
-                self._send_key(1, KEY_LEFTARROW)
-            elif btn == api.BTN_RIGHT:
-                self._send_key(1, KEY_RIGHTARROW)
-            elif btn == api.BTN_A:
-                self._send_key(1, KEY_FIRE)
-                self._send_key(1, KEY_ENTER)
-            elif btn == api.BTN_B:
-                self._send_key(1, KEY_USE)
-                self._send_key(1, KEY_ENTER)
-            elif btn == api.BTN_C:
+            if btn == api.BTN_C:
+                # Cycle weapons 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
                 self._active_weapon_num = (self._active_weapon_num % 7) + 1
                 key_code = ord(str(self._active_weapon_num))
                 self._send_key(1, key_code)
@@ -116,22 +107,30 @@ class App(oreoOS.App):
 
         self._fallback_button_press(btn)
 
-    def on_button_release(self, btn):
-        if self._engine_type == "EMBEDDED" and self._doom_lib:
-            if btn == api.BTN_UP:
-                self._send_key(0, KEY_UPARROW)
-            elif btn == api.BTN_DOWN:
-                self._send_key(0, KEY_DOWNARROW)
-            elif btn == api.BTN_LEFT:
-                self._send_key(0, KEY_LEFTARROW)
-            elif btn == api.BTN_RIGHT:
-                self._send_key(0, KEY_RIGHTARROW)
-            elif btn == api.BTN_A:
-                self._send_key(0, KEY_FIRE)
-                self._send_key(0, KEY_ENTER)
-            elif btn == api.BTN_B:
-                self._send_key(0, KEY_USE)
-                self._send_key(0, KEY_ENTER)
+    def _sync_hardware_buttons(self):
+        """Poll hardware / simulator button states and synchronize held keys in DOOM."""
+        if not self._doom_lib:
+            return
+
+        buttons = getattr(self._os, "buttons", None)
+        if not buttons:
+            return
+
+        # Continuous movement & action mappings
+        mappings = [
+            (api.BTN_UP,    KEY_UPARROW),
+            (api.BTN_DOWN,  KEY_DOWNARROW),
+            (api.BTN_LEFT,  KEY_LEFTARROW),
+            (api.BTN_RIGHT, KEY_RIGHTARROW),
+            (api.BTN_A,     KEY_FIRE),
+            (api.BTN_B,     KEY_USE),
+        ]
+
+        for btn_id, doom_key in mappings:
+            is_down = 1 if buttons.is_pressed(btn_id) else 0
+            if is_down != self._key_states.get(doom_key, 0):
+                self._send_key(is_down, doom_key)
+                self._key_states[doom_key] = is_down
 
     def _send_key(self, pressed, key_val):
         if self._doom_lib:
@@ -140,6 +139,9 @@ class App(oreoOS.App):
     # ─── GAME LOOP & TICK ────────────────────────────────────────────────────
     def update(self, dt):
         if self._engine_type == "EMBEDDED" and self._doom_lib:
+            # Sync held buttons
+            self._sync_hardware_buttons()
+            # Advance DOOM engine tick
             self._doom_lib.doom_tick()
             self._dirty = True
         else:
@@ -159,35 +161,12 @@ class App(oreoOS.App):
                 else:
                     d.clear(api.BLACK)
 
-            # Bottom Nav Helper
-            self._draw_nav_helper(d)
+            # Standard Oreo OS hint bar at the bottom
+            widgets.draw_hint(d, "A=fire  B=use  C=weapon  HOME=back")
             self._dirty = False
             return
 
         self._fallback_draw(d)
-
-    def _draw_nav_helper(self, d):
-        """Clean navigation helper at the bottom (Y: 200..240)."""
-        y = DOOM_H
-        h = SH - y
-        d.rect(0, y, SW, h, api.rgb(18, 20, 24), fill=True)
-        d.rect(0, y, SW, 1, api.rgb(55, 60, 70), fill=True)
-
-        items = [
-            ("A", "=fire"),
-            ("B", "=use"),
-            ("C", "=weapon"),
-            ("HOME", "=back")
-        ]
-        total_w = sum((len(k) + len(v)) * 8 for k, v in items) + (len(items) - 1) * 12
-        cur_x = (SW - total_w) // 2
-        ty = y + (h - 8) // 2 + 1
-
-        for k, v in items:
-            d.text(k, cur_x, ty, theme.GOLD)
-            cur_x += len(k) * 8
-            d.text(v, cur_x, ty, theme.TEXT_DIM)
-            cur_x += len(v) * 8 + 12
 
     # ─── PURE PYTHON FALLBACK ENGINE ─────────────────────────────────────────
     def _init_fallback_engine(self):
@@ -220,5 +199,5 @@ class App(oreoOS.App):
     def _fallback_draw(self, d):
         d.clear(api.rgb(36, 24, 28))
         d.text("DOOM 3D (EMBEDDED FALLBACK)", 30, 90, theme.GOLD, scale=1)
-        self._draw_nav_helper(d)
+        widgets.draw_hint(d, "A=fire  B=use  C=weapon  HOME=back")
         self._dirty = False
