@@ -181,18 +181,16 @@ class App(oreoOS.App):
         elif btn == api.BTN_B:
             i = _MODELS.index(self._mode)
             self._mode = _MODELS[(i + 1) % len(_MODELS)]
-        elif btn == api.BTN_A:
+        if btn == api.BTN_A:
+            # Save the active colour: persist to state file and apply harmonic OS theme.
+            r, g, b = self._rgb
+            theme.set_primary_color(r, g, b, save=True)
             _save_state(self._cx, self._cy, self._rgb)
-            try:
-                theme.set_primary_color(*self._rgb)
-            except Exception:
-                pass
             try:
                 self._os.settings_set("color_picker_rgb", self._rgb)
             except Exception:
                 pass
             self._saved_flash = 1.2
-            self._dirty = True
         self._clamp_cursor()
         self._sample_color()
         self._dirty = True

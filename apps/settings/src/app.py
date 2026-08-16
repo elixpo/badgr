@@ -77,6 +77,9 @@ class App(oreoOS.App):
             self._pm = None
 
         self._rows = [
+            _Row("Theme",       "cycle",
+                 getter=lambda: theme.get_current_name(),
+                 setter=lambda delta: self._cycle_theme(delta)),
             _Row("WiFi",        "action",
                  getter=lambda: self._wifi_summary(),
                  setter=lambda v: self._open_wifi()),
@@ -328,16 +331,35 @@ class App(oreoOS.App):
             self._scroll_top = 0
         self._dirty = True
 
+    def _cycle_theme(self, delta):
+        try:
+            keys = theme.PRESET_KEYS
+            curr = theme.get_current_id()
+            idx = keys.index(curr) if curr in keys else 0
+            next_idx = (idx + delta) % len(keys)
+            next_key = keys[next_idx]
+            if next_key == "custom":
+                theme.apply_theme(theme.derive_custom_theme(theme.PRIMARY_R, theme.PRIMARY_G, theme.PRIMARY_B))
+            else:
+                theme.set_preset(next_key)
+            self._dirty = True
+        except Exception:
+            pass
+
     def _adjust(self, sign):
         """sign is +1 or -1 — multiplied by the row's own step."""
         row = self._rows[self._sel]
         if row.kind == "slider":
             row.setter(row.getter() + sign * row.step)
+        elif row.kind == "cycle":
+            row.setter(sign)
 
     def _activate(self):
         row = self._rows[self._sel]
         if row.kind == "toggle":
             row.setter(not row.getter())
+        elif row.kind == "cycle":
+            row.setter(1)
         elif row.kind == "action":
             row.setter(None)
 
@@ -368,7 +390,11 @@ class App(oreoOS.App):
         self._dirty = False
 
     def _draw_value(self, d, row, right_x, y):
-        if row.kind == "toggle":
+        if row.kind == "cycle":
+            s = str(row.getter() or "—")
+            val_w = len(s) * 8
+            d.text(s, right_x - val_w, y + 7, theme.PRIMARY, scale=1)
+        elif row.kind == "toggle":
             on    = bool(row.getter())
             label = row.on_label if on else row.off_label
             color = theme.GREEN if on else theme.MUTED
