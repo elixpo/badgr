@@ -51,6 +51,8 @@ WEATHER_NAME      = _env.get("WEATHER_NAME", "")
 BT_AUTO_ENABLE    = False
 TIMEZONE_OFFSET   = float(_env.get("TIMEZONE_OFFSET", 5.5) or 5.5)
 SPOTIFY_CLIENT_ID = _env.get("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_RELAY_URL = _env.get("SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app")
+SPOTIFY_AUTH_URL  = _env.get("SPOTIFY_AUTH_URL", "https://oreo-delta.vercel.app/spotify")
 DEBUG             = _env.get("DEBUG", "1").lower() in ("1", "true", "yes")
 
 def get(key, default=""):

@@ -72,11 +72,11 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
 _COVER_CACHE = {}
 
 def create_relay_session():
-    """Request a 6-character PIN session from oreo.elixpo.com."""
-    base_url = "https://oreo.elixpo.com/api/spotify/session"
+    """Request a 6-character PIN session from oreo-delta.vercel.app."""
+    base_url = "https://oreo-delta.vercel.app/api/spotify/session"
     try:
         from oreoOS import config
-        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo.elixpo.com") + "/api/spotify/session"
+        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app") + "/api/spotify/session"
     except Exception:
         pass
 
@@ -89,17 +89,17 @@ def create_relay_session():
                 return data.get("code"), data.get("url")
     except Exception:
         pass
-    return None, "https://oreo.elixpo.com/spotify"
+    return None, "https://oreo-delta.vercel.app/spotify"
 
 
 def poll_relay_session(code):
-    """Poll oreo.elixpo.com to check if the session code was authorized."""
+    """Poll oreo-delta.vercel.app to check if the session code was authorized."""
     if not code:
         return None
-    base_url = "https://oreo.elixpo.com/api/spotify/poll?code=" + str(code)
+    base_url = "https://oreo-delta.vercel.app/api/spotify/poll?code=" + str(code)
     try:
         from oreoOS import config
-        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo.elixpo.com") + "/api/spotify/poll?code=" + str(code)
+        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app") + "/api/spotify/poll?code=" + str(code)
     except Exception:
         pass
 

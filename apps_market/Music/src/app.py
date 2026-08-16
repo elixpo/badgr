@@ -243,8 +243,9 @@ class App(oreoOS.App):
             return
         state = self._spotify.get_playback()
         if state:
-            if state.get("is_active"):
-                self._title = state.get("title", self._title)
+            title = state.get("title", "")
+            if title and title != "No Active Playback":
+                self._title = title
                 self._artist = state.get("artist", self._artist)
                 self._album = state.get("album", "")
                 self._is_playing = state.get("is_playing", self._is_playing)
@@ -589,7 +590,7 @@ class App(oreoOS.App):
         d.text("%d%%" % self._volume, 264, ctrl_y + 14, api.WHITE)
 
         # 5. Bottom Hint Bar
-        widgets.draw_hint(d, "A:Play  < >:Skip  ^ v:Vol  B:Library  C:QR")
+        widgets.draw_hint(d, "A:Play  <>:Skip  ^v:Vol  B:Lib  C:QR")
 
     def _draw_library(self, d):
         # Header
