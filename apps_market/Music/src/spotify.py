@@ -369,6 +369,11 @@ class SpotifyClient:
             if self.refresh_access_token():
                 headers = {"Authorization": "Bearer " + str(self.token)}
                 status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player", headers)
+            else:
+                self.token = None
+                self.refresh_token = None
+                clear_credentials()
+                return None
 
         if status == 403:
             return {
@@ -597,10 +602,16 @@ class SpotifyClient:
         if body_data:
             headers["Content-Type"] = "application/json"
         status, _ = self._http_request(self.API_HOST, method, path, headers, body_data=body_data)
-        if status == 401 and self.refresh_access_token():
-            headers = {"Authorization": "Bearer " + self.token}
-            if body_data:
-                headers["Content-Type"] = "application/json"
-            status, _ = self._http_request(self.API_HOST, method, path, headers, body_data=body_data)
+        if status == 401:
+            if self.refresh_access_token():
+                headers = {"Authorization": "Bearer " + self.token}
+                if body_data:
+                    headers["Content-Type"] = "application/json"
+                status, _ = self._http_request(self.API_HOST, method, path, headers, body_data=body_data)
+            else:
+                self.token = None
+                self.refresh_token = None
+                clear_credentials()
+                return False
 
         return 200 <= status < 300

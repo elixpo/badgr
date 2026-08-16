@@ -191,11 +191,10 @@ class App(oreoOS.App):
         self._lib_loading = False
 
         # Player State
-        t0 = self._library_tracks[0]
-        self._title = t0["title"]
-        self._artist = t0["artist"]
-        self._album = t0["album"]
-        self._duration = t0["duration"]
+        self._title = "Spotify Connect"
+        self._artist = "Open Spotify / Pick Song"
+        self._album = "Spotify"
+        self._duration = 0.0
         self._progress = 0.0
         self._volume = 80
         self._is_playing = False
