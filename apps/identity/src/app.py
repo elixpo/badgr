@@ -343,6 +343,16 @@ class App(oreoOS.App):
         # Right arrow
         d.text(">", bar_x + bar_w - 14, bar_y + 5, api.WHITE)
 
+        # Horizontal scroll bar indicator track & slider thumb
+        track_y = bar_y + bar_h + 2
+        track_h = 3
+        d.rect(bar_x, track_y, bar_w, track_h, theme.BG, fill=True)
+        d.rect(bar_x, track_y, bar_w, track_h, theme.MUTED2, fill=False)
+        if n > 0:
+            thumb_w = max(24, bar_w // n)
+            thumb_x = bar_x + (bar_w - thumb_w) * self._channel_idx // max(1, n - 1)
+            d.rect(thumb_x, track_y, thumb_w, track_h, theme.PRIMARY, fill=True)
+
         # 2. QR Container Box — tightly hugs the QR code so it fills the square!
         qr_matrix = self._get_qr_matrix(url)
         q_size    = len(qr_matrix)
@@ -353,7 +363,7 @@ class App(oreoOS.App):
         box_w = qr_pixel_w + pad * 2
         box_h = box_w
         box_x = (SW - box_w) // 2
-        box_y = cy + 26 + (124 - box_h) // 2
+        box_y = cy + 32 + (118 - box_h) // 2
 
         d.rect(box_x + 1, box_y + 1, box_w, box_h, theme.MUTED2, fill=True)
         d.rect(box_x, box_y, box_w, box_h, api.WHITE, fill=True)

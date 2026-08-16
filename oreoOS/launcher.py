@@ -48,12 +48,15 @@ def list_apps():
             with open("%s/%s/manifest.json" % (APPS_DIR, entry)) as f:
                 manifest = json.loads(f.read())
             apps.append({
-                "dir":    entry,
-                "name":   manifest.get("name", entry),
-                "type":   manifest.get("type", "app"),
-                "color":  manifest.get("color", None),
-                "icon":   manifest.get("icon", None),
-                "author": manifest.get("author", None),
+                "dir":         entry,
+                "name":        manifest.get("name", entry),
+                "type":        manifest.get("type", "app"),
+                "color":       manifest.get("color", None),
+                "icon":        manifest.get("icon", None),
+                "author":      manifest.get("author", None),
+                "description": manifest.get("description", ""),
+                "version":     manifest.get("version", "1.0.0"),
+                "category":    manifest.get("category", "General"),
             })
         except (OSError, ValueError):
             continue

@@ -91,15 +91,22 @@ def _calc_dir_footprint(path):
 def _rm_tree_safe(path):
     """Recursively remove a directory and all its contents safely on MicroPython & CPython."""
     try:
+        import shutil
+        shutil.rmtree(path)
+        return True
+    except Exception:
+        pass
+
+    try:
         entries = os.listdir(path)
     except Exception:
-        return
+        return True
 
     for entry in entries:
         full = path + "/" + entry
         try:
             st = os.stat(full)
-            if st[0] & 0o040000:
+            if (st[0] & 0x4000) != 0:
                 _rm_tree_safe(full)
             else:
                 os.remove(full)
@@ -110,6 +117,7 @@ def _rm_tree_safe(path):
         os.rmdir(path)
     except Exception:
         pass
+    return True
 
 
 def _get_flash_stats():
@@ -575,20 +583,43 @@ class App(oreoOS.App):
         icon_res = self._load_app_icon(app["dir"], app["icon"])
         if icon_res:
             data, iw, ih = icon_res
-            d.blit(data, 16, 34, min(32, iw), min(32, ih))
+            d.blit(data, 16, 32, min(32, iw), min(32, ih))
         else:
-            d.rect(16, 34, 32, 32, theme.PRIMARY, fill=True)
-            d.text(app["name"][0].upper(), 24, 39, api.WHITE, scale=2)
+            d.rect(16, 32, 32, 32, theme.PRIMARY, fill=True)
+            d.text(app["name"][0].upper(), 24, 37, api.WHITE, scale=2)
 
-        d.text(app["name"][:16], 56, 34, theme.TEXT_BRIGHT, scale=2)
+        d.text(app["name"][:16], 56, 32, theme.TEXT_BRIGHT, scale=2)
         meta_ln = "v%s by %s" % (app["version"], app["author"])
-        d.text(meta_ln[:26], 56, 52, theme.MUTED, scale=1)
+        d.text(meta_ln[:26], 56, 49, theme.MUTED, scale=1)
 
-        # App Specs Grid
-        d.rect(16, 72, SW - 32, 40, theme.BG, fill=True)
-        d.text("Category: %s" % app["category"], 22, 76, theme.TEXT_BRIGHT)
-        d.text("Directory: apps/%s" % app["dir"][:14], 22, 88, theme.MUTED)
-        d.text("Size: %s (%d files)" % (app["size_str"], app["files_count"]), 22, 100, theme.TEAL)
+        # App Description & Specs Grid Box
+        d.rect(16, 67, SW - 32, 54, theme.BG, fill=True)
+        d.rect(16, 67, SW - 32, 54, theme.MUTED2, fill=False)
+
+        # Description text (wrap up to 2 lines)
+        desc = app.get("description") or "No description provided."
+        desc_lines = []
+        words = desc.split(" ")
+        cur_line = ""
+        for w in words:
+            if len(cur_line) + len(w) + 1 <= 34:
+                cur_line = cur_line + " " + w if cur_line else w
+            else:
+                desc_lines.append(cur_line)
+                cur_line = w
+                if len(desc_lines) >= 2:
+                    break
+        if cur_line and len(desc_lines) < 2:
+            desc_lines.append(cur_line)
+
+        dy = 71
+        for dl in desc_lines:
+            d.text(dl[:34], 22, dy, theme.TEXT_BRIGHT)
+            dy += 11
+
+        # Specs row (Category & Size)
+        spec_ln = "%s · %s (%d files)" % (app["category"], app["size_str"], app["files_count"])
+        d.text(spec_ln[:34], 22, 107, theme.TEAL)
 
         # Action Options
         opts = ["1. Launch App", "2. Clear Cache (__pycache__)"]
@@ -598,7 +629,7 @@ class App(oreoOS.App):
         else:
             opts.append("3. Back to Apps")
 
-        opt_y = 118
+        opt_y = 127
         for i, opt in enumerate(opts):
             sel = (i == self._detail_sel)
             bg = theme.PRIMARY if sel else theme.CARD

@@ -272,19 +272,32 @@ def _ensure_dir(path):
 
 
 def _rm_tree(path):
-    """rm -rf — swallows errors so a partial uninstall doesn't hang."""
+    """rm -rf — robust cross-platform recursive directory deletion."""
+    try:
+        import shutil
+        shutil.rmtree(path)
+        return True
+    except Exception:
+        pass
+
     try:
         for f in _os.listdir(path):
             child = path + "/" + f
-            if _isdir(child):
-                _rm_tree(child)
-            else:
-                try: _os.remove(child)
-                except OSError: pass
-        try: _os.rmdir(path)
-        except OSError: pass
-    except OSError:
+            try:
+                if _isdir(child):
+                    _rm_tree(child)
+                else:
+                    _os.remove(child)
+            except Exception:
+                pass
+        try:
+            _os.rmdir(path)
+        except Exception:
+            pass
+    except Exception:
         pass
+    return not _exists(path)
+
 
 
 # ── GitHub API wrappers ─────────────────────────────────────────────────
