@@ -210,6 +210,7 @@ class SpotifyClient:
         self.client_secret  = client_secret
         self.last_sync_ms   = 0
         self.device_name    = ""
+        self.active_device_id = None
         self.last_error     = ""
 
         if not self.is_configured():
@@ -377,7 +378,15 @@ class SpotifyClient:
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                return data.get("devices", []) or []
+                devs = data.get("devices", []) or []
+                if devs:
+                    for d in devs:
+                        if d.get("is_active"):
+                            self.active_device_id = d.get("id")
+                            break
+                    else:
+                        self.active_device_id = devs[0].get("id")
+                return devs
             except Exception:
                 pass
         return []
@@ -429,6 +438,8 @@ class SpotifyClient:
                     image_url = images[-1].get("url", "") if images else ""
 
                     dev = data.get("device", {})
+                    if dev and dev.get("id"):
+                        self.active_device_id = dev.get("id")
                     is_active = bool(data.get("is_playing", False)) or bool(dev.get("is_active", False))
                     self.device_name = dev.get("name", "Spotify") if dev else "Spotify (Ready)"
 
@@ -500,9 +511,11 @@ class SpotifyClient:
             for d in devs:
                 if d.get("is_active"):
                     dev_name = d.get("name", dev_name)
+                    self.active_device_id = d.get("id")
                     break
             else:
                 dev_name = devs[0].get("name", dev_name)
+                self.active_device_id = devs[0].get("id")
 
         return {
             "connected":   True,
@@ -519,27 +532,71 @@ class SpotifyClient:
             "repeat":      "off"
         }
 
-    def play(self, uris=None, context_uri=None):
+    def transfer_playback(self, device_id=None, play=True):
+        """Transfer playback to an available device and start playing."""
+        dev_id = device_id or self.active_device_id
+        if not dev_id:
+            devs = self.get_devices()
+            if devs:
+                dev_id = devs[0].get("id")
+                self.active_device_id = dev_id
+        if not dev_id:
+            return False
+        body = _json.dumps({"device_ids": [dev_id], "play": bool(play)})
+        return self._send_control("PUT", "/v1/me/player", body_data=body)
+
+    def play(self, uris=None, context_uri=None, device_id=None):
+        dev_id = device_id or self.active_device_id
+        if not dev_id:
+            devs = self.get_devices()
+            if devs:
+                dev_id = devs[0].get("id")
+                self.active_device_id = dev_id
+
+        path = "/v1/me/player/play"
+        if dev_id:
+            path += "?device_id=" + str(dev_id)
+
+        body = None
         if context_uri:
             body = _json.dumps({"context_uri": context_uri})
-            return self._send_control("PUT", "/v1/me/player/play", body_data=body)
         elif uris:
             body = _json.dumps({"uris": uris})
-            return self._send_control("PUT", "/v1/me/player/play", body_data=body)
-        return self._send_control("PUT", "/v1/me/player/play")
 
-    def pause(self):
-        return self._send_control("PUT", "/v1/me/player/pause")
+        ok = self._send_control("PUT", path, body_data=body)
+        if not ok and dev_id:
+            # When dormant / 404 NO_ACTIVE_DEVICE: transfer playback and resume
+            ok = self.transfer_playback(dev_id, play=True)
+        return ok
 
-    def next_track(self):
-        return self._send_control("POST", "/v1/me/player/next")
+    def pause(self, device_id=None):
+        dev_id = device_id or self.active_device_id
+        path = "/v1/me/player/pause"
+        if dev_id:
+            path += "?device_id=" + str(dev_id)
+        return self._send_control("PUT", path)
 
-    def prev_track(self):
-        return self._send_control("POST", "/v1/me/player/previous")
+    def next_track(self, device_id=None):
+        dev_id = device_id or self.active_device_id
+        path = "/v1/me/player/next"
+        if dev_id:
+            path += "?device_id=" + str(dev_id)
+        return self._send_control("POST", path)
 
-    def set_volume(self, volume_pct):
+    def prev_track(self, device_id=None):
+        dev_id = device_id or self.active_device_id
+        path = "/v1/me/player/previous"
+        if dev_id:
+            path += "?device_id=" + str(dev_id)
+        return self._send_control("POST", path)
+
+    def set_volume(self, volume_pct, device_id=None):
+        dev_id = device_id or self.active_device_id
         pct = max(0, min(100, int(volume_pct)))
-        return self._send_control("PUT", "/v1/me/player/volume?volume_percent=%d" % pct)
+        path = "/v1/me/player/volume?volume_percent=%d" % pct
+        if dev_id:
+            path += "&device_id=" + str(dev_id)
+        return self._send_control("PUT", path)
 
     def get_saved_tracks(self, limit=25):
         """Fetch user's Liked / Saved Songs from Spotify."""
