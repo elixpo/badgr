@@ -44,6 +44,14 @@ def load_persisted_credentials():
                 refresh_token = data.get("refresh_token")
                 client_id = data.get("client_id")
                 client_secret = data.get("client_secret")
+                if isinstance(token, str) and token.strip() and not token.startswith("{"):
+                    pass
+                else:
+                    token = None
+                if isinstance(refresh_token, str) and refresh_token.strip() and not refresh_token.startswith("{"):
+                    pass
+                else:
+                    refresh_token = None
                 if token or refresh_token:
                     return (token, refresh_token, client_id, client_secret)
         except Exception:
@@ -53,13 +61,30 @@ def load_persisted_credentials():
 
 def save_credentials(token=None, refresh_token=None, client_id=None, client_secret=None):
     try:
+        if isinstance(token, dict):
+            d = token
+            if d.get("status") == "pending":
+                return False
+            token = d.get("token") or d.get("access_token")
+            refresh_token = d.get("refresh_token") or refresh_token
+            client_id = d.get("client_id") or client_id
+            client_secret = d.get("client_secret") or client_secret
+
         cur_t, cur_rt, cur_ci, cur_cs = load_persisted_credentials()
+        final_token = token if (isinstance(token, str) and token.strip()) else cur_t
+        final_rt = refresh_token if (isinstance(refresh_token, str) and refresh_token.strip()) else cur_rt
+        final_ci = client_id or cur_ci
+        final_cs = client_secret or cur_cs
+
+        if not final_token and not final_rt:
+            return False
+
         data = {
-            "access_token": token or cur_t,
-            "token": token or cur_t,
-            "refresh_token": refresh_token or cur_rt,
-            "client_id": client_id or cur_ci,
-            "client_secret": client_secret or cur_cs,
+            "access_token": final_token,
+            "token": final_token,
+            "refresh_token": final_rt,
+            "client_id": final_ci,
+            "client_secret": final_cs,
             "updated_at": int(time.time() if hasattr(time, 'time') else 0),
         }
         with open(STATE_FILE, "w") as f:
@@ -300,6 +325,7 @@ class SpotifyClient:
                 new_token = data.get("access_token")
                 if new_token:
                     self.token = new_token
+                    save_credentials(token=new_token, refresh_token=self.refresh_token, client_id=self.client_id, client_secret=self.client_secret)
                     return True
             except Exception:
                 pass
@@ -310,12 +336,12 @@ class SpotifyClient:
             if not self.refresh_access_token():
                 return None
 
-        headers = {"Authorization": "Bearer " + self.token}
+        headers = {"Authorization": "Bearer " + str(self.token)}
         status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player", headers)
 
         if status == 401:
             if self.refresh_access_token():
-                headers = {"Authorization": "Bearer " + self.token}
+                headers = {"Authorization": "Bearer " + str(self.token)}
                 status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player", headers)
 
         if status == 403:
@@ -323,32 +349,18 @@ class SpotifyClient:
                 "connected":   True,
                 "active":      True,
                 "is_playing":  False,
-                "title":       "Premium Account Needed",
-                "artist":      "Spotify Dev requires Premium",
-                "album":       "API Error 403",
-                "duration_s":  180.0,
-                "progress_s":  0.0,
+                "title":       "Spotify Connected",
+                "artist":      "Open Spotify on device",
+                "album":       "",
+                "image_url":   "",
+                "duration_s":  0,
+                "progress_s":  0,
                 "volume":      70,
-                "device_name": "Spotify",
+                "device_name": "Ready",
                 "shuffle":     False,
                 "repeat":      "off"
             }
 
-        if status == 204 or not body:
-            return {
-                "connected":   True,
-                "active":      True,
-                "is_playing":  False,
-                "title":       "No Active Playback",
-                "artist":      "Start music on phone/PC",
-                "album":       "Spotify Connected",
-                "duration_s":  180.0,
-                "progress_s":  0.0,
-                "volume":      70,
-                "device_name": "Spotify",
-                "shuffle":     False,
-                "repeat":      "off"
-            }
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
@@ -401,23 +413,25 @@ class SpotifyClient:
         pct = max(0, min(100, int(volume_pct)))
         return self._send_control("PUT", "/v1/me/player/volume?volume_percent=%d" % pct)
 
-    def get_user_tracks(self, limit=10):
-        """Fetch user recently played tracks from Spotify Web API."""
+    def get_user_tracks(self, limit=20):
+        """Fetch user tracks from Saved Tracks, Top Tracks, or Recently Played."""
         if not self.token:
             if not self.refresh_access_token():
                 return []
-        headers = {"Authorization": "Bearer " + self.token}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers)
+        headers = {"Authorization": "Bearer " + str(self.token)}
+
+        tracks = []
+        seen = set()
+
+        # 1. Try Saved / Liked Songs (user library)
+        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/tracks?limit=%d" % limit, headers)
         if status == 401 and self.refresh_access_token():
-            headers = {"Authorization": "Bearer " + self.token}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers)
+            headers = {"Authorization": "Bearer " + str(self.token)}
+            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/tracks?limit=%d" % limit, headers)
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                items = data.get("items", [])
-                tracks = []
-                seen = set()
-                for entry in items:
+                for entry in data.get("items", []):
                     tr = entry.get("track") or {}
                     name = tr.get("name")
                     if not name or name in seen:
@@ -430,12 +444,59 @@ class SpotifyClient:
                         "album": (tr.get("album") or {}).get("name", ""),
                         "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
                         "uri": tr.get("uri", ""),
-                        "category": "Recent"
+                        "category": "Saved"
                     })
-                return tracks
             except Exception:
                 pass
-        return []
+
+        # 2. Try Top Tracks if library is small
+        if len(tracks) < limit:
+            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/top/tracks?limit=%d" % (limit - len(tracks)), headers)
+            if status == 200 and body:
+                try:
+                    data = _json.loads(body.decode('utf-8'))
+                    for tr in data.get("items", []):
+                        name = tr.get("name")
+                        if not name or name in seen:
+                            continue
+                        seen.add(name)
+                        artists = ", ".join(a.get("name", "") for a in tr.get("artists", []))
+                        tracks.append({
+                            "title": name,
+                            "artist": artists or "Unknown Artist",
+                            "album": (tr.get("album") or {}).get("name", ""),
+                            "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
+                            "uri": tr.get("uri", ""),
+                            "category": "Top"
+                        })
+                except Exception:
+                    pass
+
+        # 3. Try Recently Played
+        if len(tracks) < limit:
+            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % (limit - len(tracks)), headers)
+            if status == 200 and body:
+                try:
+                    data = _json.loads(body.decode('utf-8'))
+                    for entry in data.get("items", []):
+                        tr = entry.get("track") or {}
+                        name = tr.get("name")
+                        if not name or name in seen:
+                            continue
+                        seen.add(name)
+                        artists = ", ".join(a.get("name", "") for a in tr.get("artists", []))
+                        tracks.append({
+                            "title": name,
+                            "artist": artists or "Unknown Artist",
+                            "album": (tr.get("album") or {}).get("name", ""),
+                            "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
+                            "uri": tr.get("uri", ""),
+                            "category": "Recent"
+                        })
+                except Exception:
+                    pass
+
+        return tracks
 
     def search_track(self, query):
         """Search Spotify for a track and return metadata dict with uri."""

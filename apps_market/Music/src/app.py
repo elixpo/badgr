@@ -157,7 +157,8 @@ def _draw_icon_speaker(d, x, y, color, vol=100):
 
 class App(oreoOS.App):
     name = _get_manifest_name()
-    SHOW_LOADING = False
+    author = "sea-deep"
+    SHOW_LOADING = True
     CONSUMES_C = True
 
     def on_enter(self, os):
@@ -310,18 +311,21 @@ class App(oreoOS.App):
             if btn == api.BTN_B:
                 self._view_mode = "PLAYER"
                 self._dirty = True
+                return
             elif btn == api.BTN_UP:
                 if self._lib_idx > 0:
                     self._lib_idx -= 1
                     if self._lib_idx < self._lib_scroll:
                         self._lib_scroll = self._lib_idx
                     self._dirty = True
+                return
             elif btn == api.BTN_DOWN:
                 if self._lib_idx < len(self._library_tracks) - 1:
                     self._lib_idx += 1
                     if self._lib_idx >= self._lib_scroll + 5:
                         self._lib_scroll = self._lib_idx - 4
                     self._dirty = True
+                return
             elif btn == api.BTN_A:
                 # Select & Play
                 t = self._library_tracks[self._lib_idx]
@@ -350,6 +354,7 @@ class App(oreoOS.App):
                         self._spotify.play_track(track_target)
                 self._dirty = True
                 return
+            return
 
         # ── Player View Controls ──────────────────────────────────────────
         if btn == api.BTN_B:

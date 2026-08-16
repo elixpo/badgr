@@ -132,7 +132,10 @@ def _show_loading(os_obj, label, author=None):
                 display.text(hint, hint_x, panel_h - 22, api.WHITE)
 
         display.present()
-        time.sleep_ms(frame_ms)
+        try:
+            time.sleep_ms(frame_ms)
+        except AttributeError:
+            time.sleep(frame_ms / 1000.0)
     return False
 
 

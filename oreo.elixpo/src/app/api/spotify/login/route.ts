@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const SCOPES = "user-read-playback-state user-modify-playback-state user-read-currently-playing";
+const SCOPES = "user-read-playback-state user-modify-playback-state user-read-currently-playing user-library-read user-read-recently-played user-top-read playlist-read-private playlist-read-collaborative";
 
 export async function GET(request: Request) {
   try {
