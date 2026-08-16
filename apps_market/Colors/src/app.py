@@ -141,6 +141,16 @@ def _load_state():
     return (PLAY_W / 2.0, PLAY_H / 2.0, (255, 93, 104))
 
 
+SLOT_KEYS = ("PRI", "BG", "CARD", "SEC", "ACC")
+SLOT_TITLES = {
+    "PRI": "PRIMARY",
+    "BG": "BACKGROUND",
+    "CARD": "CARD SURFACE",
+    "SEC": "SECONDARY",
+    "ACC": "ACCENT"
+}
+
+
 class App(oreoOS.App):
     name         = "Color"
     SHOW_LOADING = True       # ~300 ms upscale at entry — hidden by the panel
@@ -150,8 +160,6 @@ class App(oreoOS.App):
     # ── lifecycle ──────────────────────────────────────────────────────────
     def on_enter(self, os):
         self._os = os
-        # Load the 80x49 baked rainbow and upscale to fill the play area.
-        # Cached on the instance — no per-frame work.
         spec = _try_load_spectrum()
         if spec:
             src, sw, sh = spec
@@ -161,13 +169,22 @@ class App(oreoOS.App):
             self._bg = None
             self._bg_w = self._bg_h = 0
 
-        # Cursor and RGB restored from disk
         self._cx, self._cy, self._rgb = _load_state()
-        self._mode = "RGB"            # header readout model
+        self._slot_idx = 0            # active palette slot (0: PRI, 1: BG, 2: CARD, 3: SEC, 4: ACC)
+        self._auto_harmonize = True
+        
+        # Initialize slots from active theme
+        th = theme.CURRENT_THEME
+        self._slots = {
+            "PRI": th.primary_rgb,
+            "BG": th.bg_rgb,
+            "CARD": th.card_rgb,
+            "SEC": th.teal_rgb,
+            "ACC": th.gold_rgb
+        }
+
         self._saved_flash = 0.0
         self._saved_msg = "Theme Applied!"
-        # Hold-times for direction buttons (seconds held). Reset to 0 the
-        # instant a button is released so the next tap restarts the curve.
         self._hold_t = {api.BTN_LEFT: 0.0, api.BTN_RIGHT: 0.0,
                         api.BTN_UP:   0.0, api.BTN_DOWN:  0.0}
         self._sample_color()
@@ -175,8 +192,6 @@ class App(oreoOS.App):
 
     # ── input ──────────────────────────────────────────────────────────────
     def on_button_press(self, btn):
-        # Single-tap nudge so a quick press always moves at least a couple
-        # of pixels (the update() loop only ramps after ACCEL_AFTER_S).
         if btn == api.BTN_LEFT:
             self._active_preset_id = None
             self._cx -= TAP_NUDGE_PX
@@ -202,39 +217,86 @@ class App(oreoOS.App):
             self._sample_color()
             self._dirty = True
         elif btn == api.BTN_B:
-            i = _MODELS.index(self._mode)
-            self._mode = _MODELS[(i + 1) % len(_MODELS)]
+            # Cycle active palette slot to customize from scratch
+            self._auto_harmonize = False
+            self._slot_idx = (self._slot_idx + 1) % len(SLOT_KEYS)
+            self._active_preset_id = None
+            cur_slot = SLOT_KEYS[self._slot_idx]
+            self._saved_msg = "Slot: %s" % SLOT_TITLES[cur_slot]
+            self._saved_flash = 1.0
             self._dirty = True
         elif btn == api.BTN_C:
+            # Cycle curated presets
             keys = [k for k in theme.PRESET_KEYS if k != "custom"]
             self._preset_idx = (getattr(self, "_preset_idx", -1) + 1) % len(keys)
             self._active_preset_id = keys[self._preset_idx]
             preset = theme.PRESETS[self._active_preset_id]
             self._rgb = preset.primary_rgb
+            self._slots["PRI"]  = preset.primary_rgb
+            self._slots["BG"]   = preset.bg_rgb
+            self._slots["CARD"] = preset.card_rgb
+            self._slots["SEC"]  = preset.teal_rgb
+            self._slots["ACC"]  = preset.gold_rgb
             theme.set_preset(self._active_preset_id, save=True)
             self._saved_msg = preset.name
-            self._saved_flash = 2.0
+            self._saved_flash = 1.5
             self._dirty = True
         elif btn == api.BTN_A:
-            # Save the active theme configuration to disk.
+            # Save the active multi-slot theme configuration
             if getattr(self, "_active_preset_id", None):
                 theme.set_preset(self._active_preset_id, save=True)
                 preset = theme.PRESETS[self._active_preset_id]
                 self._saved_msg = "%s Applied!" % preset.name
             else:
-                r, g, b = self._rgb
-                theme.set_primary_color(r, g, b, save=True)
-                _save_state(self._cx, self._cy, self._rgb)
+                pri  = self._slots["PRI"]
+                bg   = self._slots["BG"]
+                card = self._slots["CARD"]
+                sec  = self._slots["SEC"]
+                acc  = self._slots["ACC"]
+                
+                bg_lum = theme.get_perceived_luminance(*bg)
+                is_dark = bg_lum < 100
+                
+                text_bright = (245, 245, 250) if is_dark else (24, 24, 32)
+                text_dim    = (180, 180, 200) if is_dark else (100, 80, 70)
+                muted       = (130, 130, 155) if is_dark else (160, 120, 100)
+                muted2      = (60, 60, 85)    if is_dark else (200, 160, 140)
+                
+                pri_lum = theme.get_perceived_luminance(*pri)
+                status_text = (24, 24, 32) if pri_lum >= 170 else (255, 255, 255)
+                
+                custom_th = theme.Theme(
+                    id="custom",
+                    name="Custom Palette",
+                    bg=bg,
+                    card=card,
+                    primary=pri,
+                    teal=sec,
+                    gold=acc,
+                    text_bright=text_bright,
+                    text_dim=text_dim,
+                    muted=muted,
+                    muted2=muted2,
+                    status_bg=pri,
+                    status_text=status_text,
+                    status_accent=acc,
+                    dock_bg=card,
+                    dock_sel=(min(255, card[0] + 15), min(255, card[1] + 15), min(255, card[2] + 15)),
+                    sel_border=pri,
+                    sel_text=pri if (not is_dark and pri_lum < 170) or (is_dark and pri_lum > 80) else text_bright,
+                    is_dark=is_dark
+                )
+                theme.apply_theme(custom_th, save=True)
+                _save_state(self._cx, self._cy, pri)
                 try:
-                    self._os.settings_set("color_picker_rgb", self._rgb)
+                    self._os.settings_set("color_picker_rgb", pri)
                 except Exception:
                     pass
-                self._saved_msg = "Custom Theme Applied!"
-            self._saved_flash = 2.0
+                self._saved_msg = "Theme Applied!"
+            self._saved_flash = 1.5
             self._dirty = True
 
     def update(self, dt):
-        # Long-press: poll which dir buttons are held and accumulate.
         moved = False
         b = self._os.buttons
         for btn, dx, dy in ((api.BTN_LEFT,  -1, 0),
@@ -248,12 +310,8 @@ class App(oreoOS.App):
             if held:
                 self._active_preset_id = None
                 self._hold_t[btn] += dt
-                # Start slow, ramp to fast after ACCEL_AFTER_S held.
                 t = self._hold_t[btn]
-                if t > ACCEL_AFTER_S:
-                    speed = FAST_PX_PER_S
-                else:
-                    speed = SLOW_PX_PER_S
+                speed = FAST_PX_PER_S if t > ACCEL_AFTER_S else SLOW_PX_PER_S
                 self._cx += dx * speed * dt
                 self._cy += dy * speed * dt
                 moved = True
@@ -276,7 +334,7 @@ class App(oreoOS.App):
         if self._cy > PLAY_H - 1:  self._cy = PLAY_H - 1
 
     def _sample_color(self):
-        """Read the RGB565 pixel under the cursor out of the upscaled bg."""
+        """Read RGB pixel under cursor and assign to the active slot."""
         if not self._bg:
             return
         x = int(self._cx); y = int(self._cy)
@@ -285,9 +343,17 @@ class App(oreoOS.App):
         r = ((v >> 11) & 0x1F) << 3
         g = ((v >>  5) & 0x3F) << 2
         b = ( v        & 0x1F) << 3
-        # Restore lost low-order bits with a tiny smear so dark colours
-        # don't read as pure black just from RGB565 truncation.
         self._rgb = (r | (r >> 5), g | (g >> 6), b | (b >> 5))
+        
+        cur_slot = SLOT_KEYS[self._slot_idx]
+        self._slots[cur_slot] = self._rgb
+        
+        if cur_slot == "PRI" and getattr(self, "_auto_harmonize", True):
+            derived = theme.derive_custom_theme(*self._rgb)
+            self._slots["BG"]   = derived.bg_rgb
+            self._slots["CARD"] = derived.card_rgb
+            self._slots["SEC"]  = derived.teal_rgb
+            self._slots["ACC"]  = derived.gold_rgb
 
     # ── render ────────────────────────────────────────────────────────────
     def draw(self, d):
@@ -295,71 +361,67 @@ class App(oreoOS.App):
             return
         self._dirty = False
 
-        # ── spectrum (or solid fallback) ───────────────────────────────────
         if self._bg:
             d.blit(self._bg, 0, PLAY_TOP, self._bg_w, self._bg_h)
         else:
-            d.rect(0, PLAY_TOP, PLAY_W, PLAY_H,
-                   api.rgb(*self._rgb), fill=True)
+            d.rect(0, PLAY_TOP, PLAY_W, PLAY_H, api.rgb(*self._rgb), fill=True)
 
-        # ── header bar (adapts dynamically to active theme) ────────────────
         self._draw_header(d)
-        widgets.draw_hint(d, "arrows=pick  B=mode  C=preset  A=apply")
-
-        # ── crosshair ──────────────────────────────────────────────────────
+        widgets.draw_hint(d, "arrows=pick  B=slot  C=preset  A=apply")
         self._draw_cursor(d)
-
-        # ── live full theme palette bar ────────────────────────────────────
         self._draw_palette_bar(d)
 
-        # ── toast notification ────────────────────────────────────────────────
+        # ── compact pill toast notification ──────────────────────────────────
         if self._saved_flash > 0:
             msg = getattr(self, "_saved_msg", "Theme Applied!")
-            mw = len(msg) * 16
+            mw = len(msg) * 8
             tx = (SW - mw) // 2
-            ty = PLAY_BOT - 54
-            d.rect(tx - 10, ty - 6, mw + 20, 24, theme.GREEN, fill=True)
-            d.rect(tx - 10, ty - 6, mw + 20, 24, api.WHITE, fill=False)
-            d.text(msg, tx, ty + 2, api.WHITE, scale=2)
+            ty = PLAY_BOT - 48
+            d.rect(tx - 8, ty - 3, mw + 16, 14, theme.DOCK_BG, fill=True)
+            d.rect(tx - 8, ty - 3, mw + 16, 14, theme.MUTED2, fill=False)
+            d.text(msg, tx, ty, theme.TEXT_BRIGHT)
 
-    # ── full palette ribbon ───────────────────────────────────────────────
+    # ── full palette ribbon with active slot cursor ───────────────────────
     def _draw_palette_bar(self, d):
-        if getattr(self, "_active_preset_id", None):
-            th = theme.PRESETS[self._active_preset_id]
-        else:
-            th = theme.derive_custom_theme(*self._rgb)
-
         swatches = [
-            ("PRI",  th.primary_rgb),
-            ("BG",   th.bg_rgb),
-            ("CARD", th.card_rgb),
-            ("SEC",  th.teal_rgb),
-            ("ACC",  th.gold_rgb),
-            ("TEXT", th.dark_rgb),
+            ("PRI",  self._slots["PRI"]),
+            ("BG",   self._slots["BG"]),
+            ("CARD", self._slots["CARD"]),
+            ("SEC",  self._slots["SEC"]),
+            ("ACC",  self._slots["ACC"]),
         ]
         
-        pw = 48
+        pw = 56
         ph = 18
         gap = 4
         total_w = len(swatches) * pw + (len(swatches) - 1) * gap
         start_x = (SW - total_w) // 2
         y = PLAY_BOT - ph - 4
 
-        # Background ribbon for contrast over spectrum
+        # Background ribbon
         d.rect(start_x - 4, y - 2, total_w + 8, ph + 4, theme.DOCK_BG, fill=True)
         d.rect(start_x - 4, y - 2, total_w + 8, ph + 4, theme.MUTED2, fill=False)
 
         for i, (label, rgb_tuple) in enumerate(swatches):
             sx = start_x + i * (pw + gap)
             c_val = api.rgb(*rgb_tuple)
+            is_active_slot = (i == self._slot_idx)
+            
             d.rect(sx, y, pw, ph, c_val, fill=True)
-            d.rect(sx, y, pw, ph, theme.MUTED2, fill=False)
+            
+            if is_active_slot:
+                d.rect(sx - 1, y - 1, pw + 2, ph + 2, api.WHITE, fill=False)
+                d.rect(sx - 2, y - 2, pw + 4, ph + 4, theme.PRIMARY, fill=False)
+            else:
+                d.rect(sx, y, pw, ph, theme.MUTED2, fill=False)
             
             lum = theme.get_perceived_luminance(*rgb_tuple)
             lbl_c = api.rgb(24, 24, 32) if lum >= 150 else api.WHITE
-            lx = sx + (pw - len(label) * 8) // 2
+            
+            slot_text = ">%s<" % label if is_active_slot else label
+            lx = sx + (pw - len(slot_text) * 8) // 2
             ly = y + (ph - 8) // 2
-            d.text(label, lx, ly, lbl_c)
+            d.text(slot_text, lx, ly, lbl_c)
 
     # ── header pieces ─────────────────────────────────────────────────────
     def _draw_header(self, d):
@@ -369,33 +431,20 @@ class App(oreoOS.App):
         d.rect(0, H - 1, SW, 1, theme.STATUS_ACCENT, fill=True)
         d.text("COLOR", 6, (H - 8) // 2 + 1, fg)
         
-        # Live preview swatch
+        cur_slot = SLOT_KEYS[self._slot_idx]
+        cur_rgb = self._slots[cur_slot]
         sw_sz = 14
         sw_x  = 52
         sw_y  = (H - sw_sz) // 2 + 1
         d.rect(sw_x - 1, sw_y - 1, sw_sz + 2, sw_sz + 2, fg, fill=True)
-        d.rect(sw_x,     sw_y,     sw_sz,     sw_sz,    api.rgb(*self._rgb), fill=True)
+        d.rect(sw_x,     sw_y,     sw_sz,     sw_sz,    api.rgb(*cur_rgb), fill=True)
         
-        # Readout text / preset name
         if getattr(self, "_active_preset_id", None):
-            readout = theme.PRESETS[self._active_preset_id].name
+            readout = "%s [%s]" % (theme.PRESETS[self._active_preset_id].name, cur_slot)
         else:
-            readout = self._readout_str()
-        d.text(readout, sw_x + sw_sz + 8, (H - 8) // 2 + 1, fg)
-        
-        # Right badge
-        mode_str = "[%s]" % self._mode
-        d.text(mode_str, SW - 6 - len(mode_str) * 8, (H - 8) // 2 + 1, fg)
-
-    def _readout_str(self):
-        r, g, b = self._rgb
-        if self._mode == "RGB":
-            return "RGB %d %d %d" % (r, g, b)
-        if self._mode == "HSL":
-            h, s, l = _rgb_to_hsl(r, g, b)
-            return "HSL %d %d %d" % (h, s, l)
-        c, m, y, k = _rgb_to_cmyk(r, g, b)
-        return "CMYK %d %d %d %d" % (c, m, y, k)
+            readout = "%s: %d %d %d" % (cur_slot, cur_rgb[0], cur_rgb[1], cur_rgb[2])
+        slot_title = SLOT_TITLES[cur_slot]
+        d.text(slot_title, SW - 6 - len(slot_title) * 8, (H - 8) // 2 + 1, fg)
 
     # ── crosshair drawing ────────────────────────────────────────────────
     def _draw_cursor(self, d):
