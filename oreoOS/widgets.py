@@ -233,7 +233,37 @@ def play_area():
     """(x, y, w, h) of the screen region between header and hint bar."""
     SW = api.SCREEN_W
     SH = api.SCREEN_H
-    return (0, HEADER_H, SW, SH - HEADER_H - HINT_H)
+def draw_scrollbar(d, x, y, w, h, total, current, visible=1, horizontal=False, fg=None, bg=None):
+    """Draw a sleek, proportional scrollbar indicator.
+
+    total: Total number of items/pages/rows.
+    current: Currently active/focused index (0-based) or top item index.
+    visible: Number of items visible on screen at once (default: 1).
+    horizontal: False for vertical scrollbar, True for horizontal scrollbar.
+    fg: Thumb/slider color (defaults to theme.PRIMARY).
+    bg: Track background color (defaults to theme.CARD_BORDER or theme.MUTED2).
+    """
+    if total <= visible or total <= 1:
+        return
+
+    fg = fg if fg is not None else theme.PRIMARY
+    bg = bg if bg is not None else getattr(theme, "CARD_BORDER", theme.MUTED2)
+
+    current = max(0, min(current, total - 1))
+    max_scroll = max(1, total - visible)
+
+    if horizontal:
+        d.rect(x, y, w, h, bg, fill=True)
+        thumb_w = max(6, int((visible / total) * w))
+        max_thumb_x = w - thumb_w
+        thumb_x = x + int((current / max_scroll) * max_thumb_x) if max_scroll > 0 else x
+        d.rect(thumb_x, y, thumb_w, h, fg, fill=True)
+    else:
+        d.rect(x, y, w, h, bg, fill=True)
+        thumb_h = max(6, int((visible / total) * h))
+        max_thumb_y = h - thumb_h
+        thumb_y = y + int((current / max_scroll) * max_thumb_y) if max_scroll > 0 else y
+        d.rect(x, thumb_y, w, thumb_h, fg, fill=True)
 
 
 def show_loading(os_obj, label, author=None, subtitle=None):

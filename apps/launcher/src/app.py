@@ -794,15 +794,8 @@ class App(oreoOS.App):
             widgets.draw_hint(d, "A=launch  HOME=back  C=notif")
 
         # ── scrollbar on the right ───────────────────────────────────────
-        if rows_total > VISIBLE_ROWS:
-            track_x = SW - 4
-            track_y = PAD_TOP
-            track_h = SH - PAD_TOP - PAD_BOT
-            d.rect(track_x, track_y, 2, track_h, theme.MUTED2, fill=True)
-            thumb_h = max(12, track_h * VISIBLE_ROWS // rows_total)
-            thumb_y = track_y + (track_h - thumb_h) * self._top_row \
-                                 // max(1, rows_total - VISIBLE_ROWS)
-            d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+        widgets.draw_scrollbar(d, SW - 4, PAD_TOP, 2, SH - PAD_TOP - PAD_BOT,
+                               rows_total, self._top_row, visible=VISIBLE_ROWS)
 
         # keep dirty while scrolling / animating
         if (abs(self._scroll_y - self._top_row * CELL_H) > 0.5 or
@@ -899,14 +892,9 @@ class App(oreoOS.App):
                    theme.PRIMARY if sel else theme.MUTED, scale=2)
 
         # Right-side scrollbar when categories exceed visible window
-        if n > VISIBLE_CATS:
-            track_x = SW - 8
-            track_y = viewport_top
-            track_h = VISIBLE_CATS * (tile_h + gap) - gap
-            d.rect(track_x, track_y, 2, track_h, theme.MUTED2, fill=True)
-            thumb_h = max(12, track_h * VISIBLE_CATS // n)
-            thumb_y = track_y + (track_h - thumb_h) * self._cat_top // (n - VISIBLE_CATS)
-            d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+        widgets.draw_scrollbar(d, SW - 6, viewport_top, 2,
+                               VISIBLE_CATS * (tile_h + gap) - gap,
+                               n, self._cat_top, visible=VISIBLE_CATS)
 
     def on_exit(self):
         """Perform garbage collection sweep on leaving the launcher."""

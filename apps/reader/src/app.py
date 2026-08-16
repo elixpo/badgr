@@ -582,6 +582,10 @@ class App(oreoOS.App):
             color = theme.PRIMARY if sel else theme.GOLD
             d.text(_HELP_ROW_LABEL, 12, y + 6, color, scale=1)
 
+        vis_rows = max(1, (SH - top_y - widgets.HINT_H) // row_h)
+        widgets.draw_scrollbar(d, SW - 4, top_y, 2, SH - top_y - widgets.HINT_H - 4,
+                               len(self._files) + 1, self._sel, visible=vis_rows)
+
         # When the directory is empty point the user at the help row so
         # the next step is obvious — "no documents" alone was a dead end.
         if not self._files:
@@ -727,14 +731,8 @@ class App(oreoOS.App):
             y_cursor += h
 
         # Right-edge scroll thumb when content overflows.
-        if self._total_h > play_h:
-            track_x = SW - 3
-            track_y = play_top
-            track_h = play_h
-            thumb_h = max(12, int(track_h * play_h / self._total_h))
-            max_scroll = max(1, self._total_h - play_h)
-            thumb_y = track_y + (track_h - thumb_h) * self._scroll // max_scroll
-            d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+        widgets.draw_scrollbar(d, SW - 3, play_top, 2, play_h,
+                               self._total_h, self._scroll, visible=play_h)
 
     def on_exit(self):
         """Clear document blocks and sweep GC on exit."""

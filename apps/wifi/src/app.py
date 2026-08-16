@@ -582,6 +582,11 @@ class App(oreoOS.App):
             if n.get("metered"):
                 d.text("$", x, y + 4, theme.GOLD, scale=1)
 
+        vis_nets = max(1, (SH - ROW_TOP_Y - widgets.HINT_H) // ROW_H)
+        widgets.draw_scrollbar(d, SW - 4, ROW_TOP_Y, 2,
+                               vis_nets * ROW_H,
+                               len(self._nets), self._nets_sel, visible=vis_nets)
+
     def _rssi_value(self, snap):
         rssi = snap.get("rssi")
         if rssi is None:

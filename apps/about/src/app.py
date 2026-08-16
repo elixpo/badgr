@@ -215,12 +215,8 @@ class App(oreoOS.App):
         total_need = cy_logical
         if total_need > inner_h:
             self._max_scroll = total_need - inner_h + PAD_BOT
-            track_h = panel_h - 8
-            thumb_h = max(16, track_h * panel_h // cy_logical)
-            thumb_y = panel_y + 4 + (track_h - thumb_h) * self._scroll \
-                                          // max(1, self._max_scroll)
-            d.rect(panel_x + panel_w - 4, panel_y + 4, 2, track_h, theme.MUTED2, fill=True)
-            d.rect(panel_x + panel_w - 4, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+            widgets.draw_scrollbar(d, panel_x + panel_w - 4, panel_y + 4, 2, panel_h - 8,
+                                   total_need, self._scroll, visible=inner_h)
         else:
             self._max_scroll = 0
 

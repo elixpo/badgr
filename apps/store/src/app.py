@@ -292,6 +292,11 @@ class App(oreoOS.App):
                 break
             self._draw_card(d, LIST_TOP_Y + vi * (CARD_H + CARD_GAP), i)
 
+        # Scrollbar on right edge
+        widgets.draw_scrollbar(d, SW - 4, LIST_TOP_Y, 2,
+                               vis * (CARD_H + CARD_GAP) - CARD_GAP,
+                               len(self._items), self._top, visible=vis)
+
     def _draw_card(self, d, y, i):
         item = self._items[i]
         # _sel is a direct index into self._items now (no virtual

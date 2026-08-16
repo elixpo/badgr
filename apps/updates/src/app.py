@@ -409,12 +409,8 @@ class App(oreoOS.App):
         # Scroll thumb on the right edge.
         total_h = len(lines) * 12
         view_h  = body_bot - body_top
-        if total_h > view_h:
-            track_x = SW - 3
-            thumb_h = max(12, int(view_h * view_h / total_h))
-            max_s   = max(1, total_h - view_h)
-            thumb_y = body_top + (view_h - thumb_h) * self._scroll // max_s
-            d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+        widgets.draw_scrollbar(d, SW - 3, body_top, 2, view_h,
+                               total_h, self._scroll, visible=view_h)
 
     def _wrap_lines(self):
         """Word-wrap `self._notes` (the GitHub release body) to fit at

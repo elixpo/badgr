@@ -384,6 +384,11 @@ class App(oreoOS.App):
             d.text(row.label, ROW_PAD_X, y + 6, theme.TEXT_BRIGHT, scale=2)
             self._draw_value(d, row, SW - 18, y)
 
+        # Right-side scrollbar
+        widgets.draw_scrollbar(d, SW - 4, ROW_TOP_Y, 2,
+                               VISIBLE_ROWS * ROW_H - 4,
+                               n, top, visible=VISIBLE_ROWS)
+
         self._dirty = False
 
     def _draw_value(self, d, row, right_x, y):

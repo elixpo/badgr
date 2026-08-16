@@ -438,15 +438,9 @@ class App(oreoOS.App):
             self._draw_app_card(d, card_y, app, idx == self._sel)
 
         # Scrollbar
-        n = len(self._apps)
-        if n > VISIBLE_CARDS:
-            track_x = SW - 4
-            track_y = LIST_TOP_Y
-            track_h = VISIBLE_CARDS * (CARD_H + CARD_GAP) - CARD_GAP
-            d.rect(track_x, track_y, 2, track_h, theme.MUTED2, fill=True)
-            thumb_h = max(10, track_h * VISIBLE_CARDS // n)
-            thumb_y = track_y + (track_h - thumb_h) * self._top // (n - VISIBLE_CARDS)
-            d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+        widgets.draw_scrollbar(d, SW - 4, LIST_TOP_Y, 2,
+                               VISIBLE_CARDS * (CARD_H + CARD_GAP) - CARD_GAP,
+                               len(self._apps), self._top, visible=VISIBLE_CARDS)
 
     def _draw_app_card(self, d, y, app, is_sel):
         card_w = SW - 12

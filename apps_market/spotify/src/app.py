@@ -1098,14 +1098,9 @@ class App(oreoOS.App):
                     d.text(f"{t_cnt} tracks / {owner}", rx + 24, ry + 20, COL_SPOTIFY if is_sel else COL_MUTED)
 
                 # Scrollbar
-                if len(pls) > vis_count:
-                    sb_x = card_x + card_w - 6
-                    sb_y = card_y + 6
-                    sb_h = card_h - 12
-                    d.rect(sb_x, sb_y, 2, sb_h, COL_BAR_BG, fill=True)
-                    thumb_h = max(14, int((vis_count / len(pls)) * sb_h))
-                    thumb_y = sb_y + int((self._tree_scroll / max(1, len(pls) - vis_count)) * (sb_h - thumb_h))
-                    d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
+                widgets.draw_scrollbar(d, card_x + card_w - 6, card_y + 6, 2, card_h - 12,
+                                       len(pls), self._tree_scroll, visible=vis_count,
+                                       fg=COL_SPOTIFY, bg=COL_BAR_BG)
 
             widgets.draw_hint(d, "A:Play  >:Tracks  ^v:Select  B:Back")
             return
@@ -1159,15 +1154,10 @@ class App(oreoOS.App):
                 dur_str = _format_time(t.get("duration", 0))
                 d.text(dur_str, rx + rw - len(dur_str) * 8 - 4, ry + 12, COL_MUTED)
 
-            if len(tracks) > visible_count:
-                sb_x = card_x + card_w - 6
-                sb_y = card_y + 6
-                sb_h = card_h - 12
-                d.rect(sb_x, sb_y, 2, sb_h, COL_BAR_BG, fill=True)
-                total_items = len(tracks)
-                thumb_h = max(14, int((visible_count / total_items) * sb_h))
-                thumb_y = sb_y + int((self._tree_scroll / max(1, total_items - visible_count)) * (sb_h - thumb_h))
-                d.rect(sb_x - 1, thumb_y, 4, thumb_h, COL_SPOTIFY, fill=True)
+            # Scrollbar
+            widgets.draw_scrollbar(d, card_x + card_w - 6, card_y + 6, 2, card_h - 12,
+                                   len(tracks), self._tree_scroll, visible=visible_count,
+                                   fg=COL_SPOTIFY, bg=COL_BAR_BG)
 
         widgets.draw_hint(d, "A:Play  ^v:Select  B:Back  C:Unlink")
 
