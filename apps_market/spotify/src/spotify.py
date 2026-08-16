@@ -493,7 +493,52 @@ class SpotifyClient:
             except Exception:
                 pass
 
-        # 3. Truly idle / stopped state
+        # 3. Fallback: Query /v1/me/player/recently-played (for paused Web Player/dormant sessions)
+        status_rp, body_rp = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=1", headers)
+        if status_rp == 200 and body_rp:
+            try:
+                data_rp = _json.loads(body_rp.decode('utf-8'))
+                items_rp = data_rp.get("items", [])
+                if items_rp:
+                    track = items_rp[0].get("track")
+                    if track:
+                        artists = track.get("artists", [])
+                        artist_names = ", ".join(a.get("name", "") for a in artists) or "Unknown Artist"
+                        images = (track.get("album") or {}).get("images", [])
+                        image_url = images[-1].get("url", "") if images else ""
+
+                        devs = self.get_devices()
+                        dev_name = "Spotify (Ready)"
+                        vol = 70
+                        if devs:
+                            for d in devs:
+                                if d.get("is_active"):
+                                    dev_name = d.get("name", dev_name)
+                                    vol = d.get("volume_percent", 70)
+                                    break
+                            else:
+                                dev_name = devs[0].get("name", dev_name)
+                                vol = devs[0].get("volume_percent", 70)
+
+                        return {
+                            "connected":   True,
+                            "active":      True,
+                            "is_playing":  False,
+                            "title":       track.get("name", ""),
+                            "artist":      artist_names,
+                            "album":       (track.get("album") or {}).get("name", ""),
+                            "image_url":   image_url,
+                            "duration_s":  (track.get("duration_ms", 0) or 0) / 1000.0,
+                            "progress_s":  0.0,
+                            "volume":      vol,
+                            "device_name": dev_name,
+                            "shuffle":     False,
+                            "repeat":      "off",
+                        }
+            except Exception:
+                pass
+
+        # 4. Truly idle / stopped state
         devs = self.get_devices()
         dev_name = "Spotify (Ready)"
         if devs:

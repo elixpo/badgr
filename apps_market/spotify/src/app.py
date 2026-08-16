@@ -100,57 +100,16 @@ def _format_time(seconds):
     return "%02d:%02d" % (m, s)
 
 
-_TRANSLIT_MAP = {
-    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
-    'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
-    'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts',
-    'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu',
-    'я': 'ya',
-    'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo', 'Ж': 'Zh',
-    'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 'О': 'O',
-    'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts',
-    'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch', 'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu',
-    'Я': 'Ya',
-    'і': 'i', 'І': 'I', 'ї': 'yi', 'Ї': 'Yi', 'є': 'ye', 'Є': 'Ye', 'ґ': 'g', 'Ґ': 'G',
-    'ў': 'u', 'Ў': 'U',
-    '—': '-', '–': '-', '−': '-', '“': '"', '”': '"', '‘': "'", '’': "'", '«': '"', '»': '"',
-    '…': '...', '•': '*', '·': '*',
-}
-
-
 def _clean_text(s):
-    """Sanitize Unicode, Cyrillic & diacritics into readable ASCII characters safely."""
+    """Sanitize Unicode & diacritics into readable ASCII characters safely."""
     if not s:
         return ""
     try:
-        # 1. Transliterate Cyrillic and special unicode characters
-        s_trans = "".join(_TRANSLIT_MAP.get(c, c) for c in str(s))
-
-        # 2. Decompose and strip combining diacritical marks (e.g. café -> cafe)
-        s_norm = "".join(c for c in unicodedata.normalize("NFKD", s_trans) if unicodedata.category(c) != "Mn")
-
-        # 3. Keep printable ASCII
-        cleaned = "".join(c if 32 <= ord(c) <= 126 else " " for c in s_norm)
-
-        # 4. Clean leftover empty brackets and redundant separators
-        for _ in range(3):
-            for empty in ("()", "( )", "[]", "[ ]", "{}", "{ }"):
-                cleaned = cleaned.replace(empty, "")
-            while "  " in cleaned:
-                cleaned = cleaned.replace("  ", " ")
-            cleaned = cleaned.strip(" -–—:;,./\t\n")
-
-        # 5. Deduplicate repeating bilingual titles (e.g. 'Sigma Boy - Sigma Boy' -> 'Sigma Boy')
-        if " - " in cleaned:
-            parts = cleaned.split(" - ")
-            if len(parts) == 2 and parts[0].strip().lower() == parts[1].strip().lower():
-                cleaned = parts[0].strip()
-        if " (" in cleaned and cleaned.endswith(")"):
-            base, sub = cleaned[:-1].split(" (", 1)
-            if base.strip().lower() == sub.strip().lower():
-                cleaned = base.strip()
-
-        return cleaned or str(s)
+        s_norm = "".join(c for c in unicodedata.normalize("NFKD", str(s)) if unicodedata.category(c) != "Mn")
+        cleaned = "".join(c if 32 <= ord(c) <= 126 else "" for c in s_norm)
+        while "  " in cleaned:
+            cleaned = cleaned.replace("  ", " ")
+        return cleaned.strip() or str(s)
     except Exception:
         return str(s)
 
@@ -550,15 +509,6 @@ class App(oreoOS.App):
                         self._is_playing = False
                         if state.get("device_name"):
                             self._device_name = state.get("device_name")
-                        # If cold start and title is still placeholder, load first liked or library track
-                        if self._title in ("Spotify Connect", "No Active Device", ""):
-                            liked_tracks = self._folder_tracks_cache.get("liked", [])
-                            if liked_tracks:
-                                first = liked_tracks[0]
-                                self._title = _clean_text(first["title"])
-                                self._artist = _clean_text(first["artist"])
-                                self._album = _clean_text(first["album"])
-                                self._duration = first.get("duration", 180)
             except Exception:
                 pass
             finally:
