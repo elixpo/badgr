@@ -371,16 +371,17 @@ def show_splash(os_obj):
         if elapsed >= TOTAL_MS:
             break
 
-        # Background — paint once, then reuse. The logo / text draw on top
-        # of the same pixels every frame; redrawing the full bg per frame
-        # would blow the 30-fps budget without a backbuffer.
+        # Background — paint while the logo is dropping to avoid smears,
+        # then lock bg_drawn once the mascot has settled at rest position.
+        p_logo = _phase(elapsed, 0.04, 0.21)
+
         if not bg_drawn:
             if bg:
                 data, bw, bh = bg
                 d.blit(data, 0, 0, bw, bh)
             else:
                 _draw_procedural_bg(d)
-            if getattr(sys, "platform", "") in ("esp32", "rp2"):
+            if p_logo >= 1.0 and getattr(sys, "platform", "") in ("esp32", "rp2"):
                 bg_drawn = True
 
         # ── logo: slides down from y=-mh to y=_LOGO_REST_Y (ease-out cubic)
