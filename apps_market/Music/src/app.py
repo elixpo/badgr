@@ -84,7 +84,7 @@ def _marquee(text, max_chars, scroll_offset):
 
 
 class App(oreoOS.App):
-    name         = "Music"
+    name         = "Spotify"
     SHOW_LOADING = False
     CONSUMES_C   = True
 

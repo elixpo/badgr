@@ -7,7 +7,7 @@ ZOOM = 2
 
 pygame.init()
 _screen = pygame.display.set_mode((api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM))
-pygame.display.set_caption("OreoOS Native Sandbox")
+pygame.display.set_caption("OreoOS Native Simulator (oreoSim)")
 
 # --- Font decoding for _draw_char ---
 import base64

@@ -1,9 +1,10 @@
 {
-  "name": "Music",
-  "description": "Spotify & BLE media controller with live equalizer, track sync, and volume control.",
+  "name": "Spotify",
+  "description": "Stream & control Spotify playback with live album cover art photo sync, scrubber, and cloud PIN pairing.",
   "type": "app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "icon": "music_icon.png",
   "author": "sea-deep",
-  "color": "#1DB954"
+  "color": "#1DB954",
+  "category": "Tools"
 }
