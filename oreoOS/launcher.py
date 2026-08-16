@@ -66,77 +66,28 @@ def load_app(app_dir):
     module_path = "apps.%s.main" % app_dir
     mod = __import__(module_path, None, None, ["App"])
     app = mod.App()
-    # Pull the `author` field off the manifest and stamp it onto the app
-    # instance so `_show_loading()` can render "By @author" without each
-    # app needing to declare the attribute on the class.
+    # Pull manifest metadata (name, author, version) and stamp onto app instance
     try:
-        with open("%s/%s/manifest.json" % (APPS_DIR, app_dir)) as f:
+        manifest_path = "%s/%s/manifest.json" % (APPS_DIR, app_dir)
+        with open(manifest_path) as f:
             manifest = json.loads(f.read())
         if manifest.get("author"):
             app.author = manifest["author"]
+        if manifest.get("name"):
+            app.name = manifest["name"]
+        app.manifest = manifest
     except (OSError, ValueError):
         pass
     return app
 
 
-# ── loading transition (used for slow apps) ──────────────────────────────────
-# A flag-on-the-App-class opts in:    class App(oreoOS.App): SHOW_LOADING = True
-# Cost: ~210 ms slide-in animation BEFORE app.on_enter — the heavy load then
-# runs while the loading panel is the only thing on screen.
+# ── loading transition (default for apps) ────────────────────────────────────
+# Apps opt-out with:    class App(oreoOS.App): SHOW_LOADING = False
 
 def _show_loading(os_obj, label, author=None):
-    """Slide a primary-coloured panel down from the top, covering the screen.
-
-    Polls HOME each frame so the user can abort a slow app launch without
-    waiting for the on_enter to finish — returns True when interrupted.
-    """
-    from oreoOS import theme
-    display = os_obj.display
-    buttons = os_obj.buttons
-    SW = api.SCREEN_W
-    SH = api.SCREEN_H
-    label  = (label  or "")[:16].upper()
-    byline = ("By @" + author[:24]) if author else ""
-
-    steps      = 12          # more keyframes = smoother slide
-    frame_ms   = 33          # ≈ 30 fps
-    label_lbl  = "LOADING"
-    label_x_l  = (SW - len(label_lbl) * 16) // 2
-    label_x_n  = (SW - len(label)     *  8) // 2
-    byline_x   = (SW - len(byline)    *  8) // 2
-    hint       = "HOME to cancel"
-    hint_x     = (SW - len(hint) * 8) // 2
-
-    for i in range(steps + 1):
-        # HOME interrupt — the only escape hatch while the slide plays,
-        # since the app's on_enter blocks the main loop once we exit.
-        buttons.update()
-        if buttons.just_pressed(api.BTN_HOME):
-            return True
-
-        t        = i / steps
-        eased    = 1.0 - (1.0 - t) ** 3
-        panel_h  = int(eased * SH)
-
-        display.rect(0, 0, SW, panel_h, theme.PRIMARY, fill=True)
-        if panel_h < SH:
-            display.rect(0, panel_h, SW, SH - panel_h, theme.BG, fill=True)
-
-        if panel_h > 60:
-            cy = panel_h // 2
-            display.text(label_lbl, label_x_l, cy - 16, api.WHITE, scale=2)
-            display.text(label,     label_x_n, cy +  6, api.WHITE)
-            if byline and panel_h > 100:
-                display.text(byline, byline_x, cy + 24, api.WHITE)
-            if panel_h > 140:
-                display.text(hint, hint_x, panel_h - 22, api.WHITE)
-
-        display.present()
-        try:
-            time.sleep_ms(frame_ms)
-        except AttributeError:
-            time.sleep(frame_ms / 1000.0)
-    return False
+    """Slide a primary-coloured panel down from the top, covering the screen."""
+    from oreoOS import widgets
+    return widgets.show_loading(os_obj, label, author)
 
 
 # ── generic app run loop ──────────────────────────────────────────────────────
@@ -145,11 +96,10 @@ def run_app(os_obj, app):
     os_obj._quit_requested = False
     os_obj._launch_request = None
 
-    # Optional loading transition for heavy apps. The panel covers the screen
-    # while on_enter does its work; the very next frame fully overwrites it.
-    # If the user mashes HOME during the slide, abort the launch entirely and
-    # route them back to the apps drawer instead of waiting for on_enter.
-    if getattr(app, "SHOW_LOADING", False):
+    # Modular loading transition for apps (default: True, opt-out with SHOW_LOADING = False).
+    # The panel covers the screen while on_enter does its work.
+    # If the user hits HOME during the slide, abort launch immediately.
+    if getattr(app, "SHOW_LOADING", True):
         label  = getattr(app, "name",   app.__class__.__name__)
         author = getattr(app, "author", None)
         if _show_loading(os_obj, label, author):

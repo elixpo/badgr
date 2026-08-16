@@ -241,3 +241,62 @@ def play_area():
     SW = api.SCREEN_W
     SH = api.SCREEN_H
     return (0, HEADER_H, SW, SH - HEADER_H - HINT_H)
+
+
+def show_loading(os_obj, label, author=None, subtitle=None):
+    """Slide a primary-coloured panel down from the top, covering the screen.
+
+    Renders app name, creator credit (e.g. 'By @author' in gold accent),
+    and polls HOME each frame so the user can abort a slow launch immediately.
+    Returns True if interrupted by user (HOME pressed), False when finished.
+    """
+    display = getattr(os_obj, "display", os_obj)
+    buttons = getattr(os_obj, "buttons", None)
+    SW = api.SCREEN_W
+    SH = api.SCREEN_H
+    label  = (label  or "")[:16].upper()
+    byline = ("By @" + str(author)[:24]) if author else ""
+    sub    = str(subtitle)[:24] if subtitle else ""
+
+    steps      = 12          # 12 keyframes for smooth slide
+    frame_ms   = 33          # ≈ 30 fps
+    label_lbl  = "LOADING"
+    label_x_l  = (SW - len(label_lbl) * 16) // 2
+    label_x_n  = (SW - len(label)     *  8) // 2
+    byline_x   = (SW - len(byline)    *  8) // 2
+    sub_x      = (SW - len(sub)       *  8) // 2
+    hint       = "HOME to cancel"
+    hint_x     = (SW - len(hint) * 8) // 2
+
+    for i in range(steps + 1):
+        if buttons is not None:
+            buttons.update()
+            if buttons.just_pressed(api.BTN_HOME):
+                return True
+
+        t        = i / steps
+        eased    = 1.0 - (1.0 - t) ** 3
+        panel_h  = int(eased * SH)
+
+        display.rect(0, 0, SW, panel_h, theme.PRIMARY, fill=True)
+        if panel_h < SH:
+            display.rect(0, panel_h, SW, SH - panel_h, theme.BG, fill=True)
+
+        if panel_h > 60:
+            cy = panel_h // 2
+            display.text(label_lbl, label_x_l, cy - 24, api.WHITE, scale=2)
+            display.text(label,     label_x_n, cy +  2, api.WHITE)
+            if byline and panel_h > 95:
+                display.text(byline, byline_x, cy + 20, theme.GOLD)
+            elif sub and panel_h > 95:
+                display.text(sub,    sub_x,    cy + 20, theme.GOLD)
+            if panel_h > 140:
+                display.text(hint, hint_x, panel_h - 22, api.WHITE)
+
+        display.present()
+        try:
+            _time.sleep_ms(frame_ms)
+        except AttributeError:
+            _time.sleep(frame_ms / 1000.0)
+    return False
+
