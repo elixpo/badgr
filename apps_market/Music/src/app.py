@@ -83,6 +83,87 @@ def _marquee(text, max_chars, scroll_offset):
         return text[overflow:overflow + max_chars]
 
 
+def _draw_icon_prev(d, x, y, color):
+    """Draw a crisp 14x10 Previous Track glyph: bar on left + 2 left-pointing triangles."""
+    # Vertical stop bar
+    d.rect(x, y, 2, 10, color, fill=True)
+    # Triangle 1 (pointing left)
+    for col in range(5):
+        h = (col + 1) * 2
+        d.rect(x + 3 + col, y + (10 - h) // 2, 1, h, color, fill=True)
+    # Triangle 2 (pointing left)
+    for col in range(5):
+        h = (col + 1) * 2
+        d.rect(x + 8 + col, y + (10 - h) // 2, 1, h, color, fill=True)
+
+
+def _draw_icon_next(d, x, y, color):
+    """Draw a crisp 14x10 Next Track glyph: 2 right-pointing triangles + bar on right."""
+    # Triangle 1 (pointing right)
+    for col in range(5):
+        h = 10 - col * 2
+        d.rect(x + col, y + (10 - h) // 2, 1, h, color, fill=True)
+    # Triangle 2 (pointing right)
+    for col in range(5):
+        h = 10 - col * 2
+        d.rect(x + 5 + col, y + (10 - h) // 2, 1, h, color, fill=True)
+    # Vertical stop bar
+    d.rect(x + 11, y, 2, 10, color, fill=True)
+
+
+def _draw_icon_play(d, x, y, color):
+    """Draw a sharp 10x12 right-pointing Play triangle."""
+    for col in range(5):
+        h = 12 - col * 2
+        d.rect(x + col * 2, y + col, 2, h, color, fill=True)
+
+
+def _draw_icon_pause(d, x, y, color):
+    """Draw two crisp 3x12 Pause bars."""
+    d.rect(x, y, 3, 12, color, fill=True)
+    d.rect(x + 6, y, 3, 12, color, fill=True)
+
+
+def _draw_icon_speaker(d, x, y, color, vol=100):
+    """Draw a 14x10 Speaker icon with dynamic volume soundwaves."""
+    d.rect(x, y + 3, 3, 4, color, fill=True)
+    d.rect(x + 3, y + 2, 1, 6, color, fill=True)
+    d.rect(x + 4, y + 1, 1, 8, color, fill=True)
+    d.rect(x + 5, y, 1, 10, color, fill=True)
+    if vol > 0:
+        d.rect(x + 8, y + 3, 1, 4, color, fill=True)
+    if vol > 35:
+        d.rect(x + 10, y + 2, 1, 6, color, fill=True)
+    if vol > 70:
+        d.rect(x + 12, y + 1, 1, 8, color, fill=True)
+
+
+def _draw_icon_shuffle(d, x, y, color, active=False):
+    """Draw 11x8 crossover arrows for Shuffle."""
+    c = color if active else theme.MUTED2
+    d.rect(x, y + 1, 3, 1, c, fill=True)
+    d.rect(x + 3, y + 2, 2, 1, c, fill=True)
+    d.rect(x + 5, y + 4, 2, 1, c, fill=True)
+    d.rect(x + 7, y + 5, 3, 1, c, fill=True)
+    d.rect(x, y + 5, 3, 1, c, fill=True)
+    d.rect(x + 3, y + 4, 2, 1, c, fill=True)
+    d.rect(x + 5, y + 2, 2, 1, c, fill=True)
+    d.rect(x + 7, y + 1, 3, 1, c, fill=True)
+    d.rect(x + 9, y, 2, 3, c, fill=True)
+    d.rect(x + 9, y + 4, 2, 3, c, fill=True)
+
+
+def _draw_icon_repeat(d, x, y, color, state="off"):
+    """Draw 11x8 circular arrows for Repeat."""
+    c = color if state != "off" else theme.MUTED2
+    d.rect(x + 2, y, 6, 1, c, fill=True)
+    d.rect(x + 1, y + 1, 1, 5, c, fill=True)
+    d.rect(x + 2, y + 6, 6, 1, c, fill=True)
+    d.rect(x + 8, y + 2, 1, 5, c, fill=True)
+    d.rect(x + 7, y - 1, 2, 3, c, fill=True)
+    d.rect(x, y + 5, 2, 3, c, fill=True)
+
+
 class App(oreoOS.App):
     name         = "Spotify"
     SHOW_LOADING = False
@@ -486,18 +567,41 @@ class App(oreoOS.App):
         d.rect(8, ctrl_y, SW - 16, ctrl_h, COL_CARD, fill=True)
         d.rect(8, ctrl_y, SW - 16, ctrl_h, COL_CARD_BD, fill=False)
 
-        # Transport icons: |<<  [ > / || ]  >>|
-        d.text("|<<", 20, ctrl_y + 12, COL_MUTED)
+        # 1. Shuffle & Prev Track Glyphs
+        _draw_icon_shuffle(d, 22, ctrl_y + 14, COL_SPOTIFY, self._shuffle)
+        _draw_icon_prev(d, 46, ctrl_y + 13, api.WHITE)
 
-        play_icon = "[  >  ]" if not self._is_playing else "[ || ]"
-        d.text(play_icon, 56, ctrl_y + 12, COL_SPOTIFY)
+        # 2. Hero Play/Pause Capsule Button
+        btn_x = 74
+        btn_y = ctrl_y + 6
+        btn_w = 32
+        btn_h = 24
+        d.rect(btn_x, btn_y, btn_w, btn_h, COL_SPOTIFY, fill=True)
+        d.rect(btn_x, btn_y, btn_w, btn_h, theme.PRIMARY, fill=False)
+        icon_fg = api.rgb(20, 22, 28)
+        if self._is_playing:
+            _draw_icon_pause(d, btn_x + 11, btn_y + 6, icon_fg)
+        else:
+            _draw_icon_play(d, btn_x + 12, btn_y + 6, icon_fg)
 
-        d.text(">>|", 116, ctrl_y + 12, COL_MUTED)
+        # 3. Next Track & Repeat Glyphs
+        _draw_icon_next(d, 120, ctrl_y + 13, api.WHITE)
+        _draw_icon_repeat(d, 146, ctrl_y + 14, COL_SPOTIFY, self._repeat)
 
-        # Volume badge: Vol: 95%
-        vol_text = "%d%%" % self._volume
-        d.text("VOL", SW - 80, ctrl_y + 12, COL_MUTED)
-        d.text(vol_text, SW - 48, ctrl_y + 12, COL_SPOTIFY)
+        # 4. Volume Section with Speaker Icon & Dynamic Progress Slider
+        _draw_icon_speaker(d, 178, ctrl_y + 13, COL_SPOTIFY, self._volume)
+        vx = 200
+        vy = ctrl_y + 16
+        vw = 54
+        vh = 5
+        d.rect(vx, vy, vw, vh, COL_BAR_BG, fill=True)
+        v_fill = int((self._volume / 100) * vw)
+        if v_fill > 0:
+            d.rect(vx, vy, v_fill, vh, COL_SPOTIFY, fill=True)
+        # Volume slider thumb
+        d.rect(vx + min(vw - 2, max(0, v_fill - 1)), vy - 2, 3, 9, api.WHITE, fill=True)
+        # Percentage readout
+        d.text("%d%%" % self._volume, 262, ctrl_y + 14, api.WHITE)
 
         # ── Volume Toast Overlay ──────────────────────────────────────────
         if self._vol_toast_t > 0:
