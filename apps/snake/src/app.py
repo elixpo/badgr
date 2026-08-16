@@ -23,6 +23,7 @@ from . import highscore
 
 class App(oreoOS.App):
     name = "Snake"
+    CONSUMES_C = True
 
     # ── lifecycle ──────────────────────────────────────────────────
 

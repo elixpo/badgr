@@ -87,46 +87,62 @@ def _load_status_icon(name):
 
 def _icon_wifi(d, x, y, connected=False, color=None):
     c = color or theme.STATUS_TEXT
-    if connected:
-        d.rect(x + 5, y + 10, 3, 2, c, fill=True)
-        d.rect(x + 3, y + 7,  7, 2, c, fill=True)
-        d.rect(x + 1, y + 4, 11, 2, c, fill=True)
-    else:
-        muted_c = theme.MUTED if theme.CURRENT_THEME.is_dark else api.rgb(180, 180, 180)
-        d.rect(x + 5, y + 10, 3, 2, muted_c, fill=True)
-        d.rect(x + 3, y + 7,  7, 2, muted_c, fill=True)
-        d.rect(x + 1, y + 4, 11, 2, muted_c, fill=True)
-        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
+    if not connected:
+        # Refined dimmed color for disabled state — no jarring red scratch
+        c = theme.MUTED2 if theme.CURRENT_THEME.is_dark else api.rgb(180, 180, 190)
+
+    # Top outer curved arc (11 px span)
+    d.rect(x + 2, y + 2, 9, 2, c, fill=True)
+    d.rect(x + 1, y + 3, 1, 2, c, fill=True)
+    d.rect(x + 11, y + 3, 1, 2, c, fill=True)
+
+    # Middle curved arc (7 px span)
+    d.rect(x + 4, y + 5, 5, 2, c, fill=True)
+    d.rect(x + 3, y + 6, 1, 2, c, fill=True)
+    d.rect(x + 9, y + 6, 1, 2, c, fill=True)
+
+    # Inner arc (3 px span)
+    d.rect(x + 5, y + 8, 3, 2, c, fill=True)
+
+    # Base broadcast dot (2x2)
+    d.rect(x + 5, y + 10, 3, 2, c, fill=True)
 
 
 def _icon_bt(d, x, y, active=False, color=None):
     c = color or theme.STATUS_TEXT
-    if active:
-        d.rect(x + 5, y + 1,  2, 11, c, fill=True)
-        d.rect(x + 7, y + 3,  2,  2, c, fill=True)
-        d.rect(x + 5, y + 5,  2,  2, c, fill=True)
-        d.rect(x + 7, y + 7,  2,  2, c, fill=True)
-        d.rect(x + 5, y + 9,  2,  2, c, fill=True)
-        d.rect(x + 2, y + 3,  3,  2, c, fill=True)
-        d.rect(x + 2, y + 8,  3,  2, c, fill=True)
-    else:
-        muted_c = theme.MUTED if theme.CURRENT_THEME.is_dark else api.rgb(180, 180, 180)
-        d.rect(x + 5, y + 1,  2, 11, muted_c, fill=True)
-        d.rect(x + 7, y + 3,  2,  2, muted_c, fill=True)
-        d.rect(x + 5, y + 5,  2,  2, muted_c, fill=True)
-        d.rect(x + 7, y + 7,  2,  2, muted_c, fill=True)
-        d.rect(x + 5, y + 9,  2,  2, muted_c, fill=True)
-        d.rect(x + 2, y + 3,  3,  2, muted_c, fill=True)
-        d.rect(x + 2, y + 8,  3,  2, muted_c, fill=True)
-        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
+    if not active:
+        # Refined dimmed color for disabled state
+        c = theme.MUTED2 if theme.CURRENT_THEME.is_dark else api.rgb(180, 180, 190)
+
+    # Central spine (2 px wide)
+    d.rect(x + 5, y + 1, 2, 11, c, fill=True)
+
+    # Upper right wing & vertex
+    d.rect(x + 7, y + 2, 2, 2, c, fill=True)
+    d.rect(x + 9, y + 3, 1, 2, c, fill=True)
+    d.rect(x + 7, y + 4, 2, 2, c, fill=True)
+
+    # Lower right wing & vertex
+    d.rect(x + 7, y + 7, 2, 2, c, fill=True)
+    d.rect(x + 9, y + 8, 1, 2, c, fill=True)
+    d.rect(x + 7, y + 9, 2, 2, c, fill=True)
+
+    # Left diagonal tails
+    d.rect(x + 3, y + 3, 2, 2, c, fill=True)
+    d.rect(x + 3, y + 8, 2, 2, c, fill=True)
 
 
 def _icon_battery(d, x, y, pct=85, color=None):
     c = color or theme.STATUS_TEXT
-    d.rect(x,      y,     20, 10, c, fill=False)
-    d.rect(x + 20, y + 3,  2,  4, c, fill=True)
-    filled = max(1, min(18, int((pct / 100) * 18)))
-    d.rect(x + 1,  y + 1, filled, 8, c, fill=True)
+    # Outer battery chassis (18x10) with 1px border
+    d.rect(x, y, 18, 10, c, fill=False)
+    # Positive terminal nib (2x4)
+    d.rect(x + 18, y + 3, 2, 4, c, fill=True)
+    # Inner dynamic level bar with 1px padding
+    if pct > 0:
+        max_bar = 14
+        filled = max(1, min(max_bar, int((pct / 100) * max_bar)))
+        d.rect(x + 2, y + 2, filled, 6, c, fill=True)
 
 
 # Lazy-loaded title font (Pixelify Sans 16)

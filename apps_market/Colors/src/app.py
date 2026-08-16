@@ -144,6 +144,8 @@ def _load_state():
 class App(oreoOS.App):
     name         = "Color"
     SHOW_LOADING = True       # ~300 ms upscale at entry — hidden by the panel
+    NO_HEADER    = True       # Custom header with live color swatch & format readout
+    CONSUMES_C   = True       # Uses C button to cycle curated OS theme presets
 
     # ── lifecycle ──────────────────────────────────────────────────────────
     def on_enter(self, os):
@@ -163,6 +165,7 @@ class App(oreoOS.App):
         self._cx, self._cy, self._rgb = _load_state()
         self._mode = "RGB"            # header readout model
         self._saved_flash = 0.0
+        self._saved_msg = "Theme Applied!"
         # Hold-times for direction buttons (seconds held). Reset to 0 the
         # instant a button is released so the next tap restarts the curve.
         self._hold_t = {api.BTN_LEFT: 0.0, api.BTN_RIGHT: 0.0,
@@ -174,35 +177,61 @@ class App(oreoOS.App):
     def on_button_press(self, btn):
         # Single-tap nudge so a quick press always moves at least a couple
         # of pixels (the update() loop only ramps after ACCEL_AFTER_S).
-        if   btn == api.BTN_LEFT:   self._cx -= TAP_NUDGE_PX
-        elif btn == api.BTN_RIGHT:  self._cx += TAP_NUDGE_PX
-        elif btn == api.BTN_UP:     self._cy -= TAP_NUDGE_PX
-        elif btn == api.BTN_DOWN:   self._cy += TAP_NUDGE_PX
+        if btn == api.BTN_LEFT:
+            self._active_preset_id = None
+            self._cx -= TAP_NUDGE_PX
+            self._clamp_cursor()
+            self._sample_color()
+            self._dirty = True
+        elif btn == api.BTN_RIGHT:
+            self._active_preset_id = None
+            self._cx += TAP_NUDGE_PX
+            self._clamp_cursor()
+            self._sample_color()
+            self._dirty = True
+        elif btn == api.BTN_UP:
+            self._active_preset_id = None
+            self._cy -= TAP_NUDGE_PX
+            self._clamp_cursor()
+            self._sample_color()
+            self._dirty = True
+        elif btn == api.BTN_DOWN:
+            self._active_preset_id = None
+            self._cy += TAP_NUDGE_PX
+            self._clamp_cursor()
+            self._sample_color()
+            self._dirty = True
         elif btn == api.BTN_B:
             i = _MODELS.index(self._mode)
             self._mode = _MODELS[(i + 1) % len(_MODELS)]
+            self._dirty = True
         elif btn == api.BTN_C:
             keys = [k for k in theme.PRESET_KEYS if k != "custom"]
             self._preset_idx = (getattr(self, "_preset_idx", -1) + 1) % len(keys)
-            preset = theme.PRESETS[keys[self._preset_idx]]
+            self._active_preset_id = keys[self._preset_idx]
+            preset = theme.PRESETS[self._active_preset_id]
             self._rgb = preset.primary_rgb
-            theme.apply_theme(preset, save=True)
+            theme.set_preset(self._active_preset_id, save=True)
             self._saved_msg = preset.name
-            self._saved_flash = 1.5
+            self._saved_flash = 2.0
+            self._dirty = True
         elif btn == api.BTN_A:
-            # Save the active colour: persist to state file and apply harmonic OS theme.
-            r, g, b = self._rgb
-            theme.set_primary_color(r, g, b, save=True)
-            _save_state(self._cx, self._cy, self._rgb)
-            try:
-                self._os.settings_set("color_picker_rgb", self._rgb)
-            except Exception:
-                pass
-            self._saved_msg = "Theme Applied!"
-            self._saved_flash = 1.5
-        self._clamp_cursor()
-        self._sample_color()
-        self._dirty = True
+            # Save the active theme configuration to disk.
+            if getattr(self, "_active_preset_id", None):
+                theme.set_preset(self._active_preset_id, save=True)
+                preset = theme.PRESETS[self._active_preset_id]
+                self._saved_msg = "%s Applied!" % preset.name
+            else:
+                r, g, b = self._rgb
+                theme.set_primary_color(r, g, b, save=True)
+                _save_state(self._cx, self._cy, self._rgb)
+                try:
+                    self._os.settings_set("color_picker_rgb", self._rgb)
+                except Exception:
+                    pass
+                self._saved_msg = "Custom Theme Applied!"
+            self._saved_flash = 2.0
+            self._dirty = True
 
     def update(self, dt):
         # Long-press: poll which dir buttons are held and accumulate.
@@ -217,6 +246,7 @@ class App(oreoOS.App):
             except Exception:
                 held = False
             if held:
+                self._active_preset_id = None
                 self._hold_t[btn] += dt
                 # Start slow, ramp to fast after ACCEL_AFTER_S held.
                 t = self._hold_t[btn]
@@ -272,38 +302,90 @@ class App(oreoOS.App):
             d.rect(0, PLAY_TOP, PLAY_W, PLAY_H,
                    api.rgb(*self._rgb), fill=True)
 
-        # ── header bar (pink, compact) ─────────────────────────────────────
+        # ── header bar (adapts dynamically to active theme) ────────────────
         self._draw_header(d)
         widgets.draw_hint(d, "arrows=pick  B=mode  C=preset  A=apply")
 
         # ── crosshair ──────────────────────────────────────────────────────
         self._draw_cursor(d)
 
-        # ── "Theme Applied!" toast ────────────────────────────────────────────────
+        # ── live full theme palette bar ────────────────────────────────────
+        self._draw_palette_bar(d)
+
+        # ── toast notification ────────────────────────────────────────────────
         if self._saved_flash > 0:
             msg = getattr(self, "_saved_msg", "Theme Applied!")
             mw = len(msg) * 16
             tx = (SW - mw) // 2
-            ty = PLAY_BOT - 28
-            d.rect(tx - 8, ty - 4, mw + 16, 20, theme.GREEN, fill=True)
+            ty = PLAY_BOT - 54
+            d.rect(tx - 10, ty - 6, mw + 20, 24, theme.GREEN, fill=True)
+            d.rect(tx - 10, ty - 6, mw + 20, 24, api.WHITE, fill=False)
             d.text(msg, tx, ty + 2, api.WHITE, scale=2)
+
+    # ── full palette ribbon ───────────────────────────────────────────────
+    def _draw_palette_bar(self, d):
+        if getattr(self, "_active_preset_id", None):
+            th = theme.PRESETS[self._active_preset_id]
+        else:
+            th = theme.derive_custom_theme(*self._rgb)
+
+        swatches = [
+            ("PRI",  th.primary_rgb),
+            ("BG",   th.bg_rgb),
+            ("CARD", th.card_rgb),
+            ("SEC",  th.teal_rgb),
+            ("ACC",  th.gold_rgb),
+            ("TEXT", th.dark_rgb),
+        ]
+        
+        pw = 48
+        ph = 18
+        gap = 4
+        total_w = len(swatches) * pw + (len(swatches) - 1) * gap
+        start_x = (SW - total_w) // 2
+        y = PLAY_BOT - ph - 4
+
+        # Background ribbon for contrast over spectrum
+        d.rect(start_x - 4, y - 2, total_w + 8, ph + 4, theme.DOCK_BG, fill=True)
+        d.rect(start_x - 4, y - 2, total_w + 8, ph + 4, theme.MUTED2, fill=False)
+
+        for i, (label, rgb_tuple) in enumerate(swatches):
+            sx = start_x + i * (pw + gap)
+            c_val = api.rgb(*rgb_tuple)
+            d.rect(sx, y, pw, ph, c_val, fill=True)
+            d.rect(sx, y, pw, ph, theme.MUTED2, fill=False)
+            
+            lum = theme.get_perceived_luminance(*rgb_tuple)
+            lbl_c = api.rgb(24, 24, 32) if lum >= 150 else api.WHITE
+            lx = sx + (pw - len(label) * 8) // 2
+            ly = y + (ph - 8) // 2
+            d.text(label, lx, ly, lbl_c)
 
     # ── header pieces ─────────────────────────────────────────────────────
     def _draw_header(self, d):
         H = widgets.HEADER_H
-        d.rect(0, 0, SW, H, theme.PRIMARY, fill=True)
-        d.rect(0, H - 1, SW, 1, theme.GOLD, fill=True)
-        d.text("COLOR", 6, (H - 8) // 2, api.WHITE)
-        # Live preview swatch (small square, pink-bordered)
-        sw_sz = H - 8
-        sw_x  = 50
-        sw_y  = (H - sw_sz) // 2
-        d.rect(sw_x - 1, sw_y - 1, sw_sz + 2, sw_sz + 2, theme.GOLD, fill=True)
-        d.rect(sw_x,     sw_y,     sw_sz,     sw_sz,    api.rgb(*self._rgb),
-               fill=True)
-        # Tiny readout per the active model
-        readout = self._readout_str()
-        d.text(readout, sw_x + sw_sz + 8, (H - 8) // 2, api.WHITE)
+        fg = theme.STATUS_TEXT
+        d.rect(0, 0, SW, H, theme.STATUS_BG, fill=True)
+        d.rect(0, H - 1, SW, 1, theme.STATUS_ACCENT, fill=True)
+        d.text("COLOR", 6, (H - 8) // 2 + 1, fg)
+        
+        # Live preview swatch
+        sw_sz = 14
+        sw_x  = 52
+        sw_y  = (H - sw_sz) // 2 + 1
+        d.rect(sw_x - 1, sw_y - 1, sw_sz + 2, sw_sz + 2, fg, fill=True)
+        d.rect(sw_x,     sw_y,     sw_sz,     sw_sz,    api.rgb(*self._rgb), fill=True)
+        
+        # Readout text / preset name
+        if getattr(self, "_active_preset_id", None):
+            readout = theme.PRESETS[self._active_preset_id].name
+        else:
+            readout = self._readout_str()
+        d.text(readout, sw_x + sw_sz + 8, (H - 8) // 2 + 1, fg)
+        
+        # Right badge
+        mode_str = "[%s]" % self._mode
+        d.text(mode_str, SW - 6 - len(mode_str) * 8, (H - 8) // 2 + 1, fg)
 
     def _readout_str(self):
         r, g, b = self._rgb

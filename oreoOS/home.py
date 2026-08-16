@@ -24,8 +24,8 @@ import oreoOS
 SW = api.SCREEN_W   # 320
 SH = api.SCREEN_H   # 240
 
-_STATUS_H   = 22
-_MAIN_TOP   = _STATUS_H            # 22
+_STATUS_H   = widgets.HEADER_H
+_MAIN_TOP   = _STATUS_H
 _MAIN_H     = SH - _MAIN_TOP - widgets.HINT_H  # leave room for bottom hint bar
 
 # Clock + date — vertically centred in the play area between status bar and hint bar.
@@ -36,10 +36,6 @@ _CLOCK_GAP  = 12
 _BLOCK_H    = _CLOCK_H + _CLOCK_GAP + _DATE_H
 _CLOCK_Y    = _MAIN_TOP + (_MAIN_H - _BLOCK_H) // 2
 _DATE_Y     = _CLOCK_Y + _CLOCK_H + _CLOCK_GAP
-
-# Forest-green status bar (matches the bg image's tones; the launcher app
-# keeps the original crimson via the widgets default).
-_HOME_STATUS_BG = api.rgb(46, 102,  74)
 
 # ── network-status cache (module-level so it persists across Home() instances)
 # Without this, every return to the home screen would re-init wifi_ok/bt_on
@@ -114,12 +110,12 @@ def _load_bg():
     return None
 
 
-def _get_scaled_bg():
-    """Return (bytes, w, h) for the pre-scaled & dimmed home background.
+# Main foliage color of wallpaper to seamlessly merge with the top of the scene
+_HOME_STATUS_BG = api.rgb(46, 102, 74)
 
-    Built once on first call; cached for the lifetime of the process.
-    Scaling at draw time is too slow (~100ms) and causes visible flicker.
-    """
+
+def _get_scaled_bg():
+    """Return (bytes, w, h) for the pre-scaled normal home background."""
     global _scaled_bg_cache
     if _scaled_bg_cache is not None:
         return _scaled_bg_cache if _scaled_bg_cache is not False else None
@@ -128,17 +124,10 @@ def _get_scaled_bg():
     if not bg:
         _scaled_bg_cache = False
         return None
-    try:
-        import time as _t
-        _bg_start_ms = _t.ticks_ms()
-        print("[home] scaled_bg precompute begin")
-    except Exception:
-        _bg_start_ms = None
 
     import struct
     data, bw, bh = bg
     SCALE = 4
-    DIM   = 0.45
     sw    = bw * SCALE
     sh    = bh * SCALE
     n     = bw * bh
@@ -147,20 +136,10 @@ def _get_scaled_bg():
     out  = bytearray(sw * sh * 2)
     row  = bytearray(sw * 2)
 
-    br, bg_, bb = theme.BG_R, theme.BG_G, theme.BG_B
-
     for src_row in range(bh):
         base_w = src_row * bw
         for col in range(bw):
             v = words[base_w + col]
-            # apply dim
-            r = ((v >> 11) & 0x1F) << 3
-            g = ((v >>  5) & 0x3F) << 2
-            b = ( v        & 0x1F) << 3
-            r = int(r + (br  - r) * DIM)
-            g = int(g + (bg_ - g) * DIM)
-            b = int(b + (bb  - b) * DIM)
-            v = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
             # big-endian bytes (high byte first) — matches framebuf convention
             b1 = v >> 8
             b0 = v & 0xFF
@@ -175,12 +154,6 @@ def _get_scaled_bg():
             out[s:s + sw * 2] = row
 
     _scaled_bg_cache = (out, sw, sh)
-    try:
-        if _bg_start_ms is not None:
-            print("[home] scaled_bg precompute done in %d ms"
-                  % _t.ticks_diff(_t.ticks_ms(), _bg_start_ms))
-    except Exception:
-        pass
     return _scaled_bg_cache
 
 
@@ -208,42 +181,15 @@ def _load_status_icon(name):
 
 
 def _icon_wifi(d, x, y, connected=False):
-    name = "wifi" if connected else "wifi_disabled"
-    icon = _load_status_icon(name)
-    if icon:
-        d.blit(icon[0], x, y, icon[1], icon[2])
-        return
-    c = api.WHITE if connected else theme.MUTED
-    d.rect(x + 5, y + 10, 3, 2, c, fill=True)
-    d.rect(x + 3, y + 7,  7, 2, c, fill=True)
-    d.rect(x + 1, y + 4, 11, 2, c, fill=True)
-    if not connected:
-        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
+    widgets._icon_wifi(d, x, y, connected=connected, color=theme.STATUS_TEXT)
 
 
 def _icon_bt(d, x, y, active=False):
-    name = "bluetooth" if active else "bluetooth_disabled"
-    icon = _load_status_icon(name)
-    if icon:
-        d.blit(icon[0], x, y, icon[1], icon[2])
-        return
-    c = api.WHITE if active else theme.MUTED
-    d.rect(x + 5, y + 1,  2, 11, c, fill=True)
-    d.rect(x + 7, y + 3,  2,  2, c, fill=True)
-    d.rect(x + 5, y + 5,  2,  2, c, fill=True)
-    d.rect(x + 7, y + 7,  2,  2, c, fill=True)
-    d.rect(x + 5, y + 9,  2,  2, c, fill=True)
-    d.rect(x + 2, y + 3,  3,  2, c, fill=True)
-    d.rect(x + 2, y + 8,  3,  2, c, fill=True)
-    if not active:
-        d.line(x + 11, y, x + 1, y + 11, api.rgb(240, 60, 60))
+    widgets._icon_bt(d, x, y, active=active, color=theme.STATUS_TEXT)
 
 
 def _icon_battery(d, x, y, pct=85):
-    d.rect(x,      y,     20, 10, api.WHITE, fill=False)
-    d.rect(x + 20, y + 3,  2,  4, api.WHITE, fill=True)
-    filled = max(1, int((pct / 100) * 18))
-    d.rect(x + 1,  y + 1, filled, 8, api.WHITE, fill=True)
+    widgets._icon_battery(d, x, y, pct=pct, color=theme.STATUS_TEXT)
 
 
 # ── dock entry ────────────────────────────────────────────────────────────────
@@ -371,32 +317,8 @@ class Home(oreoOS.App):
             self._draw_status_bar(d, h, m)
             self._status_dirty = False
 
-    def _draw_status_bar(self, d, h, m):
-        # Forest-green to match the bg image's foliage; thin pink accent line.
-        d.rect(0, 0, SW, _STATUS_H, _HOME_STATUS_BG, fill=True)
-        d.rect(0, _STATUS_H - 1, SW, 1, theme.PRIMARY, fill=True)
-        d.text("%02d:%02d" % (h, m), 6, 7, api.WHITE)
-
-        right_pad = 6
-        bat_w     = 22
-        icon_w    = 13
-        gap       = 4
-
-        pct_str = "%d%%" % self._battery_pct
-        text_w  = len(pct_str) * 8
-
-        bat_x   = SW - right_pad - bat_w
-        pct_x   = bat_x - gap - text_w
-        bt_x    = pct_x - gap - icon_w
-        wifi_x  = bt_x  - gap - icon_w
-
-        icon_y = (_STATUS_H - icon_w) // 2
-        text_y = (_STATUS_H - 8) // 2
-
-        _icon_wifi   (d, wifi_x, icon_y, connected=self._wifi_ok)
-        _icon_bt     (d, bt_x,   icon_y, active=self._bt_on)
-        d.text(pct_str, pct_x, text_y, api.WHITE)
-        _icon_battery(d, bat_x, (_STATUS_H - 10) // 2, pct=self._battery_pct)
+    def _draw_status_bar(self, d, h=None, m=None):
+        widgets.draw_header(d, color=_HOME_STATUS_BG, accent=theme.PRIMARY)
 
     def _draw_clock_area(self, d, h, m, wd, day, mon, yr):
         # Repaint just the clock band over the (cached) background.

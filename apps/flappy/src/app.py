@@ -452,6 +452,7 @@ INTRO, PLAY, OVER, PAUSE = 1, 2, 3, 4
 class App(oreoOS.App):
     name          = "Flappy Oreo"
     FULLSCREEN    = True
+    CONSUMES_C    = True
     SHOW_LOADING  = True   # scenery + dim-bg build can take ~150 ms on hardware
 
     def on_enter(self, os):

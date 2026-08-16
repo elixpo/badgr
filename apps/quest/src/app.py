@@ -51,6 +51,7 @@ def _hex32(v):
 class App(oreoOS.App):
     name         = "IR Quest"
     SHOW_LOADING = False
+    NO_HEADER    = True       # Custom header with tab pills
     # IR scanning needs to keep the radio active; don't let the OS doze.
     BLOCK_IDLE   = True
 
