@@ -165,6 +165,7 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
     try:
         import urllib.request
         import io
+        import gc
         try:
             import PIL.Image as Image
             req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
@@ -180,6 +181,13 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
                     raw[idx] = (rgb565 >> 8) & 0xFF
                     raw[idx + 1] = rgb565 & 0xFF
                     idx += 2
+            
+            # Bound cache size to 5 items to prevent heap bloat on ESP32-S3
+            if len(_COVER_CACHE) >= 5:
+                oldest = next(iter(_COVER_CACHE))
+                del _COVER_CACHE[oldest]
+                gc.collect()
+
             _COVER_CACHE[cache_key] = raw
             return raw
         except ImportError:

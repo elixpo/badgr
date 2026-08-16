@@ -298,5 +298,11 @@ def show_loading(os_obj, label, author=None, subtitle=None):
             _time.sleep_ms(frame_ms)
         except AttributeError:
             _time.sleep(frame_ms / 1000.0)
+
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
     return False
 

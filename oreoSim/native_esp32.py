@@ -12,6 +12,7 @@ import os
 import sys
 import types
 import time
+import gc
 from collections import namedtuple
 
 # ── Hardware Specifications ───────────────────────────────────────────────────
@@ -90,11 +91,12 @@ def mem_free():
     used = mem_alloc()
     return max(64 * 1024, TOTAL_HEAP_BYTES - used)
 
+_real_gc_collect = gc.collect
+
 def collect():
     """Simulate MicroPython gc.collect() garbage collection cycle."""
     global _allocated_heap
-    import gc as _native_gc
-    _native_gc.collect()
+    _real_gc_collect()
     reclaimed = 32 * 1024
     _allocated_heap = max(BASE_OS_HEAP, _allocated_heap - reclaimed)
     return reclaimed
