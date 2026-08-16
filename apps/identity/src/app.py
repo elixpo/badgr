@@ -41,8 +41,8 @@ def _try_avatar():
         return None
 
 
-# Curated social profile links (KISS: Keep It Simple, Stupid)
-SOCIAL_LINKS = [
+# Common profile shortcuts
+STANDARD_LINKS = [
     ("GITHUB_USER",   "GitHub",      "https://github.com/%s"),
     ("TWITTER_USER",  "X / Twitter", "https://x.com/%s"),
     ("LINKEDIN_USER", "LinkedIn",    "https://linkedin.com/in/%s"),
@@ -53,6 +53,15 @@ SOCIAL_LINKS = [
 ]
 
 
+def _format_url(val):
+    val = str(val).strip()
+    if val.startswith(("http://", "https://", "mailto:")):
+        return val
+    if "@" in val and "." in val and "/" not in val:
+        return "mailto:" + val
+    return "https://" + val.lstrip("/")
+
+
 def _load_identity(os_obj=None):
     from oreoOS import config
 
@@ -61,18 +70,32 @@ def _load_identity(os_obj=None):
     desig   = config.get("DESIGNATION", "")
 
     channels = []
-    for key, label, tmpl in SOCIAL_LINKS:
+    seen = set()
+
+    # 1. Standard shortcuts
+    for key, label, tmpl in STANDARD_LINKS:
         val = str(config.get(key) or "").strip()
         if not val:
             continue
-        if val.startswith(("http://", "https://", "mailto:")):
-            url = val
-        else:
-            val = val.lstrip("@")
-            url = tmpl % val if "%s" in tmpl else tmpl + val
-            if not url.startswith(("http://", "https://", "mailto:")):
-                url = "https://" + url
-        channels.append({"name": label, "url": url})
+        val_clean = val.lstrip("@")
+        url = val if val.startswith(("http://", "https://", "mailto:")) else (tmpl % val_clean)
+        channels.append({"name": label, "url": _format_url(url)})
+        seen.add(label.lower())
+
+    # 2. Agnostic custom links: Any user-defined key starting with LINK_ or SOCIAL_
+    #    e.g. LINK_DISCORD=..., SOCIAL_TWITCH=..., LINK_CALENDLY=..., LINK_PORTFOLIO=...
+    env_dict = getattr(config, "_env", {})
+    for k, val in env_dict.items():
+        val = str(val or "").strip()
+        if not val:
+            continue
+        k_upper = k.upper().strip()
+        if k_upper.startswith(("LINK_", "SOCIAL_")):
+            raw_name = k_upper.split("_", 1)[1]
+            label = " ".join(w.capitalize() for w in raw_name.replace("-", "_").split("_")) or "Link"
+            if label.lower() not in seen:
+                channels.append({"name": label, "url": _format_url(val)})
+                seen.add(label.lower())
 
     if not channels:
         channels.append({"name": "Website", "url": "https://oreo.elixpo.com"})
