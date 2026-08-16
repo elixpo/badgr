@@ -41,71 +41,48 @@ def _try_avatar():
         return None
 
 
-def _format_platform_name(raw):
-    k = raw.upper().strip()
-    for prefix in ("SOCIAL_", "CUSTOM_", "MY_"):
-        if k.startswith(prefix):
-            k = k[len(prefix):]
-    for suffix in ("_USER", "_URL", "_LINK", "_CHANNEL", "_HANDLE", "_ID", "_NAME"):
-        if k.endswith(suffix):
-            k = k[:-len(suffix)]
+# Known public social platforms with canonical display names and URL formatters
+KNOWN_SOCIAL_PLATFORMS = {
+    "GITHUB":    ("GitHub",      "github",    "https://github.com/"),
+    "LINKEDIN":  ("LinkedIn",    "linkedin",  "https://linkedin.com/in/"),
+    "TWITTER":   ("X / Twitter", "twitter",   "https://x.com/"),
+    "X":         ("X / Twitter", "x",         "https://x.com/"),
+    "BLUESKY":   ("Bluesky",     "bluesky",   "https://bsky.app/profile/"),
+    "BSKY":      ("Bluesky",     "bsky",      "https://bsky.app/profile/"),
+    "INSTAGRAM": ("Instagram",   "instagram", "https://instagram.com/"),
+    "YOUTUBE":   ("YouTube",     "youtube",   "https://youtube.com/@"),
+    "DISCORD":   ("Discord",     "discord",   "https://discord.com/users/"),
+    "TELEGRAM":  ("Telegram",    "telegram",  "https://t.me/"),
+    "REDDIT":    ("Reddit",      "reddit",    "https://reddit.com/u/"),
+    "TWITCH":    ("Twitch",      "twitch",    "https://twitch.tv/"),
+    "TIKTOK":    ("TikTok",      "tiktok",    "https://tiktok.com/@"),
+    "MASTODON":  ("Mastodon",    "mastodon",  "https://"),
+    "SUBSTACK":  ("Substack",    "substack",  "https://"),
+    "DEVTO":     ("Dev.to",      "devto",     "https://dev.to/"),
+    "NPM":       ("NPM",         "npm",       "https://npmjs.com/~"),
+    "WEBSITE":   ("Website",     "website",   "https://"),
+    "PORTFOLIO": ("Portfolio",   "portfolio", "https://"),
+    "BLOG":      ("Blog",        "blog",      "https://"),
+    "EMAIL":     ("Email",       "email",     "mailto:"),
+}
 
-    known = {
-        "GITHUB":    ("GitHub", "GitHub", "github"),
-        "LINKEDIN":  ("LinkedIn", "LinkedIn", "linkedin"),
-        "TWITTER":   ("X / Twitter", "Twitter", "twitter"),
-        "X":         ("X / Twitter", "Twitter", "x"),
-        "BLUESKY":   ("Bluesky", "Bluesky", "bluesky"),
-        "BSKY":      ("Bluesky", "Bluesky", "bsky"),
-        "NPM":       ("NPM", "NPM", "npm"),
-        "WEBSITE":   ("Website", "Website", "website"),
-        "PORTFOLIO": ("Portfolio", "Portfolio", "portfolio"),
-        "BLOG":      ("Blog", "Blog", "blog"),
-        "EMAIL":     ("Email", "Email", "email"),
-        "DEVTO":     ("Dev.to", "Dev.to", "devto"),
-        "YOUTUBE":   ("YouTube", "YouTube", "youtube"),
-        "DISCORD":   ("Discord", "Discord", "discord"),
-        "TELEGRAM":  ("Telegram", "Telegram", "telegram"),
-        "INSTAGRAM": ("Instagram", "Instagram", "instagram"),
-        "TIKTOK":    ("TikTok", "TikTok", "tiktok"),
-        "MASTODON":  ("Mastodon", "Mastodon", "mastodon"),
-        "REDDIT":    ("Reddit", "Reddit", "reddit"),
-        "SUBSTACK":  ("Substack", "Substack", "substack"),
-        "TWITCH":    ("Twitch", "Twitch", "twitch"),
-    }
-    if k in known:
-        return known[k]
-
-    words = [w.capitalize() for w in k.replace("_", " ").replace("-", " ").split()]
-    name = " ".join(words) or "Link"
-    tab = name if len(name) <= 10 else name[:9] + "…"
-    return name, tab, k.lower()
+# Substrings that indicate private secrets, credentials, or system configs — NEVER parse as social channels
+SECRET_SUBSTRINGS = (
+    "KEY", "SECRET", "TOKEN", "_ID", "PASS", "SSID", "AUTH", "HASH",
+    "BEARER", "PIN", "CERT", "PRIVATE", "PORT", "HOST", "DB", "URI",
+    "LAT", "LON", "OFFSET", "RELAY", "DEBUG", "AUTO_CONNECT", "VERSION"
+)
 
 
-def _format_url(stem, val):
+def _format_social_url(prefix_url, val):
     val = str(val).strip()
     if val.startswith(("http://", "https://", "mailto:")):
         return val
-    if "@" in val and "." in val and "/" not in val:
+    if prefix_url == "mailto:":
         return "mailto:" + val
-
-    known_urls = {
-        "github":    "https://github.com/",
-        "linkedin":  "https://linkedin.com/in/",
-        "twitter":   "https://x.com/",
-        "x":         "https://x.com/",
-        "bluesky":   "https://bsky.app/profile/",
-        "bsky":      "https://bsky.app/profile/",
-        "npm":       "https://npmjs.com/~",
-        "instagram": "https://instagram.com/",
-        "youtube":   "https://youtube.com/@",
-        "telegram":  "https://t.me/",
-        "reddit":    "https://reddit.com/u/",
-        "twitch":    "https://twitch.tv/",
-    }
-    if stem in known_urls:
-        return known_urls[stem] + val
-    return "https://" + val
+    if prefix_url == "https://":
+        return "https://" + val.lstrip("/")
+    return prefix_url + val.lstrip("@").lstrip("/")
 
 
 def _load_identity(os_obj=None):
@@ -115,36 +92,91 @@ def _load_identity(os_obj=None):
     gh_user = config.get("GITHUB_USER", "")
     desig   = config.get("DESIGNATION", "")
 
-    # Priority order for standard curated channels
+    # Priority order for standard curated social channels
     standard_order = [
-        "GITHUB_USER", "LINKEDIN_USER", "TWITTER_USER", "BLUESKY_USER",
-        "NPM_USER", "WEBSITE_URL", "EMAIL"
+        ("GITHUB_USER",    "GITHUB"),
+        ("GITHUB",         "GITHUB"),
+        ("LINKEDIN_USER",  "LINKEDIN"),
+        ("LINKEDIN",       "LINKEDIN"),
+        ("TWITTER_USER",   "TWITTER"),
+        ("TWITTER",        "TWITTER"),
+        ("X_USER",         "X"),
+        ("X",              "X"),
+        ("BLUESKY_USER",   "BLUESKY"),
+        ("BLUESKY",        "BLUESKY"),
+        ("BSKY_USER",      "BSKY"),
+        ("BSKY",           "BSKY"),
+        ("INSTAGRAM_USER", "INSTAGRAM"),
+        ("INSTAGRAM",      "INSTAGRAM"),
+        ("YOUTUBE_USER",   "YOUTUBE"),
+        ("YOUTUBE",        "YOUTUBE"),
+        ("DISCORD_USER",   "DISCORD"),
+        ("DISCORD",        "DISCORD"),
+        ("TELEGRAM_USER",  "TELEGRAM"),
+        ("TELEGRAM",       "TELEGRAM"),
+        ("REDDIT_USER",    "REDDIT"),
+        ("REDDIT",         "REDDIT"),
+        ("TWITCH_USER",    "TWITCH"),
+        ("TWITCH",         "TWITCH"),
+        ("TIKTOK_USER",    "TIKTOK"),
+        ("TIKTOK",         "TIKTOK"),
+        ("MASTODON_USER",  "MASTODON"),
+        ("MASTODON",       "MASTODON"),
+        ("SUBSTACK_USER",  "SUBSTACK"),
+        ("SUBSTACK",       "SUBSTACK"),
+        ("DEVTO_USER",     "DEVTO"),
+        ("DEVTO",          "DEVTO"),
+        ("NPM_USER",       "NPM"),
+        ("NPM",            "NPM"),
+        ("WEBSITE_URL",    "WEBSITE"),
+        ("WEBSITE",        "WEBSITE"),
+        ("PORTFOLIO_URL",  "PORTFOLIO"),
+        ("PORTFOLIO",      "PORTFOLIO"),
+        ("BLOG_URL",       "BLOG"),
+        ("BLOG",           "BLOG"),
+        ("EMAIL",          "EMAIL"),
     ]
-    seen_keys = set()
+
+    seen_platforms = set()
     channels = []
 
     # 1. Process standard keys first in clean curated order
-    for k in standard_order:
-        val = config.get(k)
-        if val:
-            seen_keys.add(k)
-            c_name, c_tab, c_stem = _format_platform_name(k)
-            c_url = _format_url(c_stem, val)
-            channels.append({"name": c_name, "tab": c_tab, "url": c_url})
+    for env_key, plat_key in standard_order:
+        if plat_key in seen_platforms:
+            continue
+        val = config.get(env_key)
+        if val and str(val).strip():
+            seen_platforms.add(plat_key)
+            disp_name, slug, url_prefix = KNOWN_SOCIAL_PLATFORMS[plat_key]
+            final_url = _format_social_url(url_prefix, val)
+            channels.append({
+                "name": disp_name,
+                "tab":  disp_name,
+                "url":  final_url
+            })
 
-    # 2. Dynamically process any extra custom keys defined in .env
+    # 2. Allow explicitly prefixed custom channels like SOCIAL_CALENDLY=...
     env_dict = getattr(config, "_env", {})
     for k, val in env_dict.items():
-        if k in seen_keys or not val:
+        k_upper = k.upper().strip()
+        if not val or not str(val).strip():
             continue
-        # Skip system / non-social keys
-        if k in ("DISPLAY_NAME", "DESIGNATION", "OWM_API_KEY", "GH_TOKEN",
-                 "WEATHER_LAT", "WEATHER_LON", "WEATHER_NAME", "TIMEZONE_OFFSET",
-                 "DEBUG", "WIFI_SSID", "WIFI_PASSWORD", "WIFI_AUTO_CONNECT", "VERSION", "RELEASE_DATE"):
+        # Strict security filter: reject anything with secret/system keywords
+        if any(sec in k_upper for sec in SECRET_SUBSTRINGS):
             continue
-        c_name, c_tab, c_stem = _format_platform_name(k)
-        c_url = _format_url(c_stem, val)
-        channels.append({"name": c_name, "tab": c_tab, "url": c_url})
+
+        if k_upper.startswith("SOCIAL_"):
+            clean_k = k_upper[7:]
+            if clean_k in seen_platforms:
+                continue
+            words = [w.capitalize() for w in clean_k.replace("_", " ").split()]
+            c_name = " ".join(words) or "Link"
+            final_url = _format_social_url("https://", val)
+            channels.append({
+                "name": c_name,
+                "tab":  c_name,
+                "url":  final_url
+            })
 
     if not channels:
         channels.append({"name": "Website", "tab": "Website", "url": "https://oreo.elixpo.com"})
