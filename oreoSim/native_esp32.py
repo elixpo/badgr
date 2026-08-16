@@ -184,6 +184,97 @@ def setup_hardware_emulation():
     mock_m.DEEPSLEEP_RESET = 2
     mock_m.PWRON_RESET = 0
 
+    class MockPin:
+        IN = 1
+        OUT = 2
+        PULL_UP = 4
+        PULL_DOWN = 8
+        IRQ_RISING = 1
+        IRQ_FALLING = 2
+        def __init__(self, pin_id=0, mode=1, pull=-1, value=0):
+            self.pin_id = pin_id
+            self.mode = mode
+            self.pull = pull
+            self._val = value
+            self._handler = None
+            self._trigger = 0
+        def value(self, v=None):
+            if v is not None:
+                self._val = int(v)
+            return self._val
+        def on(self): self._val = 1
+        def off(self): self._val = 0
+        def irq(self, handler=None, trigger=0):
+            self._handler = handler
+            self._trigger = trigger
+
+    class MockADC:
+        ATTN_11DB = 3
+        ATTN_6DB = 2
+        ATTN_2_5DB = 1
+        ATTN_0DB = 0
+        def __init__(self, pin, atten=3):
+            self.pin = pin
+            self.atten_val = atten
+        def read(self): return 2048
+        def read_u16(self): return 32768
+        def read_uv(self): return 1800000
+        def atten(self, val): self.atten_val = val
+
+    class MockPWM:
+        def __init__(self, pin, freq=1000, duty=0, duty_u16=0):
+            self.pin = pin
+            self._freq = freq
+            self._duty = duty
+        def freq(self, f=None):
+            if f is not None: self._freq = f
+            return self._freq
+        def duty(self, d=None):
+            if d is not None: self._duty = d
+            return self._duty
+        def duty_u16(self, d=None):
+            if d is not None: self._duty = d >> 6
+            return self._duty << 6
+        def deinit(self): pass
+
+    class MockSPI:
+        def __init__(self, id=0, baudrate=10000000, polarity=0, phase=0, sck=None, mosi=None, miso=None): pass
+        def write(self, buf): pass
+        def read(self, n, write=0): return bytearray(n)
+        def readinto(self, buf, write=0): pass
+        def write_readinto(self, write_buf, read_buf): pass
+
+    class MockI2C:
+        def __init__(self, id=0, scl=None, sda=None, freq=400000): pass
+        def scan(self): return []
+        def readfrom(self, addr, nbytes, stop=True): return bytearray(nbytes)
+        def readfrom_into(self, addr, buf, stop=True): pass
+        def writeto(self, addr, buf, stop=True): return len(buf)
+        def readfrom_mem(self, addr, memaddr, nbytes, addrsize=8): return bytearray(nbytes)
+        def writeto_mem(self, addr, memaddr, buf, addrsize=8): pass
+
+    mock_m.Pin = MockPin
+    mock_m.ADC = MockADC
+    mock_m.PWM = MockPWM
+    mock_m.SPI = MockSPI
+    mock_m.I2C = MockI2C
+    mock_m.SoftI2C = MockI2C
+
+    # 4b. Patch esp32 module
+    mock_esp32 = sys.modules.get('esp32') or types.ModuleType('esp32')
+    sys.modules['esp32'] = mock_esp32
+
+    class MockRMT:
+        def __init__(self, channel=0, pin=None, clock_div=80, tx_carrier=None):
+            self.channel = channel
+            self.pin = pin
+            self.clock_div = clock_div
+            self.tx_carrier = tx_carrier
+        def write_pulses(self, pulses, start_level=1): pass
+        def wait_done(self, timeout=0): pass
+
+    mock_esp32.RMT = MockRMT
+
     # 5. Patch time module for MicroPython ticks functions
     import time
     time.ticks_ms = lambda: int(time.time() * 1000)
