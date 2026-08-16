@@ -1,0 +1,9 @@
+{
+  "name": "App Manager",
+  "description": "System application manager: inspect storage, monitor RAM/heap, manage permissions, and uninstall packages on ESP32 & emulator.",
+  "type": "app",
+  "version": "1.0.0",
+  "icon": "manager_icon.png",
+  "author": "sea-deep",
+  "category": "Tools"
+}
