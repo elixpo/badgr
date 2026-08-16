@@ -111,43 +111,48 @@ def clear_credentials():
     return True
 
 
+def _get_relay_url(endpoint=""):
+    try:
+        from oreoOS import config
+        base = config.get("SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app").rstrip("/")
+    except Exception:
+        base = "https://oreo-delta.vercel.app"
+    return base + ("/" + endpoint.lstrip("/") if endpoint else "")
+
+
+def _get_auth_url():
+    try:
+        from oreoOS import config
+        return config.get("SPOTIFY_AUTH_URL", _get_relay_url("spotify"))
+    except Exception:
+        return _get_relay_url("spotify")
+
+
 _COVER_CACHE = {}
 
 def create_relay_session():
-    """Request a 6-character PIN session from oreo-delta.vercel.app."""
-    base_url = "https://oreo-delta.vercel.app/api/spotify/session"
-    try:
-        from oreoOS import config
-        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app") + "/api/spotify/session"
-    except Exception:
-        pass
-
+    """Request a 6-character PIN session from configured SPOTIFY_RELAY_URL."""
+    url = _get_relay_url("api/spotify/session")
     try:
         import urllib.request
-        req = urllib.request.Request(base_url, headers={"User-Agent": "OreoBadge/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
         with urllib.request.urlopen(req, timeout=4.0) as resp:
             data = _json.loads(resp.read().decode())
             if data.get("status") == "ok":
                 return data.get("code"), data.get("url")
     except Exception:
         pass
-    return None, "https://oreo-delta.vercel.app/spotify"
+    return None, _get_auth_url()
 
 
 def poll_relay_session(code):
-    """Poll oreo-delta.vercel.app to check if the session code was authorized."""
+    """Poll configured SPOTIFY_RELAY_URL to check if session code was authorized."""
     if not code:
         return None
-    base_url = "https://oreo-delta.vercel.app/api/spotify/poll?code=" + str(code)
-    try:
-        from oreoOS import config
-        base_url = getattr(config, "SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app") + "/api/spotify/poll?code=" + str(code)
-    except Exception:
-        pass
-
+    url = _get_relay_url("api/spotify/poll?code=" + str(code))
     try:
         import urllib.request
-        req = urllib.request.Request(base_url, headers={"User-Agent": "OreoBadge/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
         with urllib.request.urlopen(req, timeout=3.5) as resp:
             return _json.loads(resp.read().decode())
     except Exception:
@@ -333,38 +338,94 @@ class SpotifyClient:
                 except Exception: pass
             return 0, None
 
+    def _refresh_via_relay(self):
+        if not self.refresh_token:
+            return False
+
+        relay_url = _get_relay_url("api/spotify/refresh")
+
+        try:
+            import urllib.request
+            body = _json.dumps({"refresh_token": self.refresh_token}).encode("utf-8")
+            req = urllib.request.Request(
+                relay_url,
+                data=body,
+                headers={"Content-Type": "application/json", "User-Agent": "OreoBadge-Spotify/1.0"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=4.0) as resp:
+                data = _json.loads(resp.read().decode("utf-8"))
+                new_token = data.get("access_token") or data.get("token")
+                new_rt = data.get("refresh_token") or self.refresh_token
+                if new_token:
+                    self.token = new_token
+                    self.refresh_token = new_rt
+                    save_credentials(
+                        token=new_token,
+                        refresh_token=new_rt,
+                        client_id=self.client_id or data.get("client_id"),
+                        client_secret=self.client_secret
+                    )
+                    return True
+        except Exception:
+            pass
+
+        try:
+            clean = relay_url.replace("https://", "").replace("http://", "")
+            if "/" in clean:
+                host, path = clean.split("/", 1)
+                path = "/" + path
+            else:
+                host, path = clean, "/api/spotify/refresh"
+
+            body_str = _json.dumps({"refresh_token": self.refresh_token})
+            headers = {"Content-Type": "application/json"}
+            status, resp_bytes = self._http_request(host, "POST", path, headers, body_str)
+            if status == 200 and resp_bytes:
+                data = _json.loads(resp_bytes.decode("utf-8"))
+                new_token = data.get("access_token") or data.get("token")
+                new_rt = data.get("refresh_token") or self.refresh_token
+                if new_token:
+                    self.token = new_token
+                    self.refresh_token = new_rt
+                    save_credentials(
+                        token=new_token,
+                        refresh_token=new_rt,
+                        client_id=self.client_id or data.get("client_id"),
+                        client_secret=self.client_secret
+                    )
+                    return True
+        except Exception:
+            pass
+
+        return False
+
     def refresh_access_token(self):
         if not self.refresh_token:
             return False
 
-        if self.client_secret:
-            auth_str = _base64_encode("%s:%s" % (self.client_id or "", self.client_secret or ""))
-            headers = {
-                "Authorization": "Basic " + auth_str,
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-            body = "grant_type=refresh_token&refresh_token=" + self.refresh_token
-        else:
-            headers = {
-                "Content-Type": "application/x-www-form-urlencoded"
-            }
-            body = "grant_type=refresh_token&refresh_token=" + self.refresh_token
-            if self.client_id:
-                body += "&client_id=" + self.client_id
-
-        status, resp_bytes = self._http_request(self.AUTH_HOST, "POST", "/api/token", headers, body)
-
-        if status == 200 and resp_bytes:
+        if self.client_secret and self.client_id:
             try:
-                data = _json.loads(resp_bytes.decode('utf-8'))
-                new_token = data.get("access_token")
-                if new_token:
-                    self.token = new_token
-                    save_credentials(token=new_token, refresh_token=self.refresh_token, client_id=self.client_id, client_secret=self.client_secret)
-                    return True
+                auth_str = _base64_encode("%s:%s" % (self.client_id or "", self.client_secret or ""))
+                headers = {
+                    "Authorization": "Basic " + auth_str,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+                body = "grant_type=refresh_token&refresh_token=" + self.refresh_token
+                status, resp_bytes = self._http_request(self.AUTH_HOST, "POST", "/api/token", headers, body)
+                if status == 200 and resp_bytes:
+                    data = _json.loads(resp_bytes.decode('utf-8'))
+                    new_token = data.get("access_token")
+                    new_rt = data.get("refresh_token") or self.refresh_token
+                    if new_token:
+                        self.token = new_token
+                        self.refresh_token = new_rt
+                        save_credentials(token=new_token, refresh_token=new_rt, client_id=self.client_id, client_secret=self.client_secret)
+                        return True
             except Exception:
                 pass
-        return False
+
+        return self._refresh_via_relay()
 
     def get_devices(self):
         """Fetch list of available Spotify devices."""
@@ -405,8 +466,6 @@ class SpotifyClient:
                 status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player", headers)
             else:
                 self.token = None
-                self.refresh_token = None
-                clear_credentials()
                 return None
 
         if status == 403:
@@ -856,8 +915,6 @@ class SpotifyClient:
                 status, _ = self._http_request(self.API_HOST, method, path, headers, body_data=body_data)
             else:
                 self.token = None
-                self.refresh_token = None
-                clear_credentials()
                 return False
 
         return 200 <= status < 300
