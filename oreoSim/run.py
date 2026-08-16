@@ -68,7 +68,7 @@ def _start_hot_reloader():
             os.path.join(repo_root, 'oreoOS'),
             os.path.join(repo_root, 'apps'),
             os.path.join(repo_root, 'assets'),
-            os.path.join(repo_root, 'sandbox-native')
+            os.path.join(repo_root, 'oreoSim')
         ]
         
         STOCK_APPS = {
