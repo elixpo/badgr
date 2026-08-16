@@ -63,17 +63,17 @@ COL_BAR_BG   = api.rgb(38,  40,  52)   # Empty progress / vol bar
 COL_CYAN     = api.rgb(80,  200, 255)  # Device pill cyan
 
 DEFAULT_LIBRARY_TRACKS = [
-    {"title": "G-Class",         "artist": "YUNG SAMMY, Urban Poet", "album": "G-Class",        "duration": 166, "category": "Rap",       "uri": ""},
-    {"title": "Chalo Chalein",   "artist": "Ritviz, Seedhe Maut",    "album": "Chalo Chalein",  "duration": 210, "category": "Hip-Hop",   "uri": ""},
-    {"title": "Hola Amigo",      "artist": "KR$NA, Seedhe Maut",     "album": "FAR FROM OVER",   "duration": 226, "category": "Hip-Hop",   "uri": ""},
-    {"title": "Nanchaku",        "artist": "Seedhe Maut, MC Stan",   "album": "Nayaab",          "duration": 195, "category": "Hip-Hop",   "uri": ""},
-    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk",  "album": "Starboy",        "duration": 230, "category": "Synthwave", "uri": ""},
-    {"title": "Midnight City",   "artist": "M83",                    "album": "Hurry Up",        "duration": 244, "category": "Synthwave", "uri": ""},
-    {"title": "Resonance",       "artist": "HOME",                   "album": "Odyssey",         "duration": 212, "category": "Lo-Fi",     "uri": ""},
-    {"title": "Get Lucky",       "artist": "Daft Punk, Pharrell",    "album": "RAM",             "duration": 248, "category": "Funk",      "uri": ""},
-    {"title": "Blinding Lights", "artist": "The Weeknd",             "album": "After Hours",     "duration": 200, "category": "Synthwave", "uri": ""},
-    {"title": "Do I Wanna Know?","artist": "Arctic Monkeys",         "album": "AM",              "duration": 272, "category": "Indie",     "uri": ""},
-    {"title": "Sweater Weather", "artist": "The Neighbourhood",      "album": "I Love You.",     "duration": 240, "category": "Indie",     "uri": ""},
+    {"title": "G-Class",         "artist": "YUNG SAMMY, Urban Poet", "album": "G-Class",        "duration": 166, "category": "Rap",       "uri": "spotify:track:2yBum3qnYBlzeGjpWQLenu"},
+    {"title": "Chalo Chalein",   "artist": "Ritviz, Seedhe Maut",    "album": "Chalo Chalein",  "duration": 184, "category": "Hip-Hop",   "uri": "spotify:track:6m0uNvHh5zG9FJmbxVxD1N"},
+    {"title": "Hola Amigo",      "artist": "KR$NA, Seedhe Maut",     "album": "FAR FROM OVER",   "duration": 226, "category": "Hip-Hop",   "uri": "spotify:track:5W17yyFN1l8JL5MNUCvrYS"},
+    {"title": "Nanchaku",        "artist": "Seedhe Maut, MC Stan",   "album": "Nayaab",          "duration": 193, "category": "Hip-Hop",   "uri": "spotify:track:3d4wYjp1fwSQmfOOEd5P0w"},
+    {"title": "Starboy",         "artist": "The Weeknd, Daft Punk",  "album": "Starboy",        "duration": 230, "category": "Synthwave", "uri": "spotify:track:7MXVkk9YMctZqd1Srtv4MB"},
+    {"title": "Midnight City",   "artist": "M83",                    "album": "Hurry Up",        "duration": 243, "category": "Synthwave", "uri": "spotify:track:6GyFP1nfCDB8lbD2bG0Hq9"},
+    {"title": "Resonance",       "artist": "HOME",                   "album": "Odyssey",         "duration": 212, "category": "Lo-Fi",     "uri": "spotify:track:2NHkwSwm6C6eAX3z6xm7Uy"},
+    {"title": "Get Lucky",       "artist": "Daft Punk, Pharrell",    "album": "RAM",             "duration": 369, "category": "Funk",      "uri": "spotify:track:69kOkLUCkxIZYexIgSG8rq"},
+    {"title": "Blinding Lights", "artist": "The Weeknd",             "album": "After Hours",     "duration": 200, "category": "Synthwave", "uri": "spotify:track:0VjIjW4GlUZAMYd2vXMi3b"},
+    {"title": "Do I Wanna Know?","artist": "Arctic Monkeys",         "album": "AM",              "duration": 272, "category": "Indie",     "uri": "spotify:track:5FVd6KXrgO9B3JPmC8OPst"},
+    {"title": "Sweater Weather", "artist": "The Neighbourhood",      "album": "I Love You.",     "duration": 301, "category": "Indie",     "uri": "spotify:track:6jhzQyn6cwPHc85PE4qBp0"},
 ]
 
 
@@ -190,6 +190,7 @@ class App(oreoOS.App):
         # Polling & Timers
         self._last_poll = _ticks_ms()
         self._poll_interval = 2500
+        self._poll_skip_until = 0
         self._title_scroll_t = 0.0
         self._dirty = True
 
@@ -333,24 +334,22 @@ class App(oreoOS.App):
                 self._cover_art = None
                 self._title_scroll_t = 0.0
                 self._view_mode = "PLAYER"
+                self._poll_skip_until = _ticks_ms() + 3500
 
                 if self._mode == "SPOTIFY":
-                    track_uri = t.get("uri")
-                    def _play_worker():
+                    track_target = t.get("uri") or (t["title"] + " " + t["artist"])
+                    def _play_worker(target):
                         try:
-                            if track_uri:
-                                self._spotify.play(uris=[track_uri])
-                            else:
-                                self._spotify.play()
+                            self._spotify.play_track(target)
                         except Exception:
                             pass
                     try:
                         import threading
-                        threading.Thread(target=_play_worker, daemon=True).start()
+                        threading.Thread(target=_play_worker, args=(track_target,), daemon=True).start()
                     except Exception:
-                        pass
+                        self._spotify.play_track(track_target)
                 self._dirty = True
-            return
+                return
 
         # ── Player View Controls ──────────────────────────────────────────
         if btn == api.BTN_B:
@@ -451,11 +450,12 @@ class App(oreoOS.App):
                     self._poll_spotify()
                     self._dirty = True
 
-        # Periodic Spotify Playback Polling
+        # Periodic Spotify Playback Polling (respecting selection grace period)
         if not self._show_qr and self._mode == "SPOTIFY":
-            if _ticks_diff(now, self._last_poll) > self._poll_interval:
-                self._last_poll = now
-                self._poll_spotify()
+            if _ticks_diff(now, self._poll_skip_until) >= 0:
+                if _ticks_diff(now, self._last_poll) > self._poll_interval:
+                    self._last_poll = now
+                    self._poll_spotify()
 
         # Smooth Playback Progress Simulation
         if self._is_playing:

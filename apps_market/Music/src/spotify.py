@@ -437,6 +437,52 @@ class SpotifyClient:
                 pass
         return []
 
+    def search_track(self, query):
+        """Search Spotify for a track and return metadata dict with uri."""
+        if not self.token:
+            if not self.refresh_access_token():
+                return None
+        try:
+            import urllib.parse
+            q = urllib.parse.quote(str(query))
+        except Exception:
+            q = str(query).replace(" ", "+")
+        headers = {"Authorization": "Bearer " + self.token}
+        status, body = self._http_request(self.API_HOST, "GET", "/v1/search?q=" + q + "&type=track&limit=1", headers)
+        if status == 401 and self.refresh_access_token():
+            headers = {"Authorization": "Bearer " + self.token}
+            status, body = self._http_request(self.API_HOST, "GET", "/v1/search?q=" + q + "&type=track&limit=1", headers)
+        if status == 200 and body:
+            try:
+                data = _json.loads(body.decode('utf-8'))
+                items = data.get("tracks", {}).get("items", [])
+                if items:
+                    t = items[0]
+                    artists = ", ".join(a.get("name", "") for a in t.get("artists", []))
+                    images = (t.get("album") or {}).get("images", [])
+                    return {
+                        "title": t.get("name"),
+                        "artist": artists,
+                        "album": (t.get("album") or {}).get("name", ""),
+                        "duration_s": (t.get("duration_ms", 0) or 0) / 1000.0,
+                        "uri": t.get("uri"),
+                        "image_url": images[-1].get("url", "") if images else ""
+                    }
+            except Exception:
+                pass
+        return None
+
+    def play_track(self, uri_or_query):
+        """Play a specific track on Spotify by URI or search query."""
+        if not uri_or_query:
+            return self.play()
+        if str(uri_or_query).startswith("spotify:track:"):
+            return self.play(uris=[str(uri_or_query)])
+        res = self.search_track(str(uri_or_query))
+        if res and res.get("uri"):
+            return self.play(uris=[res["uri"]])
+        return self.play()
+
     def _send_control(self, method, path, body_data=None):
         if not self.token:
             if not self.refresh_access_token():
