@@ -29,6 +29,9 @@ except AttributeError:
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
+DOOM_W = 320
+DOOM_H = 200
+NAV_H  = 40 # Bottom nav helper height (Y: 200..240)
 
 # DOOM Key Constants
 KEY_RIGHTARROW = 0xAE
@@ -53,8 +56,6 @@ class App(oreoOS.App):
         self._engine_type = "EMBEDDED" # "EMBEDDED" or "FALLBACK"
         self._doom_lib = None
         self._active_weapon_num = 2
-        self._key_states = {}
-        self._last_tick_ms = _ticks_ms()
         self._init_embedded_engine()
 
     def _init_embedded_engine(self):
@@ -102,19 +103,17 @@ class App(oreoOS.App):
                 self._send_key(1, KEY_RIGHTARROW)
             elif btn == api.BTN_A:
                 self._send_key(1, KEY_FIRE)
-                self._send_key(1, KEY_ENTER) # Also selects menus
+                self._send_key(1, KEY_ENTER)
             elif btn == api.BTN_B:
                 self._send_key(1, KEY_USE)
                 self._send_key(1, KEY_ENTER)
             elif btn == api.BTN_C:
-                # Cycle weapons 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
                 self._active_weapon_num = (self._active_weapon_num % 7) + 1
                 key_code = ord(str(self._active_weapon_num))
                 self._send_key(1, key_code)
                 self._send_key(0, key_code)
             return
 
-        # Fallback Engine Buttons
         self._fallback_button_press(btn)
 
     def on_button_release(self, btn):
@@ -141,7 +140,6 @@ class App(oreoOS.App):
     # ─── GAME LOOP & TICK ────────────────────────────────────────────────────
     def update(self, dt):
         if self._engine_type == "EMBEDDED" and self._doom_lib:
-            # Advance 1 DOOM tick (~35 Hz)
             self._doom_lib.doom_tick()
             self._dirty = True
         else:
@@ -154,21 +152,44 @@ class App(oreoOS.App):
             h = self._doom_lib.doom_get_height()
             if fb_ptr and w > 0 and h > 0:
                 raw_bytes = ctypes.string_at(fb_ptr, w * h * 4)
-                # Blit via display surface if pygame is available
                 if hasattr(d, "_surface"):
                     import pygame
                     surf = pygame.image.frombytes(raw_bytes, (w, h), "RGBA")
-                    scaled = pygame.transform.scale(surf, (SW, SH))
-                    d._surface.blit(scaled, (0, 0))
+                    d._surface.blit(surf, (0, 0))
                 else:
-                    # Generic byte blit fallback
                     d.clear(api.BLACK)
+
+            # Bottom Nav Helper
+            self._draw_nav_helper(d)
             self._dirty = False
             return
 
         self._fallback_draw(d)
 
-    # ─── PURE PYTHON FALLBACK ENGINE (FOR EMBEDDED DEVICES WITHOUT C SO) ──────
+    def _draw_nav_helper(self, d):
+        """Clean navigation helper at the bottom (Y: 200..240)."""
+        y = DOOM_H
+        h = SH - y
+        d.rect(0, y, SW, h, api.rgb(18, 20, 24), fill=True)
+        d.rect(0, y, SW, 1, api.rgb(55, 60, 70), fill=True)
+
+        items = [
+            ("A", "=fire"),
+            ("B", "=use"),
+            ("C", "=weapon"),
+            ("HOME", "=back")
+        ]
+        total_w = sum((len(k) + len(v)) * 8 for k, v in items) + (len(items) - 1) * 12
+        cur_x = (SW - total_w) // 2
+        ty = y + (h - 8) // 2 + 1
+
+        for k, v in items:
+            d.text(k, cur_x, ty, theme.GOLD)
+            cur_x += len(k) * 8
+            d.text(v, cur_x, ty, theme.TEXT_DIM)
+            cur_x += len(v) * 8 + 12
+
+    # ─── PURE PYTHON FALLBACK ENGINE ─────────────────────────────────────────
     def _init_fallback_engine(self):
         self._px = 2.5
         self._py = 2.5
@@ -176,16 +197,6 @@ class App(oreoOS.App):
         self._hp = 100
         self._armor = 50
         self._ammo = 50
-        self._grid = [
-            [1,1,1,1,1,1,1,1],
-            [1,0,0,0,0,0,0,1],
-            [1,0,2,2,0,2,0,1],
-            [1,0,2,0,0,2,0,1],
-            [1,0,0,0,0,0,0,1],
-            [1,0,1,0,0,1,0,1],
-            [1,0,0,0,0,0,0,1],
-            [1,1,1,1,1,1,1,1]
-        ]
         self._dirty = True
 
     def _fallback_button_press(self, btn):
@@ -208,5 +219,6 @@ class App(oreoOS.App):
 
     def _fallback_draw(self, d):
         d.clear(api.rgb(36, 24, 28))
-        d.text("DOOM 3D (EMBEDDED FALLBACK)", 30, 100, theme.GOLD, scale=1)
+        d.text("DOOM 3D (EMBEDDED FALLBACK)", 30, 90, theme.GOLD, scale=1)
+        self._draw_nav_helper(d)
         self._dirty = False
