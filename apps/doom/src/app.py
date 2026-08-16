@@ -8,7 +8,7 @@ Controls:
   LEFT / RIGHT  Turn Left / Right
   A             FIRE Weapon (Shoot / Pistol / Shotgun / Chaingun / BFG)
   B             ACTION / USE (Open Doors / Switches / Confirm / Menu)
-  C             Cycle Weapon / Automap
+  C             Cycle Weapon (Fists, Pistol, Shotgun, Chaingun, etc.)
   HOME          Exit / Pause Menu
 """
 
@@ -59,8 +59,10 @@ class App(oreoOS.App):
         self._os = os_obj
         self._engine_type = "EMBEDDED" # "EMBEDDED" or "FALLBACK"
         self._doom_lib = None
-        self._active_weapon_num = 2
+        self._weapon_cycle = [1, 2, 3, 4, 5, 6, 7]
+        self._active_weapon_idx = 0  # Next press cycles to 1 (Fists)
         self._key_states = {}
+        self._key_pulses = {}
         # Clear screen on enter to eliminate loading overlay remnants
         if hasattr(os_obj, "display"):
             os_obj.display.clear(api.BLACK)
@@ -102,19 +104,38 @@ class App(oreoOS.App):
     def on_button_press(self, btn):
         if self._engine_type == "EMBEDDED" and self._doom_lib:
             if btn == api.BTN_C:
-                # Cycle weapons 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
-                self._active_weapon_num = (self._active_weapon_num % 7) + 1
-                key_code = ord(str(self._active_weapon_num))
-                self._send_key(1, key_code)
-                self._send_key(0, key_code)
+                # Cycle weapon: 1 (Fists) -> 2 (Pistol) -> 3 (Shotgun) -> ...
+                weapon_num = self._weapon_cycle[self._active_weapon_idx]
+                self._active_weapon_idx = (self._active_weapon_idx + 1) % len(self._weapon_cycle)
+                key_code = ord(str(weapon_num))
+                self._pulse_key(key_code, 5)
+            elif btn == api.BTN_B:
+                # Pulse Action / Use / Open Door / Flip Switch
+                self._pulse_key(KEY_USE, 5)
+                self._pulse_key(ord(' '), 5)
+                self._pulse_key(KEY_ENTER, 5)
             return
 
         self._fallback_button_press(btn)
+
+    def _pulse_key(self, key_code, ticks=5):
+        """Hold a key down for a fixed number of game ticks to ensure DOOM registers it."""
+        if not self._doom_lib:
+            return
+        self._key_pulses[key_code] = ticks
+        self._send_key(1, key_code)
 
     def _sync_hardware_buttons(self):
         """Poll hardware / simulator button states and synchronize held keys in DOOM."""
         if not self._doom_lib:
             return
+
+        # Process and decrement active pulses
+        for key_code in list(self._key_pulses.keys()):
+            self._key_pulses[key_code] -= 1
+            if self._key_pulses[key_code] <= 0:
+                self._send_key(0, key_code)
+                del self._key_pulses[key_code]
 
         buttons = getattr(self._os, "buttons", None)
         if not buttons:
@@ -134,6 +155,9 @@ class App(oreoOS.App):
             is_down = 1 if buttons.is_pressed(btn_id) else 0
             if is_down != self._key_states.get(doom_key, 0):
                 self._send_key(is_down, doom_key)
+                if doom_key == KEY_USE:
+                    self._send_key(is_down, ord(' '))
+                    self._send_key(is_down, KEY_ENTER)
                 self._key_states[doom_key] = is_down
 
     def _send_key(self, pressed, key_val):
@@ -143,7 +167,7 @@ class App(oreoOS.App):
     # ─── GAME LOOP & TICK ────────────────────────────────────────────────────
     def update(self, dt):
         if self._engine_type == "EMBEDDED" and self._doom_lib:
-            # Sync held buttons
+            # Sync held buttons & key pulses
             self._sync_hardware_buttons()
             # Advance DOOM engine tick
             self._doom_lib.doom_tick()
@@ -161,7 +185,6 @@ class App(oreoOS.App):
                 if hasattr(d, "_surface"):
                     import pygame
                     surf = pygame.image.frombytes(raw_bytes, (w, h), "RGBA")
-                    # Seamlessly fill play area (320x224) directly above the 16px hint bar
                     scaled = pygame.transform.scale(surf, (SW, PLAY_H))
                     d._surface.blit(scaled, (0, 0))
                 else:
