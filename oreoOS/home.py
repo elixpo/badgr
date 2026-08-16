@@ -372,7 +372,31 @@ class Home(oreoOS.App):
             self._status_dirty = False
 
     def _draw_status_bar(self, d, h, m):
-        widgets.draw_header(d, color=_HOME_STATUS_BG)
+        # Forest-green to match the bg image's foliage; thin pink accent line.
+        d.rect(0, 0, SW, _STATUS_H, _HOME_STATUS_BG, fill=True)
+        d.rect(0, _STATUS_H - 1, SW, 1, theme.PRIMARY, fill=True)
+        d.text("%02d:%02d" % (h, m), 6, 7, api.WHITE)
+
+        right_pad = 6
+        bat_w     = 22
+        icon_w    = 13
+        gap       = 4
+
+        pct_str = "%d%%" % self._battery_pct
+        text_w  = len(pct_str) * 8
+
+        bat_x   = SW - right_pad - bat_w
+        pct_x   = bat_x - gap - text_w
+        bt_x    = pct_x - gap - icon_w
+        wifi_x  = bt_x  - gap - icon_w
+
+        icon_y = (_STATUS_H - icon_w) // 2
+        text_y = (_STATUS_H - 8) // 2
+
+        _icon_wifi   (d, wifi_x, icon_y, connected=self._wifi_ok)
+        _icon_bt     (d, bt_x,   icon_y, active=self._bt_on)
+        d.text(pct_str, pct_x, text_y, api.WHITE)
+        _icon_battery(d, bat_x, (_STATUS_H - 10) // 2, pct=self._battery_pct)
 
     def _draw_clock_area(self, d, h, m, wd, day, mon, yr):
         # Repaint just the clock band over the (cached) background.
