@@ -288,19 +288,21 @@ class App(oreoOS.App):
         try:
             state = self._spotify.get_playback()
             if state:
+                # Update true playing status from Spotify API
+                self._is_playing = bool(state.get("is_playing", False))
+                self._device_name = state.get("device_name", "Spotify Connect")
+
                 title = state.get("title", "")
-                if title and title not in ("No Active Playback", "Ready", "Spotify Connected", "No Active Device"):
+                if state.get("active", False) and title and title not in ("No Active Playback", "Ready", "Spotify Connected", "No Active Device"):
                     self._title = title
                     self._artist = state.get("artist", self._artist)
                     self._album = state.get("album", "")
-                    self._is_playing = state.get("is_playing", self._is_playing)
                     self._duration = state.get("duration_s", self._duration)
                     self._progress = state.get("progress_s", self._progress)
                     # Only update volume from server if not actively buffering local user presses
                     if not self._vol_buffered:
                         self._volume = state.get("volume", self._volume)
                         self._last_synced_vol = self._volume
-                    self._device_name = state.get("device_name", "Spotify Connect")
 
                     img_url = state.get("image_url", "")
                     if img_url and img_url != self._last_image_url:
@@ -309,8 +311,16 @@ class App(oreoOS.App):
                             self._cover_art = fetch_cover_art_rgb565(img_url, self._cover_size, self._cover_size)
                         except Exception:
                             self._cover_art = None
-                elif state.get("device_name"):
-                    self._device_name = state.get("device_name")
+                else:
+                    # Inactive or closed browser
+                    self._is_playing = False
+                    if not state.get("active", False):
+                        self._title = state.get("title", "No Active Device")
+                        self._artist = state.get("artist", "Open Spotify on phone/PC")
+                        self._album = "Spotify Connect"
+                        self._cover_art = None
+                        self._progress = 0.0
+                        self._duration = 0.0
         except Exception:
             pass
         self._dirty = True
@@ -768,8 +778,8 @@ class App(oreoOS.App):
             mod_sz = 3
             qr_w = cols * mod_sz
             qr_h = rows * mod_sz
-            qx = 22
-            qy = widgets.HEADER_H + 18
+            qx = 16
+            qy = widgets.HEADER_H + 14
 
             # White quiet-zone backing
             d.rect(qx - 4, qy - 4, qr_w + 8, qr_h + 8, api.WHITE, fill=True)
@@ -778,13 +788,21 @@ class App(oreoOS.App):
                     if mat[r][c]:
                         d.rect(qx + c * mod_sz, qy + r * mod_sz, mod_sz, mod_sz, api.BLACK, fill=True)
 
-            # Instructions
+            # Instructions & Prominent 6-Character Code Box
             tx = qx + qr_w + 14
-            d.text("SCAN TO LINK", tx, qy, COL_SPOTIFY)
-            d.text("1. Scan QR code", tx, qy + 18, api.WHITE)
-            d.text("2. Authorize app", tx, qy + 32, api.WHITE)
-            d.text("3. Syncs instantly", tx, qy + 46, COL_CYAN)
-            d.text("Waiting login...", tx, qy + 66, theme.GOLD)
+            d.text("SCAN QR CODE", tx, qy + 2, COL_SPOTIFY)
+            d.text("or visit on web:", tx, qy + 18, COL_MUTED)
+
+            # Prominent 6-Digit PIN Capsule Box
+            code_str = str(self._qr_session_id or "------").upper()
+            pin_box_w = max(100, len(code_str) * 16 + 24)
+            d.rect(tx, qy + 32, pin_box_w, 32, api.rgb(38, 44, 60), fill=True)
+            d.rect(tx, qy + 32, pin_box_w, 32, theme.GOLD, fill=False)
+            d.text(code_str, tx + 12, qy + 40, theme.GOLD, scale=2)
+
+            d.text("oreo-delta.vercel.app", tx, qy + 72, api.WHITE)
+            d.text("/spotify", tx, qy + 84, api.WHITE)
+            d.text("Waiting login...", tx, qy + 102, COL_CYAN)
         else:
             d.text("Generating Link...", 80, 110, COL_SPOTIFY)
 

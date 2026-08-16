@@ -387,6 +387,23 @@ class SpotifyClient:
                 "repeat":      "off"
             }
 
+        if status == 204 or not body:
+            return {
+                "connected":   True,
+                "active":      False,
+                "is_playing":  False,
+                "title":       "No Active Device",
+                "artist":      "Open Spotify on phone/PC",
+                "album":       "Spotify Connect",
+                "image_url":   "",
+                "duration_s":  0,
+                "progress_s":  0,
+                "volume":      70,
+                "device_name": "No Active Device",
+                "shuffle":     False,
+                "repeat":      "off"
+            }
+
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
@@ -397,13 +414,14 @@ class SpotifyClient:
                 image_url = images[-1].get("url", "") if images else ""
 
                 dev = data.get("device", {})
-                self.device_name = dev.get("name", "Spotify")
+                is_active = bool(data.get("is_playing", False)) or bool(dev.get("is_active", False))
+                self.device_name = dev.get("name", "Spotify") if dev else "No Active Device"
 
                 return {
                     "connected":   True,
-                    "active":      True,
+                    "active":      is_active,
                     "is_playing":  bool(data.get("is_playing", False)),
-                    "title":       item.get("name", "Unknown Track"),
+                    "title":       item.get("name", "No Active Playback"),
                     "artist":      artist_names,
                     "album":       (item.get("album") or {}).get("name", ""),
                     "image_url":   image_url,
