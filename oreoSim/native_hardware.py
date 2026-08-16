@@ -111,7 +111,7 @@ class Display(api.Display):
         self._dirty = True
 
     def present(self):
-        _clock.tick(60)
+        _clock.tick(30)
         if not self._dirty: return
         self._dirty = False
         scaled_surf = pygame.transform.scale(self._surface, (api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM))
