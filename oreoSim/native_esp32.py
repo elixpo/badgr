@@ -52,12 +52,18 @@ def _calculate_project_used_bytes():
                         pass
     # Add reserved state files / NVS buffer (approx 128 KB)
     total_used += 128 * 1024
-    return min(FLASH_TOTAL_BYTES - (1024 * 1024), total_used)
+    return total_used
 
 def mock_statvfs(path="/"):
     """Simulate MicroPython os.statvfs('/') on ESP32-S3 8MB LittleFS partition."""
-    used_bytes = _calculate_project_used_bytes()
-    free_bytes = max(0, FLASH_TOTAL_BYTES - used_bytes)
+    repo_used_bytes = _calculate_project_used_bytes()
+    
+    # Simulated 8MB flash limit, but expand if repo grows larger on host.
+    flash_total = 8 * 1024 * 1024
+    if repo_used_bytes > 7 * 1024 * 1024:
+        flash_total = repo_used_bytes + 1024 * 1024
+        
+    free_bytes = max(0, flash_total - repo_used_bytes)
     free_blocks = free_bytes // FLASH_BLOCK_SIZE
     used_blocks = FLASH_TOTAL_BLOCKS - free_blocks
     
@@ -66,7 +72,7 @@ def mock_statvfs(path="/"):
     return (
         FLASH_BLOCK_SIZE,      # f_bsize
         FLASH_BLOCK_SIZE,      # f_frsize
-        FLASH_TOTAL_BLOCKS,    # f_blocks (2048)
+        flash_total // FLASH_BLOCK_SIZE, # f_blocks
         free_blocks,           # f_bfree
         free_blocks,           # f_bavail
         1024,                  # f_files
@@ -198,5 +204,5 @@ def setup_hardware_emulation():
     print(f"[oreoSim] ESP32-S3 Hardware Profile Loaded:")
     print(f"  • Display: ST7789 (320x240 @ {TARGET_FPS} FPS, {FRAME_BUDGET_MS:.1f}ms budget)")
     print(f"  • Heap: {TOTAL_HEAP_BYTES / (1024*1024):.1f} MB PSRAM ({mem_free() / 1024:.0f} KB free on boot)")
-    print(f"  • Flash: {FLASH_TOTAL_BYTES / (1024*1024):.1f} MB LittleFS ({mock_statvfs()[4] * 4 / 1024:.2f} MB free)")
+    print(f"  • Flash: {mock_statvfs()[2] * 4 / 1024:.1f} MB LittleFS ({mock_statvfs()[4] * 4 / 1024:.2f} MB free)")
     print(f"  • CPU: {CPU_FREQ_HZ / 1_000_000:.0f} MHz Dual-Core Xtensa LX7\n")
