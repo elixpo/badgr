@@ -225,6 +225,8 @@ class App(oreoOS.App):
         from oreoOS import config
         self._user = config.get("GITHUB_USER") or "Circuit-Overtime"
         self._fetching = False
+        import threading
+        self._lock = threading.Lock()
 
         # 1. Instant Disk Cache Load — No UI freeze on entry!
         lv, ct, dt, age = _load_cache(self._user)
@@ -263,14 +265,16 @@ class App(oreoOS.App):
         try:
             lv, ct, dt = _fetch_contributions(self._user)
             if lv:
-                self._levels = lv
-                self._counts = ct or [0] * len(lv)
-                self._dates  = dt or [""] * len(lv)
-                self._live   = True
-                self._age    = 0
-                _save_cache(self._user, self._levels, self._counts, self._dates)
-        except Exception:
-            pass
+                with self._lock:
+                    self._levels = lv
+                    self._counts = ct or [0] * len(lv)
+                    self._dates  = dt or [""] * len(lv)
+                    self._live   = True
+                    self._age    = 0
+                _save_cache(self._user, lv, ct or [0] * len(lv), dt or [""] * len(lv))
+        except Exception as e:
+            from oreoOS import config
+            if config.DEBUG: print("Commits fetch err:", e)
         finally:
             self._fetching = False
             self._dirty = True
@@ -305,17 +309,23 @@ class App(oreoOS.App):
         d.text(user_str, (SW - uw) // 2, uy, theme.PRIMARY, scale=2)
         d.rect((SW - uw) // 2, uy + 20, uw, 2, theme.GOLD, fill=True)
 
+        with self._lock:
+            levels = self._levels
+            counts = self._counts
+            dates = self._dates
+            live_status = self._live
+
         # Headline subtitle (active days · longest streak).
-        active = sum(1 for x in self._levels if x > 0)
-        streak = _max_streak(self._levels)
+        active = sum(1 for x in levels if x > 0)
+        streak = _max_streak(levels)
         sub = "%d active days  ~  %d-day streak" % (active, streak)
         sw  = len(sub) * 8
         d.text(sub, (SW - sw) // 2, uy + 28, theme.TEXT_BRIGHT)
 
         # Date range strip — "from 12 May 2025 to 13 May 2026" — pulled from
         # the SVG so the user knows exactly what window this grid covers.
-        first = _fmt_date(self._dates[0])  if self._dates else ""
-        last  = _fmt_date(self._dates[-1]) if self._dates else ""
+        first = _fmt_date(dates[0])  if dates else ""
+        last  = _fmt_date(dates[-1]) if dates else ""
         if first and last:
             rng = "%s  -  %s" % (first, last)
             rw  = len(rng) * 8
@@ -335,19 +345,19 @@ class App(oreoOS.App):
         d.rect(gx0 - gp, gy0 - gp,
                grid_w + gp * 2, grid_h + gp * 2,
                theme.DOCK_SEL, fill=True)
-        for i in range(min(len(self._levels), WEEKS * DAYS)):
+        for i in range(min(len(levels), WEEKS * DAYS)):
             week = i // DAYS
             day  = i %  DAYS
             cx   = gx0 + week * (CELL_PX + GAP_PX)
             cy   = gy0 + day  * (CELL_PX + GAP_PX)
             d.rect(cx, cy, CELL_PX, CELL_PX,
-                   _bucket_color(self._levels[i]), fill=True)
+                   _bucket_color(levels[i]), fill=True)
 
         # Stat strip — current streak / busiest week / total commits.
         strip_y = strip_top + 4
-        total   = sum(self._counts) if any(self._counts) else active
-        cur_str = _current_streak(self._levels)
-        busy    = _busiest_week(self._levels)
+        total   = sum(counts) if any(counts) else active
+        cur_str = _current_streak(levels)
+        busy    = _busiest_week(levels)
         cols = [
             ("current", "%dd" % cur_str),
             ("busiest", "%d"  % busy),
@@ -372,7 +382,7 @@ class App(oreoOS.App):
         if getattr(self, "_fetching", False):
             pill   = "SYNCING"
             pill_c = theme.GOLD
-        elif self._live:
+        elif live_status:
             pill   = "LIVE"
             pill_c = theme.GREEN
         else:

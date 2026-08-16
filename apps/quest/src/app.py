@@ -82,6 +82,8 @@ class App(oreoOS.App):
         self._last_pulse_n  = 0
         self._last_seen_ms  = 0
         self._history       = []         # list of (kind, payload) tuples
+        import _thread
+        self._history_lock  = _thread.allocate_lock()
 
         # Send-tab feedback timer
         self._send_flash_ms = 0
@@ -124,9 +126,10 @@ class App(oreoOS.App):
         self._last_pulse_n  = info.get("pulse_count", 0)
         self._last_seen_ms  = time.ticks_ms()
         # Keep a short history for the beacon tab.
-        self._history.append((self._last_kind, code))
-        if len(self._history) > HISTORY_MAX:
-            self._history.pop(0)
+        with self._history_lock:
+            self._history.append((self._last_kind, code))
+            if len(self._history) > HISTORY_MAX:
+                self._history.pop(0)
         self._dirty = True
 
     # ── input ──────────────────────────────────────────────────────────
@@ -291,10 +294,14 @@ class App(oreoOS.App):
 
         # Recent-history strip.
         d.text("Recent:", cx + 12, cy + 64, theme.GOLD)
-        if not self._history:
+        
+        with self._history_lock:
+            hist_copy = list(self._history)
+
+        if not hist_copy:
             d.text("(nothing yet)", cx + 84, cy + 64, theme.MUTED)
         else:
-            for i, (kind, code) in enumerate(reversed(self._history)):
+            for i, (kind, code) in enumerate(reversed(hist_copy)):
                 y = cy + 80 + i * 14
                 if y + 12 > cy + ch:
                     break

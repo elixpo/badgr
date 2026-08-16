@@ -118,6 +118,7 @@ class Display(api.Display):
         # (noisy flicker) on cold boot before the splash starts.
         self._fb.fill(0)
         self._dirty = True
+        self._window_dirty = False
         self.present()
         try:
             self._panel.bl(1)
@@ -274,6 +275,9 @@ class Display(api.Display):
             return
         self._dirty = False
         p   = self._panel
+        if getattr(self, "_window_dirty", False):
+            p.set_window(0, 0, api.SCREEN_W - 1, api.SCREEN_H - 1)
+            self._window_dirty = False
         mv  = memoryview(self._buf)
         n   = len(self._buf)
         q   = n >> 2          # 1/4 of the buffer (38,400 bytes)
@@ -293,6 +297,7 @@ class Display(api.Display):
         if not self._dirty:
             return
         self._dirty = False
+        self._window_dirty = True
         p = self._panel
         p.set_window(x, y, x + w - 1, y + h - 1)
         p.cs(0)

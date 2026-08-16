@@ -11,6 +11,7 @@ _thread = threading.Thread(target=_run_loop, daemon=True)
 _thread.start()
 
 _scan_results = []
+_scan_lock = threading.Lock()
 _is_scanning = False
 _scanner = None
 
@@ -34,17 +35,19 @@ def init_from_config():
     print("[NativeBT] Mocking init_from_config...")
 
 def _detection_callback(device, advertisement_data):
-    _scan_results.append((
-        0,
-        device.address.encode('utf-8'),
-        0,
-        advertisement_data.rssi,
-        advertisement_data.local_name.encode('utf-8') if advertisement_data.local_name else b''
-    ))
+    with _scan_lock:
+        _scan_results.append((
+            0,
+            device.address.encode('utf-8'),
+            0,
+            advertisement_data.rssi,
+            advertisement_data.local_name.encode('utf-8') if advertisement_data.local_name else b''
+        ))
 
 def start_scan():
     global _scan_results, _is_scanning, _scanner
-    _scan_results = []
+    with _scan_lock:
+        _scan_results = []
     if _is_scanning:
         return
     _is_scanning = True
@@ -57,8 +60,9 @@ def start_scan():
     asyncio.run_coroutine_threadsafe(_do_start(), _loop)
 
 def get_scan_results():
-    res = list(_scan_results)
-    _scan_results.clear()
+    with _scan_lock:
+        res = list(_scan_results)
+        _scan_results.clear()
     return res
 
 def stop_scan():

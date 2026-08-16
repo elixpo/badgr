@@ -102,6 +102,9 @@ SHIP_GLOBS = [
     "apps/*/assets/__init__.py",
     "apps/*/assets/optimized/__init__.py",
     "apps/*/assets/optimized/*.py",
+    "oreoOS/mascot.png",
+    "apps/*/src/**",
+    "apps/gallery/assets/optimized/*.rv565",
 ]
 
 

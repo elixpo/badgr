@@ -536,7 +536,10 @@ def deploy_website():
     preview = "--preview" in sys.argv
 
     print("Building Next.js static export in %s/..." % WEBSITE_DIR)
-    rc = subprocess.call(["npx", "next", "build"], cwd=str(WEBSITE_DIR))
+    import os
+    env = dict(os.environ)
+    env["CF_PAGES"] = "1"
+    rc = subprocess.call(["npx", "next", "build"], cwd=str(WEBSITE_DIR), env=env)
     if rc != 0:
         print("next build failed (exit %d)" % rc)
         sys.exit(rc)

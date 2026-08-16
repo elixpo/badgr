@@ -9,7 +9,12 @@ try:
 
     def now():
         """Return (hour, minute, second, weekday_str, day, month_str, year)."""
-        n = _DT.now()
+        try:
+            from oreoOS.config import TIMEZONE_OFFSET as _TZ
+        except Exception:
+            _TZ = 0
+        from datetime import timedelta
+        n = _DT.utcnow() + timedelta(hours=_TZ)
         return (n.hour, n.minute, n.second,
                 _DAYS[n.weekday()], n.day, _MONTHS[n.month], n.year)
 
@@ -17,7 +22,11 @@ except ImportError:
     import time as _t
 
     def now():
-        t = _t.localtime()
+        try:
+            from oreoOS.config import TIMEZONE_OFFSET as _TZ
+        except Exception:
+            _TZ = 0
+        t = _t.localtime(_t.time() + int(_TZ * 3600))
         return (t[3], t[4], t[5], _DAYS[t[6]], t[2], _MONTHS[t[1]], t[0])
 
 
@@ -111,25 +120,11 @@ def sync_from_ntp(timezone_offset_h=None):
         import machine
         import time as _t
 
-        # Write the RTC in UTC first, then optionally shift by the
-        # user's timezone offset so localtime() reads correctly.
+        # Write the RTC in UTC
         utc = _t.localtime(epoch_2000)
         machine.RTC().datetime(
             (utc[0], utc[1], utc[2], utc[6] + 1,
              utc[3], utc[4], utc[5], 0))
-
-        if timezone_offset_h is None:
-            try:
-                from oreoOS.config import TIMEZONE_OFFSET as _TZ
-                timezone_offset_h = _TZ
-            except Exception:
-                timezone_offset_h = 0
-
-        if timezone_offset_h:
-            shifted = _t.localtime(_t.time() + int(timezone_offset_h * 3600))
-            machine.RTC().datetime(
-                (shifted[0], shifted[1], shifted[2], shifted[6] + 1,
-                 shifted[3], shifted[4], shifted[5], 0))
 
         _last_sync_ts     = _t.time()
         _last_sync_status = "ok"

@@ -77,7 +77,9 @@ class App(oreoOS.App):
         try:
             from oreoWare import wifi
             self._wifi = wifi
-        except Exception:
+        except Exception as e:
+            from oreoOS import config
+            if config.DEBUG: print("wifi init err:", e)
             self._wifi = None
 
         # 5 Hz info refresh so RSSI and IP track reality without the user
@@ -128,7 +130,9 @@ class App(oreoOS.App):
             return {"connected": False}
         try:
             return self._wifi.info()
-        except Exception:
+        except OSError as e:
+            from oreoOS import config
+            if config.DEBUG: print("wifi info err:", e)
             return {"connected": False}
 
     def _power_mode(self):
@@ -223,8 +227,9 @@ class App(oreoOS.App):
                         radio_off()
                     else:
                         self._wifi.disconnect()
-                except Exception:
-                    pass
+                except OSError as e:
+                    from oreoOS import config
+                    if config.DEBUG: print("wifi radio_off err:", e)
             else:
                 # The credentials live in secrets.py / wifi.json — we
                 # don't need a "searching" UX. Bring the radio up
@@ -242,10 +247,12 @@ class App(oreoOS.App):
                 except TypeError:
                     try:
                         self._wifi.connect_from_config()
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
+                    except OSError as e:
+                        from oreoOS import config
+                        if config.DEBUG: print("wifi connect err:", e)
+                except OSError as e:
+                    from oreoOS import config
+                    if config.DEBUG: print("wifi connect err:", e)
                 # NOTE: we deliberately do NOT drop the radio when
                 # connect_from_config returns False. The previous
                 # version did, which silently powered the MAC down on
@@ -373,8 +380,9 @@ class App(oreoOS.App):
         # flips "ON"/"OFF" once it's settled.
         try:
             self._wifi.connect(ssid, pw)
-        except Exception:
-            pass
+        except OSError as e:
+            from oreoOS import config
+            if config.DEBUG: print("wifi connect saved err:", e)
         self._snap = self._read()
         self._reload_nets()
         self._mode = "main"
