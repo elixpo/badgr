@@ -118,17 +118,14 @@ def setup_hardware_emulation():
     """Patch standard modules with realistic ESP32-S3 hardware mocks."""
     # 1. Patch sys attributes
     sys.platform = 'esp32'
-    class _MicroPythonImpl:
-        def __init__(self, orig):
-            self.__dict__['_orig'] = orig
-            self.name = 'micropython'
-            self.version = (1, 22, 0)
-            self._machine = 'ESP32S3 module (octal SPI) with ESP32S3'
-        def __getattr__(self, name):
-            return getattr(self._orig, name)
-        def __repr__(self):
-            return "namespace(name='micropython', version=(1, 22, 0))"
-    sys.implementation = _MicroPythonImpl(sys.implementation)
+    orig_impl = getattr(sys, 'implementation', None)
+    impl_dict = {k: getattr(orig_impl, k) for k in dir(orig_impl) if not k.startswith("__")} if orig_impl else {}
+    impl_dict.update({
+        'name': 'micropython',
+        'version': (1, 22, 0),
+        '_machine': 'ESP32S3 module (octal SPI) with ESP32S3'
+    })
+    sys.implementation = types.SimpleNamespace(**impl_dict)
 
     # 2. Patch gc module
     import gc

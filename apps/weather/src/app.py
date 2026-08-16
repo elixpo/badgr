@@ -127,6 +127,8 @@ def _fetch_owm(lat, lon, api_key, city_override=""):
         r = _req.get(url, headers={"User-Agent": "OreoBadge"})
         try:
             if r.status_code != 200:
+                if getattr(oreoOS.config, "DEBUG", False):
+                    print("[Weather] OWM API HTTP error:", r.status_code)
                 return None
             j = r.json()
             city_name = city_override or _clean_ascii(j.get("name") or "—")
@@ -140,7 +142,9 @@ def _fetch_owm(lat, lon, api_key, city_override=""):
             }
         finally:
             r.close()
-    except Exception:
+    except Exception as e:
+        if getattr(oreoOS.config, "DEBUG", False):
+            print("[Weather] Fetch error:", e)
         return None
 
 
