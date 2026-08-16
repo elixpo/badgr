@@ -20,19 +20,19 @@ import native_esp32
 # 3. Setup accurate ESP32-S3 hardware & MicroPython mocks
 native_esp32.setup_hardware_emulation()
 
-_oreoware = types.ModuleType('oreoWare')
+import oreoWare
 
-# Bind submodules
-_oreoware.display = native_hardware
-_oreoware.buttons = native_hardware
-_oreoware.os = native_hardware
-_oreoware.wifi = native_wifi
-_oreoware.bt = native_bt
+# Bind desktop simulator submodules
+oreoWare.display = native_hardware
+oreoWare.buttons = native_hardware
+oreoWare.os = native_hardware
+oreoWare.wifi = native_wifi
+oreoWare.bt = native_bt
 
 # Setup time and socket correctly for CPython
 import time
 import socket
-_oreoware.time = time
+oreoWare.time = time
 time.ticks_ms = lambda: int(time.time() * 1000)
 time.ticks_diff = lambda a, b: a - b
 time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
@@ -44,7 +44,6 @@ def _mock_get(url, *args, **kwargs):
     return requests.get(url, *args, **kwargs)
 sys.modules['urequests'].get = _mock_get
 
-sys.modules['oreoWare'] = _oreoware
 sys.modules['oreoWare.display'] = native_hardware
 sys.modules['oreoWare.buttons'] = native_hardware
 sys.modules['oreoWare.os'] = native_hardware
