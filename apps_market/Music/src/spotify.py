@@ -451,8 +451,11 @@ class SpotifyClient:
 
         return None
 
-    def play(self, uris=None):
-        if uris:
+    def play(self, uris=None, context_uri=None):
+        if context_uri:
+            body = _json.dumps({"context_uri": context_uri})
+            return self._send_control("PUT", "/v1/me/player/play", body_data=body)
+        elif uris:
             body = _json.dumps({"uris": uris})
             return self._send_control("PUT", "/v1/me/player/play", body_data=body)
         return self._send_control("PUT", "/v1/me/player/play")
@@ -483,15 +486,20 @@ class SpotifyClient:
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                for entry in data.get("items", []):
+                for entry in data.get("items", []) or []:
+                    if not entry or not isinstance(entry, dict): continue
                     tr = entry.get("track") or {}
+                    if not tr or not isinstance(tr, dict): continue
                     name = tr.get("name")
                     if not name: continue
-                    artists = ", ".join(a.get("name", "") for a in tr.get("artists", []))
+                    artists_list = tr.get("artists", []) or []
+                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    album_info = tr.get("album") or {}
+                    album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
                     tracks.append({
                         "title": name,
                         "artist": artists or "Unknown Artist",
-                        "album": (tr.get("album") or {}).get("name", ""),
+                        "album": album_name,
                         "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
                         "uri": tr.get("uri", ""),
                         "category": "Liked"
@@ -513,14 +521,18 @@ class SpotifyClient:
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                for tr in data.get("items", []):
+                for tr in data.get("items", []) or []:
+                    if not tr or not isinstance(tr, dict): continue
                     name = tr.get("name")
                     if not name: continue
-                    artists = ", ".join(a.get("name", "") for a in tr.get("artists", []))
+                    artists_list = tr.get("artists", []) or []
+                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    album_info = tr.get("album") or {}
+                    album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
                     tracks.append({
                         "title": name,
                         "artist": artists or "Unknown Artist",
-                        "album": (tr.get("album") or {}).get("name", ""),
+                        "album": album_name,
                         "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
                         "uri": tr.get("uri", ""),
                         "category": "Top"
@@ -543,16 +555,21 @@ class SpotifyClient:
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                for entry in data.get("items", []):
+                for entry in data.get("items", []) or []:
+                    if not entry or not isinstance(entry, dict): continue
                     tr = entry.get("track") or {}
+                    if not tr or not isinstance(tr, dict): continue
                     name = tr.get("name")
                     if not name or name in seen: continue
                     seen.add(name)
-                    artists = ", ".join(a.get("name", "") for a in tr.get("artists", []))
+                    artists_list = tr.get("artists", []) or []
+                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    album_info = tr.get("album") or {}
+                    album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
                     tracks.append({
                         "title": name,
                         "artist": artists or "Unknown Artist",
-                        "album": (tr.get("album") or {}).get("name", ""),
+                        "album": album_name,
                         "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
                         "uri": tr.get("uri", ""),
                         "category": "Recent"
@@ -574,15 +591,20 @@ class SpotifyClient:
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                for pl in data.get("items", []):
+                for pl in data.get("items", []) or []:
+                    if not pl or not isinstance(pl, dict): continue
                     name = pl.get("name")
                     if not name: continue
+                    tracks_info = pl.get("tracks") or {}
+                    t_count = tracks_info.get("total", 0) if isinstance(tracks_info, dict) else 0
+                    owner_info = pl.get("owner") or {}
+                    owner_name = owner_info.get("display_name", "Spotify") if isinstance(owner_info, dict) else "Spotify"
                     playlists.append({
                         "name": name,
                         "id": pl.get("id", ""),
                         "uri": pl.get("uri", ""),
-                        "tracks_count": (pl.get("tracks") or {}).get("total", 0),
-                        "owner": (pl.get("owner") or {}).get("display_name", "Spotify")
+                        "tracks_count": t_count,
+                        "owner": owner_name
                     })
             except Exception:
                 pass
@@ -590,7 +612,9 @@ class SpotifyClient:
 
     def get_playlist_tracks(self, playlist_id, limit=25):
         """Fetch tracks inside a specific user playlist."""
-        if not playlist_id or (not self.token and not self.refresh_access_token()):
+        if not playlist_id:
+            return []
+        if not self.token and not self.refresh_access_token():
             return []
         headers = {"Authorization": "Bearer " + str(self.token)}
         status, body = self._http_request(self.API_HOST, "GET", "/v1/playlists/%s/tracks?limit=%d" % (playlist_id, limit), headers)
@@ -601,15 +625,20 @@ class SpotifyClient:
         if status == 200 and body:
             try:
                 data = _json.loads(body.decode('utf-8'))
-                for entry in data.get("items", []):
+                for entry in data.get("items", []) or []:
+                    if not entry or not isinstance(entry, dict): continue
                     tr = entry.get("track") or {}
+                    if not tr or not isinstance(tr, dict): continue
                     name = tr.get("name")
                     if not name: continue
-                    artists = ", ".join(a.get("name", "") for a in tr.get("artists", []))
+                    artists_list = tr.get("artists", []) or []
+                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    album_info = tr.get("album") or {}
+                    album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
                     tracks.append({
                         "title": name,
                         "artist": artists or "Unknown Artist",
-                        "album": (tr.get("album") or {}).get("name", ""),
+                        "album": album_name,
                         "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
                         "uri": tr.get("uri", ""),
                         "category": "Playlist"

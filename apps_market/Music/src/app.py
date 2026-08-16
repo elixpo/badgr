@@ -2,6 +2,7 @@
 
 Features:
   • Hierarchical Tree Library (Liked Songs, Top Tracks, Recently Played, User Playlists).
+  • Deep Navigation State Preservation (Sub-folder index and scroll memory).
   • Memory-Safe Lazy Fetching & Bounded Local Caching (ESP32-S3 PSRAM safe).
   • Fully Asynchronous Zero-Lag Polling (Runs in decoupled background workers).
   • 60fps / 30fps Instant Optimistic UI (Volume, Play/Pause, Skip respond with 0ms latency).
@@ -24,7 +25,7 @@ Controls:
 
   TREE LIBRARY VIEW:
     UP/DOWN  Navigate folders, playlists, or tracks
-    A / >    Open folder / Play track
+    A / >    Open folder / playlist / Play track
     B / <    Back up folder level / Return to Player
     C        Unlink / Disconnect Spotify
 """
@@ -190,9 +191,12 @@ class App(oreoOS.App):
         self._last_wifi_check = _ticks_ms()
 
         # Hierarchical Tree Navigation State
-        self._tree_state = "ROOT"   # "ROOT" (Folders) | "TRACKS" (Track List) | "PLAYLISTS" (Playlist List)
+        self._tree_state = "ROOT"   # "ROOT" (Folders) | "PLAYLISTS" (Playlists) | "TRACKS" (Track List)
+        self._tree_parent_state = "ROOT"
         self._tree_idx = 0
         self._tree_scroll = 0
+        self._selected_root_idx = 0
+        self._selected_playlist_idx = 0
         self._tree_title = "LIBRARY"
         self._tree_loading = False
 
@@ -286,7 +290,7 @@ class App(oreoOS.App):
                     self._tree_folders[2]["count"] = len(recents)
 
                 # 4. Fetch User Playlists
-                pls = self._spotify.get_user_playlists(15)
+                pls = self._spotify.get_user_playlists(20)
                 if pls:
                     self._playlists_cache = pls
                     self._tree_folders[3]["count"] = len(pls)
@@ -309,18 +313,43 @@ class App(oreoOS.App):
             self._tree_loading = False
 
     def _open_folder(self, folder_id, label):
-        """Open a folder in the tree view and load its tracks."""
+        """Open a folder in the tree view and load its tracks or playlists."""
+        self._selected_root_idx = self._tree_idx
+
+        if folder_id == "playlists":
+            self._tree_state = "PLAYLISTS"
+            self._tree_idx = self._selected_playlist_idx
+            self._tree_scroll = max(0, self._tree_idx - 3)
+            self._dirty = True
+
+            # Trigger fresh load if cache is empty
+            if not self._playlists_cache and self._spotify.is_configured():
+                self._tree_loading = True
+                def _load_pls_worker():
+                    try:
+                        pls = self._spotify.get_user_playlists(20)
+                        if pls:
+                            self._playlists_cache = pls
+                            self._tree_folders[3]["count"] = len(pls)
+                    except Exception:
+                        pass
+                    finally:
+                        self._tree_loading = False
+                        self._dirty = True
+                try:
+                    import threading
+                    threading.Thread(target=_load_pls_worker, daemon=True).start()
+                except Exception:
+                    self._tree_loading = False
+            return
+
+        # Regular Track Folder (liked, top, recent)
+        self._tree_parent_state = "ROOT"
+        self._tree_state = "TRACKS"
         self._tree_title = label.upper()
         self._tree_idx = 0
         self._tree_scroll = 0
 
-        if folder_id == "playlists":
-            self._tree_state = "PLAYLISTS"
-            self._dirty = True
-            return
-
-        # Regular Track Folder (liked, top, recent)
-        self._tree_state = "TRACKS"
         cached_tracks = self._folder_tracks_cache.get(folder_id, [])
         if cached_tracks:
             self._current_track_list = cached_tracks
@@ -357,6 +386,8 @@ class App(oreoOS.App):
 
     def _open_playlist(self, pl):
         """Open a specific playlist from the playlists list."""
+        self._selected_playlist_idx = self._tree_idx
+        self._tree_parent_state = "PLAYLISTS"
         self._tree_title = _clean_text(pl.get("name", "PLAYLIST")).upper()
         self._tree_state = "TRACKS"
         self._tree_idx = 0
@@ -366,15 +397,18 @@ class App(oreoOS.App):
         self._dirty = True
 
         pl_id = pl.get("id")
+        pl_uri = pl.get("uri")
         def _worker():
             try:
                 tracks = self._spotify.get_playlist_tracks(pl_id, 25)
                 if tracks:
+                    for tr in tracks:
+                        tr["context_uri"] = pl_uri
                     self._current_track_list = tracks
                 else:
-                    self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+                    self._current_track_list = []
             except Exception:
-                self._current_track_list = list(DEFAULT_LIBRARY_TRACKS)
+                self._current_track_list = []
             finally:
                 self._tree_loading = False
                 self._dirty = True
@@ -579,16 +613,18 @@ class App(oreoOS.App):
                         self._open_playlist(pl)
                     return
 
-            # 3. TRACKS State (Track List inside Folder/Playlist)
+            # 3. TRACKS State (Track List inside Folder or Playlist)
             elif self._tree_state == "TRACKS":
                 if btn in (api.BTN_B, api.BTN_LEFT):
-                    # Back up to playlists if inside a playlist, else root
-                    if self._tree_folders[3]["label"].upper() in self._tree_title:
+                    # Back up to playlists if opened from a playlist, else root
+                    if self._tree_parent_state == "PLAYLISTS":
                         self._tree_state = "PLAYLISTS"
+                        self._tree_idx = self._selected_playlist_idx
+                        self._tree_scroll = max(0, self._selected_playlist_idx - 3)
                     else:
                         self._tree_state = "ROOT"
-                    self._tree_idx = 0
-                    self._tree_scroll = 0
+                        self._tree_idx = self._selected_root_idx
+                        self._tree_scroll = max(0, self._selected_root_idx - 3)
                     self._dirty = True
                     return
                 elif btn == api.BTN_UP:
@@ -621,16 +657,20 @@ class App(oreoOS.App):
                         self._poll_skip_until = _ticks_ms() + 3000
 
                         track_target = t.get("uri") or (t["title"] + " " + t["artist"])
-                        def _play_worker(target):
+                        context_target = t.get("context_uri")
+                        def _play_worker(target, ctx):
                             try:
-                                self._spotify.play_track(target)
+                                if target and str(target).startswith("spotify:track:"):
+                                    self._spotify.play(uris=[str(target)])
+                                else:
+                                    self._spotify.play_track(target)
                                 time.sleep(0.8)
                                 self._trigger_async_poll()
                             except Exception:
                                 pass
                         try:
                             import threading
-                            threading.Thread(target=_play_worker, args=(track_target,), daemon=True).start()
+                            threading.Thread(target=_play_worker, args=(track_target, context_target), daemon=True).start()
                         except Exception:
                             pass
                     self._dirty = True
@@ -644,8 +684,8 @@ class App(oreoOS.App):
             # Open Tree Library Drawer
             self._view_mode = "LIBRARY"
             self._tree_state = "ROOT"
-            self._tree_idx = 0
-            self._tree_scroll = 0
+            self._tree_idx = self._selected_root_idx
+            self._tree_scroll = max(0, self._selected_root_idx - 3)
             self._prefetch_library_tree()
             self._dirty = True
 
@@ -983,9 +1023,13 @@ class App(oreoOS.App):
         # ── STATE 2: PLAYLIST LIST ────────────────────────────────────────
         if self._tree_state == "PLAYLISTS":
             pls = self._playlists_cache
-            if not pls:
-                d.text("No Playlists Found", card_x + 40, card_y + 50, COL_MUTED)
-                d.text("Press B to go back", card_x + 40, card_y + 70, COL_SPOTIFY)
+            if self._tree_loading and not pls:
+                d.text("Loading Playlists...", card_x + 36, card_y + 50, COL_SPOTIFY)
+                d.text("Fetching from Spotify...", card_x + 36, card_y + 70, COL_MUTED)
+            elif not pls:
+                d.text("No Playlists Found", card_x + 36, card_y + 50, COL_MUTED)
+                d.text("Create one in Spotify", card_x + 36, card_y + 70, COL_SPOTIFY)
+                d.text("Press B for Library", card_x + 36, card_y + 90, COL_MUTED)
             else:
                 row_h = 34
                 vis_count = 5
@@ -1013,7 +1057,8 @@ class App(oreoOS.App):
 
                     # Track count
                     t_cnt = pl.get("tracks_count", 0)
-                    d.text(f"{t_cnt} tracks", rx + 24, ry + 20, COL_SPOTIFY if is_sel else COL_MUTED)
+                    owner = _clean_text(pl.get("owner", "Spotify"))[:12]
+                    d.text(f"{t_cnt} tracks / {owner}", rx + 24, ry + 20, COL_SPOTIFY if is_sel else COL_MUTED)
 
                 # Scrollbar
                 if len(pls) > vis_count:
@@ -1030,8 +1075,12 @@ class App(oreoOS.App):
 
         # ── STATE 3: TRACK LIST (Inside Category or Playlist) ─────────────
         tracks = self._current_track_list
-        if not tracks:
-            d.text("Loading tracks...", card_x + 40, card_y + 50, COL_SPOTIFY)
+        if self._tree_loading and not tracks:
+            d.text("Loading Tracks...", card_x + 36, card_y + 50, COL_SPOTIFY)
+            d.text("Fetching playlist...", card_x + 36, card_y + 70, COL_MUTED)
+        elif not tracks:
+            d.text("Playlist is empty", card_x + 36, card_y + 50, COL_MUTED)
+            d.text("Press B to go back", card_x + 36, card_y + 70, COL_SPOTIFY)
         else:
             row_h = 34
             visible_count = 5
