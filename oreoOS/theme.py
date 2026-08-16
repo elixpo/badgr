@@ -49,6 +49,8 @@ def get_perceived_luminance(r, g, b):
     """Returns integer perceived luminance (0..255)."""
     return (299 * int(r) + 587 * int(g) + 114 * int(b)) // 1000
 
+CONTRAST_LUM_THRESHOLD = 170
+
 
 # ── Theme Definition & Design Tokens ─────────────────────────────────────────
 
@@ -75,7 +77,7 @@ class Theme:
             self.status_text_rgb = status_text
         else:
             lum = get_perceived_luminance(*self.status_rgb)
-            self.status_text_rgb = (24, 24, 32) if lum >= 175 else (255, 255, 255)
+            self.status_text_rgb = (24, 24, 32) if lum >= CONTRAST_LUM_THRESHOLD else (255, 255, 255)
             
         self.status_accent_rgb = status_accent if status_accent is not None else gold
         self.dock_bg_rgb       = dock_bg if dock_bg is not None else card
@@ -84,7 +86,7 @@ class Theme:
         )
         self.sel_border_rgb    = sel_border if sel_border is not None else primary
         self.sel_text_rgb      = sel_text if sel_text is not None else (
-            primary if not is_dark and get_perceived_luminance(*primary) < 170 else (
+            primary if not is_dark and get_perceived_luminance(*primary) < CONTRAST_LUM_THRESHOLD else (
                 primary if is_dark and get_perceived_luminance(*primary) > 80 else text_bright
             )
         )
@@ -268,8 +270,8 @@ def derive_custom_theme(r, g, b):
     gold_rgb = _hsv_to_rgb((h + 50)  % 360, max(0.6, min(0.85, s)), max(0.8, min(1.0, v)))
     
     # Automatic contrast text for status bar
-    status_text = (24, 24, 32) if lum >= 170 else (255, 255, 255)
-    status_accent = (int(r * 0.7), int(g * 0.7), int(b * 0.7)) if lum >= 170 else (
+    status_text = (24, 24, 32) if lum >= CONTRAST_LUM_THRESHOLD else (255, 255, 255)
+    status_accent = (int(r * 0.7), int(g * 0.7), int(b * 0.7)) if lum >= CONTRAST_LUM_THRESHOLD else (
         min(255, int(r * 1.3 + 30)), min(255, int(g * 1.3 + 30)), min(255, int(b * 1.3 + 30))
     )
 
@@ -310,7 +312,7 @@ def derive_custom_theme(r, g, b):
         muted2 = (200, 160, 140)
         dock_sel = (min(255, 235 + int(r * 0.08)), min(255, 215 + int(g * 0.08)), min(255, 185 + int(b * 0.08)))
         sel_border = (r, g, b)
-        sel_text = (r, g, b) if lum < 170 else (38, 38, 48)
+        sel_text = (r, g, b) if lum < CONTRAST_LUM_THRESHOLD else (38, 38, 48)
         is_dark = False
 
     return Theme(

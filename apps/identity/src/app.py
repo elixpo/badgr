@@ -1,6 +1,6 @@
 import oreoOS
 from oreoOS import api, theme, widgets
-from .qr import QRCode
+from oreoOS.qr import QRCode
 
 SW = api.SCREEN_W  # 320
 SH = api.SCREEN_H  # 240

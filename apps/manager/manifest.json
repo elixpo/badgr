@@ -5,5 +5,6 @@
   "version": "1.0.0",
   "icon": "manager_icon.png",
   "author": "sea-deep",
+  "color": "#4CAF50",
   "category": "Tools"
 }

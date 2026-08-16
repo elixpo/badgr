@@ -16,6 +16,11 @@ class App:
 
     name = "unnamed"
     author = "sea-deep"
+    SHOW_LOADING = True
+    FULLSCREEN   = False
+    NO_HEADER    = False
+    CONSUMES_C   = False
+    HEADER_TITLE = None
 
     def on_enter(self, os):
         self.os = os
@@ -44,3 +49,6 @@ class App:
 
     def on_button_release(self, btn):
         pass
+
+    def on_home_press(self):
+        return False

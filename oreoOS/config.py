@@ -58,7 +58,10 @@ DEBUG             = _env.get("DEBUG", "1").lower() in ("1", "true", "yes")
 def get(key, default=""):
     """Unified config & secrets getter across desktop emulator (.env) & hardware (secrets.py)."""
     if key in _env and _env[key] != "":
-        return _env[key]
+        val = _env[key]
+        if isinstance(default, bool):
+            return str(val).lower() in ("1", "true", "yes")
+        return val
     val = globals().get(key, default)
     return default if val is None else val
 

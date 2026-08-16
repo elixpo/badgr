@@ -14,6 +14,17 @@ except ImportError:
     def abstractmethod(f):
         return f
 
+import time
+try:
+    ticks_ms = time.ticks_ms
+    ticks_diff = time.ticks_diff
+except AttributeError:
+    def ticks_ms():
+        return int(time.time() * 1000)
+    
+    def ticks_diff(a, b):
+        return a - b
+
 
 # ---------- Display geometry ----------
 SCREEN_W = 320   # landscape 320×240

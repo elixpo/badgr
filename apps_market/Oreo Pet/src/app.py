@@ -15,16 +15,12 @@ Controls:
 """
 
 import time
+import gc
 import oreoOS
 from oreoOS import api
 from oreoOS import theme, widgets
 
-try:
-    _ticks_ms = time.ticks_ms
-    _ticks_diff = time.ticks_diff
-except AttributeError:
-    _ticks_ms = lambda: int(time.time() * 1000)
-    _ticks_diff = lambda a, b: a - b
+from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -206,9 +202,14 @@ class App(oreoOS.App):
         self._sleeping    = False
         self._hearts      = []
         self._dirty       = True
+        gc.collect()
 
     def on_exit(self):
         _save_state(self._hunger, self._happy, self._health)
+        self._sprites.clear()
+        self._fallback = None
+        self._heart_spr = None
+        gc.collect()
 
     def on_button_press(self, btn):
         if btn == api.BTN_A:

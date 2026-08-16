@@ -38,24 +38,11 @@ from oreoOS import api, theme, widgets
 try:
     from .spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
     from .qr import QRCode
-except Exception:
-    try:
-        from apps_market.spotify.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
-        from apps_market.spotify.src.qr import QRCode
-    except Exception:
-        try:
-            from apps.spotify.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
-            from apps.spotify.src.qr import QRCode
-        except Exception:
-            from apps_market.Music.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
-            from apps_market.Music.src.qr import QRCode
+except ImportError:
+    from apps_market.spotify.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
+    from apps_market.spotify.src.qr import QRCode
 
-try:
-    _ticks_ms = time.ticks_ms
-    _ticks_diff = time.ticks_diff
-except AttributeError:
-    _ticks_ms = lambda: int(time.time() * 1000)
-    _ticks_diff = lambda a, b: a - b
+from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -95,7 +82,7 @@ def _is_wifi_up():
 
 
 def _get_manifest_name():
-    for p in ("apps/Music/manifest.json", "apps_market/Music/manifest.json"):
+    for p in ("apps/spotify/manifest.json", "apps_market/spotify/manifest.json"):
         try:
             import json
             with open(p) as f:

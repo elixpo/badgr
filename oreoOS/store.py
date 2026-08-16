@@ -6,6 +6,8 @@ try:
     import json as _json
 except ImportError:
     _json = None
+
+from oreoOS import storage
 try:
     import socket as _socket
     import ssl    as _ssl
@@ -272,31 +274,7 @@ def _ensure_dir(path):
 
 
 def _rm_tree(path):
-    """rm -rf — robust cross-platform recursive directory deletion."""
-    try:
-        import shutil
-        shutil.rmtree(path)
-        return True
-    except Exception:
-        pass
-
-    try:
-        for f in _os.listdir(path):
-            child = path + "/" + f
-            try:
-                if _isdir(child):
-                    _rm_tree(child)
-                else:
-                    _os.remove(child)
-            except Exception:
-                pass
-        try:
-            _os.rmdir(path)
-        except Exception:
-            pass
-    except Exception:
-        pass
-    return not _exists(path)
+    return storage.rm_tree(path)
 
 
 

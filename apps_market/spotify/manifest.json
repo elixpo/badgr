@@ -3,7 +3,7 @@
   "description": "Stream & control Spotify playback with live album cover art photo sync, scrubber, and cloud PIN pairing.",
   "type": "app",
   "version": "1.1.0",
-  "icon": "music_icon.png",
+  "icon": "spotify_icon.png",
   "author": "sea-deep",
   "color": "#1DB954",
   "category": "Tools"

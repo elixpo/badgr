@@ -217,6 +217,15 @@ class App(oreoOS.App):
                 self._imu.sleep()
             except Exception:
                 pass
+        self._spr_player = None
+        self._spr_crash = None
+        self._spr_enemy_a = None
+        self._spr_enemy_b = None
+        self._spr_tree = None
+        self._spr_road = None
+        self._enemies = []
+        import gc
+        gc.collect()
 
     def _save_mode(self):
         try:

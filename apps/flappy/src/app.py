@@ -602,4 +602,8 @@ class App(oreoOS.App):
             self._center_text(d, "Press B to resume", 130, scale=2)
 
     def on_exit(self):
-        pass
+        self._scenery = None
+        self._panda = None
+        self._obstacles = []
+        import gc
+        gc.collect()

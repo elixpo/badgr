@@ -12,15 +12,8 @@ and the look is consistent.
 
 from oreoOS import api, pixelfont
 from oreoOS import theme
-
-try:
-    import time as _time
-    _ticks_ms = _time.ticks_ms
-    _ticks_diff = _time.ticks_diff
-except (ImportError, AttributeError):
-    import time as _time
-    _ticks_ms = lambda: int(_time.time() * 1000)
-    _ticks_diff = lambda a, b: a - b
+import time as _time
+from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
 
 HEADER_H = 26
 HINT_H   = 16

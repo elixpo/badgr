@@ -154,3 +154,45 @@ def usage():
         bks["misc"]["bytes"] = used - (bks["system"]["bytes"] + bks["apps"]["bytes"] + bks["gallery"]["bytes"])
 
     return {"stats": stats, "buckets": bks}
+
+
+def rm_tree(path):
+    """rm -rf — robust cross-platform recursive directory deletion."""
+    try:
+        import shutil
+        shutil.rmtree(path)
+        return True
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    if os is None:
+        return False
+
+    try:
+        entries = os.listdir(path)
+    except Exception:
+        return True
+
+    for entry in entries:
+        full = path + "/" + entry
+        try:
+            st = os.stat(full)
+            if (st[0] & 0x4000) != 0:
+                rm_tree(full)
+            else:
+                os.remove(full)
+        except Exception:
+            pass
+
+    try:
+        os.rmdir(path)
+    except Exception:
+        pass
+
+    try:
+        os.stat(path)
+        return False
+    except OSError:
+        return True

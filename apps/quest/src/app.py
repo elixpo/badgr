@@ -98,6 +98,8 @@ class App(oreoOS.App):
             self._os.settings_set("ir_freq_idx", self._send_freq)
         except Exception:
             pass
+        import gc
+        gc.collect()
 
     # ── RX plumbing ─────────────────────────────────────────────────────
     def _start_rx(self):

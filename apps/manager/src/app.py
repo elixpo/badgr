@@ -26,14 +26,9 @@ except ImportError:
 import json
 import time
 import oreoOS
-from oreoOS import api, theme, widgets
+from oreoOS import api, theme, widgets, storage
 
-try:
-    _ticks_ms = time.ticks_ms
-    _ticks_diff = time.ticks_diff
-except AttributeError:
-    _ticks_ms = lambda: int(time.time() * 1000)
-    _ticks_diff = lambda a, b: a - b
+from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -89,35 +84,7 @@ def _calc_dir_footprint(path):
 
 
 def _rm_tree_safe(path):
-    """Recursively remove a directory and all its contents safely on MicroPython & CPython."""
-    try:
-        import shutil
-        shutil.rmtree(path)
-        return True
-    except Exception:
-        pass
-
-    try:
-        entries = os.listdir(path)
-    except Exception:
-        return True
-
-    for entry in entries:
-        full = path + "/" + entry
-        try:
-            st = os.stat(full)
-            if (st[0] & 0x4000) != 0:
-                _rm_tree_safe(full)
-            else:
-                os.remove(full)
-        except Exception:
-            pass
-
-    try:
-        os.rmdir(path)
-    except Exception:
-        pass
-    return True
+    return storage.rm_tree(path)
 
 
 def _get_flash_stats():
@@ -155,6 +122,11 @@ class App(oreoOS.App):
     CONSUMES_C = True
 
     def on_enter(self, os_obj):
+        if gc:
+            try:
+                gc.collect()
+            except Exception:
+                pass
         self._os = os_obj
         self._tab = 0       # 0 = Apps, 1 = Diagnostics & Storage
         self._sel = 0       # Selected app index in list

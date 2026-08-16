@@ -298,6 +298,7 @@ class App(oreoOS.App):
     def on_exit(self):
         """Free weather panda sprites and sweep GC on exit."""
         self._pandas = {}
+        self._bg = None
         try:
             import gc
             gc.collect()

@@ -26,19 +26,24 @@ firmware.bin
 .secrets_tmp.py
 secrets.py
 *.swp
-*.env
-# Runtime state and highscores
-*.txt
-!apps/commits/cache.txt
 
-# Store downloads, caches & non-stock market apps installed locally
+# Environment & secrets
+*.env
+!.env.example
+
+# Runtime state, caches & highscores
+*.txt
+state_*.json
+store_cache.json
+
+# Store downloads & non-stock market apps installed locally
 apps/Colors/
 apps/Oreo Pet/
-apps/Music/
-store_cache.json
+apps/spotify/
+apps/doom/
 store_icons/
 store_details/
-state_pet.txt
-state_spotify.json
-state_*.json
 
+# Large binary assets (fetch separately or use LFS)
+apps_market/doom/assets/*.wad
+apps_market/doom/src/*.so

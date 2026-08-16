@@ -25,12 +25,7 @@ import time
 import oreoOS
 from oreoOS import api, theme, widgets
 
-try:
-    _ticks_ms = time.ticks_ms
-    _ticks_diff = time.ticks_diff
-except AttributeError:
-    _ticks_ms = lambda: int(time.time() * 1000)
-    _ticks_diff = lambda a, b: a - b
+from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
