@@ -371,9 +371,12 @@ def show_splash(os_obj):
         if elapsed >= TOTAL_MS:
             break
 
-        # Background — paint while the logo is dropping to avoid smears,
-        # then lock bg_drawn once the mascot has settled at rest position.
-        p_logo = _phase(elapsed, 0.04, 0.21)
+        # Background — paint while the logo and text are animating,
+        # then lock bg_drawn once the static text and settled mascot are on screen.
+        p_logo  = _phase(elapsed, 0.04, 0.21)
+        p_title = _phase(elapsed, 0.21, 0.33)
+        p_tag   = _phase(elapsed, 0.31, 0.40)
+        p_bar   = _phase(elapsed, 0.40, 0.81)
 
         if not bg_drawn:
             if bg:
@@ -381,11 +384,10 @@ def show_splash(os_obj):
                 d.blit(data, 0, 0, bw, bh)
             else:
                 _draw_procedural_bg(d)
-            if p_logo >= 1.0 and getattr(sys, "platform", "") in ("esp32", "rp2"):
+            if p_tag >= 1.0 and getattr(sys, "platform", "") in ("esp32", "rp2"):
                 bg_drawn = True
 
         # ── logo: slides down from y=-mh to y=_LOGO_REST_Y (ease-out cubic)
-        p_logo = _phase(elapsed, 0.04, 0.21)
         if p_logo > 0:
             mascot = _get_mascot()
             y      = int(-_MH + (_LOGO_REST_Y + _MH) * (1 - (1 - p_logo) ** 3))
@@ -398,19 +400,18 @@ def show_splash(os_obj):
             else:
                 d.rect((SW - _MW) // 2, y, _MW, _MH, theme.PRIMARY, fill=True)
 
-        # ── title: types in, scale=3 bright white ──────────────────────────
-        p_title = _phase(elapsed, 0.21, 0.33)
+        # ── title: types in at fixed centered origin, scale=3 bright white ─
         if p_title > 0:
             n = max(1, int(p_title * len(TITLE)))
-            _draw_text_centered(d, TITLE[:n], _TITLE_Y, api.WHITE, scale=3)
+            total_w = len(TITLE) * 24
+            x0 = (SW - total_w) // 2
+            d.text(TITLE[:n], x0, _TITLE_Y, api.WHITE, scale=3)
 
         # ── tagline: appears once title finishes typing ────────────────────
-        p_tag = _phase(elapsed, 0.31, 0.40)
         if p_tag > 0:
             _draw_text_centered(d, TAGLINE, _TAGLINE_Y, theme.GOLD, scale=2)
 
         # ── loading bar ────────────────────────────────────────────────────
-        p_bar = _phase(elapsed, 0.40, 0.81)
         if p_bar > 0:
             d.rect(_BAR_X, _BAR_Y, _BAR_W, 5, api.rgb(80, 60, 60), fill=True)
             filled = max(2, int(p_bar * _BAR_W))
