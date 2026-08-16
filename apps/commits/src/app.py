@@ -55,11 +55,9 @@ CACHE_PATH = "apps/commits/cache.txt"
 
 
 def _fetch_contributions(user):
-    """Return (levels[], counts[], dates[]) or (None, None, None) on failure.
-
-    `dates` is the parallel list of ISO yyyy-mm-dd strings parsed from the
-    SVG (so the app can show "from X to Y" without computing calendar math).
-    """
+    """Return (levels[], counts[], dates[]) in true chronological week-by-week order."""
+    if not user:
+        return None, None, None
     try:
         try:
             import urequests as _req
@@ -70,60 +68,52 @@ def _fetch_contributions(user):
         body = r.text
         r.close()
 
-        # data-level="N" → levels[]
-        levels = []
-        i = 0
-        while True:
-            i = body.find('data-level="', i)
-            if i < 0:
-                break
-            i += 12
-            j = body.find('"', i)
-            if j < 0:
-                break
-            try:
-                levels.append(int(body[i:j]))
-            except ValueError:
-                levels.append(0)
-            i = j
-        if not levels:
+        weeks = 53
+        days = 7
+        matrix = [[0 for _ in range(days)] for _ in range(weeks)]
+        dates_matrix = [["" for _ in range(days)] for _ in range(weeks)]
+        counts_matrix = [[0 for _ in range(days)] for _ in range(weeks)]
+
+        import re
+        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', body, re.DOTALL)
+        day_idx = 0
+        for row in rows:
+            cells = re.findall(r'<td[^>]*data-date=\"([^\"]+)\"[^>]*data-level=\"([^\"]+)\"[^>]*>(.*?)</td>', row, re.DOTALL)
+            if not cells:
+                cells = re.findall(r'<td[^>]*data-level=\"([^\"]+)\"[^>]*data-date=\"([^\"]+)\"[^>]*>(.*?)</td>', row, re.DOTALL)
+                cells = [(d, l, c) for l, d, c in cells]
+            if not cells:
+                continue
+
+            for week_idx, (d_str, l_str, inner) in enumerate(cells):
+                if week_idx < weeks and day_idx < days:
+                    try:
+                        level = int(l_str)
+                    except ValueError:
+                        level = 0
+
+                    cnt_match = re.search(r'([0-9]+)\s+contribution', inner)
+                    cnt = int(cnt_match.group(1)) if cnt_match else (1 if level > 0 else 0)
+
+                    matrix[week_idx][day_idx] = level
+                    dates_matrix[week_idx][day_idx] = d_str
+                    counts_matrix[week_idx][day_idx] = cnt
+            day_idx += 1
+
+        if day_idx == 0:
             return None, None, None
 
-        # data-date="yyyy-mm-dd" → dates[]
-        dates = []
-        i = 0
-        while True:
-            i = body.find('data-date="', i)
-            if i < 0:
-                break
-            i += 11
-            j = body.find('"', i)
-            if j < 0:
-                break
-            dates.append(body[i:j])
-            i = j
-        while len(dates) < len(levels):
-            dates.append("")
+        # Flatten chronologically by week (52 weeks x 7 days)
+        flat_levels = []
+        flat_counts = []
+        flat_dates = []
+        for w in range(min(52, len(matrix))):
+            for d in range(7):
+                flat_levels.append(matrix[w][d])
+                flat_counts.append(counts_matrix[w][d])
+                flat_dates.append(dates_matrix[w][d])
 
-        # Tooltip text → per-day counts (best effort).
-        counts = []
-        k = 0
-        for _ in range(len(levels)):
-            j = body.find("contribution", k)
-            if j < 0:
-                break
-            seg = body[max(0, j - 12):j]
-            digits = ""
-            for ch in reversed(seg):
-                if ch.isdigit():
-                    digits = ch + digits
-                elif digits:
-                    break
-            counts.append(int(digits) if digits else 0)
-            k = j + 12
-        while len(counts) < len(levels):
-            counts.append(0)
-        return levels, counts, dates
+        return flat_levels, flat_counts, flat_dates
     except Exception:
         return None, None, None
 
