@@ -76,8 +76,12 @@ def _start_hot_reloader():
             for d in watch_dirs:
                 if not os.path.exists(d): continue
                 for root, dirs, files in os.walk(d):
+                    # Ignore pycache and virtual environments
+                    if '__pycache__' in root or '.venv' in root:
+                        continue
                     for f in files:
-                        if f.endswith('.py') or f.endswith('.json') or f.endswith('.txt'):
+                        # Only watch python source code and app manifests — ignore runtime caches/state
+                        if f.endswith('.py') or f == 'manifest.json':
                             try:
                                 m = os.path.getmtime(os.path.join(root, f))
                                 if m > max_m: max_m = m
