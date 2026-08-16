@@ -498,14 +498,19 @@ class App(oreoOS.App):
                             except Exception:
                                 self._cover_art = None
                     else:
-                        if not active:
-                            self._is_playing = False
-                            self._title = state.get("title", "No Active Device")
-                            self._artist = state.get("artist", "Open Spotify on phone/PC")
-                            self._album = "Spotify Connect"
-                            self._cover_art = None
-                            self._progress = 0.0
-                            self._duration = 0.0
+                        # Idle / Paused / Dormant Session: Retain last known track metadata and set PAUSED
+                        self._is_playing = False
+                        if state.get("device_name"):
+                            self._device_name = state.get("device_name")
+                        # If cold start and title is still placeholder, load first liked or library track
+                        if self._title in ("Spotify Connect", "No Active Device", ""):
+                            liked_tracks = self._folder_tracks_cache.get("liked", [])
+                            if liked_tracks:
+                                first = liked_tracks[0]
+                                self._title = _clean_text(first["title"])
+                                self._artist = _clean_text(first["artist"])
+                                self._album = _clean_text(first["album"])
+                                self._duration = first.get("duration", 180)
             except Exception:
                 pass
             finally:

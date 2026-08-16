@@ -401,21 +401,48 @@ class SpotifyClient:
             }
 
         if status == 204 or not body:
+            devices = self.get_devices()
+            dev_name = "Spotify (Ready)"
+            if devices:
+                for d in devices:
+                    if d.get("is_active"):
+                        dev_name = d.get("name", dev_name)
+                        break
+                else:
+                    dev_name = devices[0].get("name", dev_name)
+
             return {
                 "connected":   True,
                 "active":      False,
                 "is_playing":  False,
-                "title":       "No Active Device",
-                "artist":      "Open Spotify on phone/PC",
-                "album":       "Spotify Connect",
+                "title":       "",
+                "artist":      "",
+                "album":       "",
                 "image_url":   "",
                 "duration_s":  0,
                 "progress_s":  0,
                 "volume":      70,
-                "device_name": "No Active Device",
+                "device_name": dev_name,
                 "shuffle":     False,
                 "repeat":      "off"
             }
+
+    def get_devices(self):
+        """Fetch list of available Spotify devices."""
+        if not self.token and not self.refresh_access_token():
+            return []
+        headers = {"Authorization": "Bearer " + str(self.token)}
+        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
+        if status == 401 and self.refresh_access_token():
+            headers = {"Authorization": "Bearer " + str(self.token)}
+            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
+        if status == 200 and body:
+            try:
+                data = _json.loads(body.decode('utf-8'))
+                return data.get("devices", []) or []
+            except Exception:
+                pass
+        return []
 
         if status == 200 and body:
             try:
