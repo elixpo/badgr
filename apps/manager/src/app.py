@@ -40,8 +40,13 @@ CARD_GAP = 4
 VISIBLE_CARDS = 4
 LIST_TOP_Y = HEADER_H + TAB_H + 4
 
-# Core OS apps protected from uninstallation
-PROTECTED_APPS = ("launcher", "settings", "store", "manager", "about")
+# Core OS pre-installed apps protected from uninstallation
+PROTECTED_APPS = (
+    "launcher", "settings", "store", "manager", "about",
+    "Colors", "identity", "commits", "weather", "wifi", "bt",
+    "updates", "badge", "gestures", "gamepad", "storage",
+    "flappy", "gallery", "quest", "racer", "reader", "snake"
+)
 
 
 def _format_size(num_bytes):
@@ -347,9 +352,9 @@ class App(oreoOS.App):
             app_dir = self._detail_app["dir"]
             if app_dir:
                 app_dir = os.path.basename(app_dir.rstrip("/"))
-            if not app_dir or app_dir == '..':
+            if not app_dir or app_dir == '..' or app_dir in PROTECTED_APPS or self._detail_app.get("is_system"):
                 self._mode = "LIST"
-                self._toast_msg = "Invalid app dir"
+                self._toast_msg = "Cannot remove system app"
                 self._toast_until = _ticks_ms() + 2500
                 self._dirty = True
                 return

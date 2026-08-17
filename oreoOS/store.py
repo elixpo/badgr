@@ -730,10 +730,22 @@ def install(name):
         sys._store_installing = False
 
 
+SYSTEM_BUILTIN_APPS = (
+    "launcher", "settings", "store", "manager", "about",
+    "Colors", "identity", "commits", "weather", "wifi", "bt",
+    "updates", "badge", "gestures", "gamepad", "storage",
+    "flappy", "gallery", "quest", "racer", "reader", "snake"
+)
+
+
 def _install_internal(name):
     """Install an app to `apps/<name>/`. Checks local `apps_market/<name>/`
     first (for local dev/offline testing), otherwise downloads every file
     from GitHub. Returns True iff main.py landed cleanly."""
+    if name in SYSTEM_BUILTIN_APPS:
+        _bc("rejecting store install: '%s' is a core system app" % name)
+        return False
+
     target_root = APPS_DIR + "/" + name
     tmp_root = APPS_DIR + "/.tmp_" + name
 

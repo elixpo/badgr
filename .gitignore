@@ -33,8 +33,14 @@ secrets.py
 
 # Runtime state, caches & highscores
 *.txt
+state_*
 state_*.json
 store_cache.json
+settings.json
+wifi.json
+.savegame/
+.default.cfg
+apps/.tmp_*
 
 # Store downloads & non-stock market apps installed locally
 apps/Oreo Pet/
