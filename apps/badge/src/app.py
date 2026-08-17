@@ -312,7 +312,7 @@ class App(oreoOS.App):
 
         # 1. Prominent Avatar
         av_cx = SW // 2
-        av_cy = cy + 10 + av_sz // 2
+        av_cy = cy + 6 + av_sz // 2
 
         _filled_circle(d, av_cx, av_cy, av_sz // 2 + 4, theme.PRIMARY)
         if data:
@@ -323,7 +323,7 @@ class App(oreoOS.App):
             d.text(letter, av_cx - 12, av_cy - 12, theme.PRIMARY, scale=3)
 
         # 2. Maximum Visibility Name (Scale 3)
-        curr_y = av_cy + av_sz // 2 + 10
+        curr_y = av_cy + av_sz // 2 + 8
         name_line = p["name"]
 
         # Determine scale based on length to ensure it fits horizontally
@@ -339,15 +339,22 @@ class App(oreoOS.App):
             d.text(line, (SW - lw) // 2, curr_y, theme.TEXT_BRIGHT, scale=scale)
             curr_y += (10 * scale) + 4
 
-        curr_y += 4
+        curr_y += 2
 
-        # 3. Designation / Affiliation (High Contrast Gold)
+        # 3. GitHub @login handle
+        if p["login"]:
+            log_line = "@" + p["login"]
+            lw = len(log_line) * 8
+            d.text(log_line, (SW - lw) // 2, curr_y, theme.TEAL)
+            curr_y += 14
+
+        # 4. Designation / Affiliation (High Contrast Gold)
         if p["designation"]:
-            desig_wrapped = _wrap(p["designation"], 24)[:2]
+            desig_wrapped = _wrap(p["designation"], 18)[:2]
             for ln in desig_wrapped:
-                lw = len(ln) * 8
-                d.text(ln, (SW - lw) // 2, curr_y, theme.GOLD)
-                curr_y += 12
+                lw = len(ln) * 16
+                d.text(ln, (SW - lw) // 2, curr_y, theme.GOLD, scale=2)
+                curr_y += 20
             curr_y += 4
 
         # 4. GitHub Stats / Network Pill
