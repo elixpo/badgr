@@ -118,10 +118,10 @@ Bluetooth and WiFi don't get their own drawer tiles — they live inside **Setti
 
 ### 📦 App Market — install / uninstall extras on-device
 
-Apps that ship under [`apps_market/`](apps_market/) are **optional**. They aren't in the launcher drawer until you install them. The default catalogue today: **Color Picker** and **Elixpo Pet** — both are good demos but don't pull their weight as always-on tiles.
+Apps that ship under [`apps_market/`](apps_market/) are **optional**. They aren't in the launcher drawer until you install them. The default catalogue today includes **Spotify**, **DOOM**, **Oreo Pet**, and **Color Picker**.
 
 Open the **App Market** tile, scroll to the app you want, press **A**:
-- **INSTALL** → copies the tree from `/apps_market/<name>/` to `/apps/<name>/`. Next time you open the drawer the tile is there.
+- **INSTALL** → downloads and extracts the package into `badge_data/apps/<name>/`. Next time you open the drawer the tile is there.
 - **INSTALLED** → press **A** again to uninstall. The catalogue copy stays put so re-install is one tap.
 
 ```python
@@ -229,10 +229,10 @@ look better for titles and menus.
 
 ```python
 from oreoOS import cache
-profile, age = cache.load("apps/my_app/cache.txt", ttl_s=3600)
+profile, age = cache.load("badge_data/cache/my_app.txt", ttl_s=3600)
 if not profile or age > 3600:
     profile = my_fetch_function()
-    cache.save("apps/my_app/cache.txt", profile)
+    cache.save("badge_data/cache/my_app.txt", profile)
 ```
 
 Used by Badge + Commits to render instantly from disk and refresh in
@@ -537,4 +537,3 @@ With 💖 by [**Ayushman Bhattacharya**](https://github.com/Circuit-Overtime).
 Want to help, ship an app, sponsor a build, or just say hi - ✉️ **hello@elixpo.com**
 
 </div>
-

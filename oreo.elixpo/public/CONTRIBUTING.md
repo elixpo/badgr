@@ -40,7 +40,7 @@ The fastest path to a working app:
 cp -r app_templates apps/my_app       # minimal counter app, ready to run
 # OR start from snake — fully-split reference layout:
 #   cp -r apps/snake apps/my_app
-# edit apps/my_app/manifest.json — name, author, icon
+# edit apps/my_app/manifest.json — name, author, version, category, description, icon
 # edit apps/my_app/src/app.py    — your App class lives here
 python tools/deploy.py /dev/ttyACM0
 ```
@@ -68,7 +68,7 @@ are precious, and the install flow is one tap away.
 apps/my_app/
 ├── __init__.py            empty marker
 ├── main.py                3-line shim → re-exports App from src/
-├── manifest.json          name + version + icon + author
+├── manifest.json          name + version + author + category + description + icon
 ├── assets/                optional
 │   ├── raw/               source images you commit
 │   └── optimized/         baked RGB565 .py modules
@@ -96,7 +96,6 @@ import oreoOS
 from oreoOS import api, theme, widgets
 
 class App(oreoOS.App):
-    name = "My App"
 
     def on_enter(self, os):
         # one-shot setup. load sprites, restore state, calibrate sensors.

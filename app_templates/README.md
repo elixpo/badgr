@@ -20,8 +20,7 @@ python tools/deploy.py /dev/ttyACM0
 Open the **Apps** drawer on the badge and you'll see *Example*. Press
 **A** to increment the counter, **B** to decrement, **HOME** to exit.
 
-To rename it: edit the `name` field in `manifest.json` and `name =` on
-the `App` class in `src/app.py`. The on-device tile updates after the
+To rename it: edit the `name` field in `manifest.json`. The on-device tile updates after the
 next deploy.
 
 ---
@@ -31,7 +30,7 @@ next deploy.
 ```
 app_templates/
 ├── __init__.py            empty — makes the folder a Python package
-├── manifest.json          name, version, author, icon
+├── manifest.json          name, version, author, category, description, icon
 ├── main.py                3-line entry shim — re-exports App
 └── src/                   all real code lives here
     ├── __init__.py
@@ -63,7 +62,6 @@ optional except `draw`:
 
 ```python
 class App(oreoOS.App):
-    name = "My App"
 
     def on_enter(self, os):       # once, when the app is opened
         ...

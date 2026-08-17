@@ -151,7 +151,7 @@ takes one command.
 
 ```bash
 cp -r app_templates apps/my_app
-# Edit apps/my_app/manifest.json — name, author, icon
+# Edit apps/my_app/manifest.json — name, author, version, category, description, icon
 # Edit apps/my_app/src/app.py    — your logic
 ```
 
