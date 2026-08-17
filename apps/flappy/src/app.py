@@ -56,7 +56,12 @@ C_HI = api.rgb(255, 230, 80)
 
 # ── persistent high score ────────────────────────────────────────────────────
 
-HISCORE_PATH = "apps/flappy/hiscore.txt"
+try:
+    from oreoOS.config import get_state_path
+
+    HISCORE_PATH = get_state_path("saves/flappy_hiscore.txt")
+except Exception:
+    HISCORE_PATH = "badge_data/saves/flappy_hiscore.txt"
 
 
 def _load_hiscore():

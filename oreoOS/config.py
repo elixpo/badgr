@@ -140,7 +140,7 @@ def ensure_state_dirs():
     """Ensure badge_data root and state subdirectories exist."""
     import os
 
-    for sub in ("", "apps", "saves", "cache"):
+    for sub in ("", "apps", "saves", "cache", "documents"):
         p = get_state_path(sub)
         try:
             os.stat(p)

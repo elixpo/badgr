@@ -50,7 +50,12 @@ def _bucket_color(level):
     return api.rgb(r, g, b)
 
 
-CACHE_PATH = "apps/commits/cache.txt"
+try:
+    from oreoOS.config import get_state_path
+
+    CACHE_PATH = get_state_path("cache/commits_cache.txt")
+except Exception:
+    CACHE_PATH = "badge_data/cache/commits_cache.txt"
 
 
 def _fetch_contributions(user):

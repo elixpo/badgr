@@ -25,7 +25,12 @@ from oreoOS.api import ticks_ms as _ticks_ms
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-STATE_PATH = "state_pet.txt"
+try:
+    from oreoOS.config import get_state_path
+
+    STATE_PATH = get_state_path("saves/state_pet.txt")
+except Exception:
+    STATE_PATH = "badge_data/saves/state_pet.txt"
 
 # Per-second decay — slowed ~3× from the previous tune so the pet survives
 # a normal multi-day on-off cadence without auto-starving. At 0.00045 pt/s

@@ -80,7 +80,12 @@ C_TEXT = api.WHITE
 C_DIM = api.rgb(200, 180, 160)
 C_SHADOW = api.rgb(20, 30, 45)
 
-HI_PATH = "apps/racer/hi.txt"
+try:
+    from oreoOS.config import get_state_path
+
+    HI_PATH = get_state_path("saves/racer_hi.txt")
+except Exception:
+    HI_PATH = "badge_data/saves/racer_hi.txt"
 
 
 def _load_hi():

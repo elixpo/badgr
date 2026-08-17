@@ -28,6 +28,7 @@ SW = api.SCREEN_W
 SH = api.SCREEN_H
 
 DOCS_DIRS = (
+    "badge_data/documents",
     "documents",  # ← BT inbox (writable, .md/.txt land here)
     "apps/reader/assets",  # ← bundled / sideloaded via deploy.py
 )

@@ -22,7 +22,12 @@ except ImportError:
     time = None
 
 
-BOND_FILE = "bonds.json"
+try:
+    from oreoOS.config import get_state_path
+
+    BOND_FILE = get_state_path("bonds.json")
+except Exception:
+    BOND_FILE = "badge_data/bonds.json"
 BOND_CAP = 3
 
 

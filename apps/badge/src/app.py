@@ -156,7 +156,12 @@ class App(oreoOS.App):
     name = "Badge"
     SHOW_LOADING = False
 
-    CACHE_PATH = "apps/badge/cache.txt"
+    try:
+        from oreoOS.config import get_state_path
+
+        CACHE_PATH = get_state_path("cache/badge_cache.txt")
+    except Exception:
+        CACHE_PATH = "badge_data/cache/badge_cache.txt"
     CACHE_TTL = 3600  # 1 hour
 
     def __init__(self):
