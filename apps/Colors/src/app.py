@@ -238,8 +238,7 @@ class App(oreoOS.App):
             self._slots["CARD"] = preset.card_rgb
             self._slots["SEC"] = preset.teal_rgb
             self._slots["ACC"] = preset.gold_rgb
-            theme.set_preset(self._active_preset_id, save=True)
-            self._saved_msg = preset.name
+            self._saved_msg = "Preview: %s" % preset.name
             self._saved_flash = 1.5
             self._dirty = True
         elif btn == api.BTN_A:

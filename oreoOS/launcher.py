@@ -379,25 +379,32 @@ def run_app(os_obj, app):
                 # declares FULLSCREEN = True or NO_HEADER = True.
                 # When notification panel is active/sliding, it takes full
                 # precedence so the top bar is never drawn over notifications.
-                hide_top = (
+                hide_header = (
                     getattr(app, "FULLSCREEN", False)
                     or getattr(app, "NO_HEADER", False)
                     or getattr(app, "HIDE_HEADER", False)
                     or getattr(app, "HIDE_TOP", False)
                 )
+                hide_hint = (
+                    getattr(app, "FULLSCREEN", False)
+                    or getattr(app, "NO_HINT", False)
+                    or getattr(app, "HIDE_HINT", False)
+                )
                 panel_open = panel.is_active() or getattr(panel, "_t", 0.0) > 0.0
-                if not hide_top and not panel_open:
+                if not panel_open:
                     from oreoOS import widgets as _w_mod
 
-                    header_title = (
-                        getattr(app, "HEADER_TITLE", None) or getattr(app, "name", "").upper()
-                    )
-                    if header_title:
-                        _w_mod.draw_header(os_obj.display, header_title)
+                    if not hide_header:
+                        header_title = (
+                            getattr(app, "HEADER_TITLE", None) or getattr(app, "name", "").upper()
+                        )
+                        if header_title:
+                            _w_mod.draw_header(os_obj.display, header_title)
 
-                    hint_data = getattr(app, "hints", getattr(app, "hint", None))
-                    if hint_data:
-                        _w_mod.draw_hint(os_obj.display, hint_data)
+                    if not hide_hint:
+                        hint_data = getattr(app, "hints", getattr(app, "hint", None))
+                        if hint_data:
+                            _w_mod.draw_hint(os_obj.display, hint_data)
 
                 panel.draw(os_obj.display)
                 # Pair prompt is the topmost layer — drawn last so the
