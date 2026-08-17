@@ -322,6 +322,31 @@ def _walk(path):
     """Recursive list of every FILE under `path` in the repo. Returns
     [{path, download_url, size}] — used at install time."""
     out = []
+
+    # 1. Local fallback for development/offline testing
+    if _exists(path) and _isdir(path):
+        try:
+            for item in _os.listdir(path):
+                p = path + "/" + item
+                if _isdir(p):
+                    out.extend(_walk(p))
+                else:
+                    try:
+                        sz = _os.stat(p)[6]
+                    except Exception:
+                        sz = 0
+                    out.append(
+                        {
+                            "path": p,
+                            "download_url": "",
+                            "size": sz,
+                        }
+                    )
+            return out
+        except Exception:
+            pass
+
+    # 2. GitHub API
     items = _api(path)
     if not isinstance(items, list):
         return out
