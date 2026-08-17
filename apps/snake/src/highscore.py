@@ -5,7 +5,7 @@ directly — useful as a teaching example of how to keep I/O isolated
 from game logic.
 """
 
-HISCORE_PATH = "apps/snake/hiscore.txt"
+HISCORE_PATH = "badge_data/saves/snake_hiscore.txt"
 
 
 def load():
