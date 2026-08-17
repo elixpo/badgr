@@ -1,20 +1,40 @@
+"""Native Bluetooth Low Energy (BLE) mock for oreoSim.
+
+Provides desktop emulation for:
+  • BLE scanning (using Bleak when available, otherwise mock beacon generator)
+  • BLE advertising and GATT services registration
+  • oreoWare.bt compatibility
+"""
+
 import threading
 import asyncio
-from bleak import BleakScanner
 
-_loop = asyncio.new_event_loop()
-def _run_loop():
-    asyncio.set_event_loop(_loop)
-    _loop.run_forever()
+_HAS_BLEAK = False
+try:
+    from bleak import BleakScanner
+    _HAS_BLEAK = True
+except Exception:
+    _HAS_BLEAK = False
 
-_thread = threading.Thread(target=_run_loop, daemon=True)
-_thread.start()
+_loop = None
+_thread = None
+
+if _HAS_BLEAK:
+    try:
+        _loop = asyncio.new_event_loop()
+        def _run_loop():
+            asyncio.set_event_loop(_loop)
+            _loop.run_forever()
+
+        _thread = threading.Thread(target=_run_loop, daemon=True)
+        _thread.start()
+    except Exception:
+        _HAS_BLEAK = False
 
 _scan_results = []
 _scan_lock = threading.Lock()
 _is_scanning = False
 _scanner = None
-
 _active = False
 
 def is_active():
@@ -32,16 +52,18 @@ def active(val=None):
     return _active
 
 def init_from_config():
-    print("[NativeBT] Mocking init_from_config...")
+    pass
 
 def _detection_callback(device, advertisement_data):
     with _scan_lock:
+        name_bytes = advertisement_data.local_name.encode('utf-8') if advertisement_data.local_name else b''
+        addr_bytes = device.address.encode('utf-8') if hasattr(device, 'address') else b'00:11:22:33:44:55'
         _scan_results.append((
             0,
-            device.address.encode('utf-8'),
+            addr_bytes,
             0,
-            advertisement_data.rssi,
-            advertisement_data.local_name.encode('utf-8') if advertisement_data.local_name else b''
+            advertisement_data.rssi if hasattr(advertisement_data, 'rssi') else -55,
+            name_bytes
         ))
 
 def start_scan():
@@ -51,13 +73,23 @@ def start_scan():
     if _is_scanning:
         return
     _is_scanning = True
-    
-    async def _do_start():
-        global _scanner
-        _scanner = BleakScanner(detection_callback=_detection_callback)
-        await _scanner.start()
-        
-    asyncio.run_coroutine_threadsafe(_do_start(), _loop)
+
+    if _HAS_BLEAK and _loop:
+        try:
+            async def _do_start():
+                global _scanner
+                _scanner = BleakScanner(detection_callback=_detection_callback)
+                await _scanner.start()
+
+            asyncio.run_coroutine_threadsafe(_do_start(), _loop)
+            return
+        except Exception:
+            pass
+
+    # Fallback simulated badge peer discoveries for testing
+    with _scan_lock:
+        _scan_results.append((0, b'24:6F:28:11:22:33', 0, -48, b'OreoBadge_Alpha'))
+        _scan_results.append((0, b'24:6F:28:44:55:66', 0, -62, b'OreoBadge_QuestPeer'))
 
 def get_scan_results():
     with _scan_lock:
@@ -70,23 +102,26 @@ def stop_scan():
     if not _is_scanning:
         return
     _is_scanning = False
-    
-    async def _do_stop():
-        global _scanner
-        if _scanner:
-            await _scanner.stop()
-            _scanner = None
-            
-    asyncio.run_coroutine_threadsafe(_do_stop(), _loop)
+
+    if _HAS_BLEAK and _loop and _scanner:
+        try:
+            async def _do_stop():
+                global _scanner
+                if _scanner:
+                    await _scanner.stop()
+                    _scanner = None
+
+            asyncio.run_coroutine_threadsafe(_do_stop(), _loop)
+        except Exception:
+            pass
 
 def start_advertising(name):
-    print(f"[NativeBT] Advertising as {name} (Stubbed)")
+    pass
 
 def stop_advertising():
     pass
 
 def gatts_register_services(services):
-    print("[NativeBT] Registering GATT Services (Stubbed)")
     return ((10, 11, 12),)
 
 def gatts_write(handle, data):

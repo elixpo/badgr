@@ -1,6 +1,17 @@
-import subprocess
+"""Native WiFi and urequests networking mock for oreoSim.
+
+Provides high-fidelity emulation for:
+  • oreoWare.wifi subsystem
+  • urequests MicroPython HTTP client (get, post, put, delete, head, patch)
+  • network.WLAN MicroPython interface (STA_IF, AP_IF)
+"""
+
 import sys
+import subprocess
 import re
+import types
+import time
+import socket
 
 def _get_config_ssid():
     try:
@@ -48,7 +59,6 @@ def is_connected():
 def ip():
     if not is_connected(): return "0.0.0.0"
     try:
-        import socket
         host_ip = socket.gethostbyname(socket.gethostname())
         if host_ip and not host_ip.startswith("127."):
             return host_ip
@@ -122,7 +132,7 @@ def scan():
 
     try:
         if platform.startswith('linux'):
-            output = subprocess.check_output(['nmcli', '-t', '-f', 'SSID,SIGNAL,SECURITY', 'dev', 'wifi']).decode('utf-8')
+            output = subprocess.check_output(['nmcli', '-t', '-f', 'SSID,SIGNAL,SECURITY', 'dev', 'wifi'], stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
             for line in output.split('\n'):
                 if not line: continue
                 parts = line.split(':')
@@ -132,10 +142,9 @@ def scan():
                     rssi = int(parts[1]) - 100
                     sec = 3 if parts[2] and parts[2] != '--' else 0
                     networks.append((ssid, b'', 0, rssi, sec, 0))
-        
         elif platform == 'darwin':
             airport = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
-            output = subprocess.check_output([airport, '-s']).decode('utf-8')
+            output = subprocess.check_output([airport, '-s'], stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
             lines = output.split('\n')[1:]
             for line in lines:
                 if not line: continue
@@ -145,9 +154,8 @@ def scan():
                     rssi = int(match.group(3))
                     sec = 3 if 'WPA' in line or 'WEP' in line else 0
                     networks.append((ssid, b'', 0, rssi, sec, 0))
-        
         elif platform == 'win32':
-            output = subprocess.check_output(['netsh', 'wlan', 'show', 'networks', 'mode=bssid']).decode('utf-8', errors='ignore')
+            output = subprocess.check_output(['netsh', 'wlan', 'show', 'networks', 'mode=bssid'], stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
             current_ssid = None
             for line in output.split('\n'):
                 line = line.strip()
@@ -163,6 +171,126 @@ def scan():
                         networks.append((current_ssid, b'', 0, int(rssi), 3, 0))
                         current_ssid = None
     except Exception:
+        pass
+
+    if not networks:
         networks.append(("HostNetwork", b'', 0, -50, 3, 0))
+        networks.append(("OreoBadge_Guest", b'', 0, -68, 0, 0))
 
     return networks
+
+
+# ── MicroPython urequests Mock ───────────────────────────────────────────────
+class _MockResponse:
+    def __init__(self, req_res):
+        self._res = req_res
+        self.status_code = req_res.status_code
+        self.reason = req_res.reason
+        self.headers = dict(req_res.headers)
+        self.encoding = req_res.encoding or 'utf-8'
+        self._content = None
+
+    @property
+    def content(self):
+        if self._content is None:
+            self._content = self._res.content
+        return self._content
+
+    @property
+    def text(self):
+        return self._res.text
+
+    def json(self):
+        return self._res.json()
+
+    def close(self):
+        try:
+            self._res.close()
+        except Exception:
+            pass
+
+
+def _setup_urequests():
+    try:
+        import requests
+    except ImportError:
+        requests = None
+
+    ureq = types.ModuleType('urequests')
+
+    def _do_request(method, url, **kwargs):
+        if requests is None:
+            raise RuntimeError("Python 'requests' package required for oreoSim urequests mock")
+        # Map micro-python parameters
+        data = kwargs.pop('data', None)
+        json_data = kwargs.pop('json', None)
+        headers = kwargs.pop('headers', {})
+        timeout = kwargs.pop('timeout', 8.0)
+        res = requests.request(method, url, data=data, json=json_data, headers=headers, timeout=timeout, **kwargs)
+        return _MockResponse(res)
+
+    ureq.request = _do_request
+    ureq.get = lambda url, **k: _do_request('GET', url, **k)
+    ureq.post = lambda url, **k: _do_request('POST', url, **k)
+    ureq.put = lambda url, **k: _do_request('PUT', url, **k)
+    ureq.delete = lambda url, **k: _do_request('DELETE', url, **k)
+    ureq.head = lambda url, **k: _do_request('HEAD', url, **k)
+    ureq.patch = lambda url, **k: _do_request('PATCH', url, **k)
+
+    sys.modules['urequests'] = ureq
+
+
+# ── MicroPython network Module Mock ─────────────────────────────────────────
+def _setup_network():
+    net = types.ModuleType('network')
+    net.STA_IF = 0
+    net.AP_IF = 1
+    net.STAT_IDLE = 1000
+    net.STAT_CONNECTING = 1001
+    net.STAT_WRONG_PASSWORD = 202
+    net.STAT_NO_AP_FOUND = 201
+    net.STAT_CONNECT_FAIL = 203
+    net.STAT_GOT_IP = 1010
+
+    class MockWLAN:
+        def __init__(self, interface_id=0):
+            self.if_id = interface_id
+            self._active = True
+            self._connected = True
+
+        def active(self, is_act=None):
+            if is_act is not None:
+                self._active = bool(is_act)
+            return self._active
+
+        def isconnected(self):
+            return self._active and self._connected
+
+        def connect(self, ssid=None, key=None):
+            self._active = True
+            self._connected = True
+
+        def disconnect(self):
+            self._connected = False
+
+        def status(self, param=None):
+            return net.STAT_GOT_IP if self.isconnected() else net.STAT_IDLE
+
+        def ifconfig(self, config=None):
+            return (ip(), "255.255.255.0", "192.168.1.1", "8.8.8.8")
+
+        def scan(self):
+            return scan()
+
+        def config(self, *args, **kwargs):
+            if 'mac' in args:
+                return b'\x24\x6f\x28\xab\xcd\xef'
+            if 'essid' in kwargs:
+                return kwargs['essid']
+            return "HostNetwork"
+
+    net.WLAN = MockWLAN
+    sys.modules['network'] = net
+
+_setup_urequests()
+_setup_network()

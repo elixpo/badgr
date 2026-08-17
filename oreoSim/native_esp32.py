@@ -4,8 +4,10 @@ Accurately emulates:
   • Target Frame Rate: 30 FPS (~33.3ms budget, matching ST7789 SPI bus bandwidth).
   • Memory Model: ESP32-S3 8MB Octal PSRAM with 4.0 MB MicroPython heap pool.
   • Storage Model: 16MB SPI Flash with 8.0 MB LittleFS partition (4KB block size).
-  • MicroPython Runtime: gc.mem_free(), gc.mem_alloc(), gc.collect(), uos.statvfs, uos.uname.
+  • MicroPython Runtime: gc.mem_free(), gc.mem_alloc(), gc.collect(), uos.statvfs, uos.uname, uos.ilistdir.
   • Hardware Clock: 240 MHz dual-core Xtensa LX7 (machine.freq() == 240000000).
+  • Universal Path Normalization: Transparently maps LittleFS root paths (/apps, /oreoOS, etc.) to local repo.
+  • Complete Hardware Mocks: Pin, ADC, PWM, SPI, I2C, RMT, WDT, RTC, Timer, NVS.
 """
 
 import os
@@ -13,6 +15,7 @@ import sys
 import types
 import time
 import gc
+import builtins
 from collections import namedtuple
 
 # ── Hardware Specifications ───────────────────────────────────────────────────
@@ -29,29 +32,68 @@ FLASH_TOTAL_BYTES = 8 * 1024 * 1024 # 8,388,608 bytes
 FLASH_BLOCK_SIZE = 4096             # 4 KB LittleFS block size
 FLASH_TOTAL_BLOCKS = FLASH_TOTAL_BYTES // FLASH_BLOCK_SIZE  # 2048 blocks
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# ── Universal Path Normalization ──────────────────────────────────────────────
+_DEVICE_ROOT_PREFIXES = (
+    "apps", "apps_market", "assets", "oreoOS", "oreoWare",
+    "oreoSim", "documents", "store_icons", "store_details"
+)
+
+def normalize_sim_path(path):
+    """Map LittleFS absolute device paths (/apps/..., /state_*.json) to repo root."""
+    if not isinstance(path, (str, bytes)):
+        return path
+    if isinstance(path, bytes):
+        try:
+            path_str = path.decode('utf-8')
+            is_bytes = True
+        except Exception:
+            return path
+    else:
+        path_str = path
+        is_bytes = False
+
+    if path_str == "/" or path_str == "":
+        res = REPO_ROOT
+        return res.encode('utf-8') if is_bytes else res
+
+    if path_str.startswith("/") and not path_str.startswith(REPO_ROOT):
+        rel = path_str.lstrip("/")
+        first_segment = rel.split("/")[0] if "/" in rel else rel
+        if (first_segment in _DEVICE_ROOT_PREFIXES or
+            first_segment.startswith("state_") or
+            first_segment.startswith("store_") or
+            first_segment.startswith(".tmp_") or
+            first_segment.endswith(".json") or
+            first_segment.endswith(".txt") or
+            first_segment.endswith(".py") or
+            os.path.exists(os.path.join(REPO_ROOT, rel))):
+            res = os.path.join(REPO_ROOT, rel)
+            return res.encode('utf-8') if is_bytes else res
+
+    return path
+
+
 # ── Storage Emulation (LittleFS 8MB Partition) ──────────────────────────────────
 def _calculate_project_used_bytes():
     """Calculate realistic disk usage by summing project files."""
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     total_used = 0
     target_dirs = ['oreoOS', 'apps', 'apps_market', 'assets']
     for d in target_dirs:
-        dp = os.path.join(repo_root, d)
+        dp = os.path.join(REPO_ROOT, d)
         if os.path.exists(dp):
-            for root, _, files in os.walk(dp):
-                if '__pycache__' in root or '.venv' in root or '.git' in root or 'node_modules' in root:
-                    continue
+            for root, dirs, files in os.walk(dp):
+                dirs[:] = [dr for dr in dirs if dr not in ('__pycache__', '.venv', '.git', 'node_modules')]
                 for f in files:
                     fp = os.path.join(root, f)
                     try:
                         sz = os.path.getsize(fp)
-                        # Add LittleFS 4KB block alignment
                         blocks = max(1, (sz + FLASH_BLOCK_SIZE - 1) // FLASH_BLOCK_SIZE)
                         total_used += blocks * FLASH_BLOCK_SIZE
                     except OSError:
                         pass
-    # Add reserved state files / NVS buffer (approx 128 KB)
-    total_used += 128 * 1024
+    total_used += 128 * 1024  # Reserved state / NVS buffer
     return min(FLASH_TOTAL_BYTES - (1024 * 1024), total_used)
 
 def mock_statvfs(path="/"):
@@ -61,11 +103,9 @@ def mock_statvfs(path="/"):
     free_blocks = free_bytes // FLASH_BLOCK_SIZE
     used_blocks = FLASH_TOTAL_BLOCKS - free_blocks
     
-    # MicroPython statvfs tuple format:
-    # (f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax)
     return (
-        FLASH_BLOCK_SIZE,      # f_bsize
-        FLASH_BLOCK_SIZE,      # f_frsize
+        FLASH_BLOCK_SIZE,      # f_bsize (4096)
+        FLASH_BLOCK_SIZE,      # f_frsize (4096)
         FLASH_TOTAL_BLOCKS,    # f_blocks (2048)
         free_blocks,           # f_bfree
         free_blocks,           # f_bavail
@@ -76,13 +116,13 @@ def mock_statvfs(path="/"):
         255                    # f_namemax
     )
 
+
 # ── Memory & Heap Emulation (4MB PSRAM MicroPython Heap) ──────────────────────
 _allocated_heap = BASE_OS_HEAP
 
 def mem_alloc():
     """Return currently allocated bytes in simulated MicroPython heap."""
     global _allocated_heap
-    # Approximate based on loaded modules, display surfaces, and app data
     extra = len(sys.modules) * 2048
     return min(TOTAL_HEAP_BYTES - (128 * 1024), _allocated_heap + extra)
 
@@ -101,6 +141,7 @@ def collect():
     _allocated_heap = max(BASE_OS_HEAP, _allocated_heap - reclaimed)
     return reclaimed
 
+
 # ── Hardware & System Identity (ESP32-S3) ─────────────────────────────────────
 UnameResult = namedtuple('UnameResult', ['sysname', 'nodename', 'release', 'version', 'machine'])
 
@@ -109,10 +150,20 @@ def uname():
     return UnameResult(
         sysname='esp32',
         nodename='esp32',
-        release='1.22.0',
-        version='v1.22.0 on 2024-01-05',
+        release='1.28.0',
+        version='v1.28.0 on 2026-08-15',
         machine='ESP32S3 module (octal SPI) with ESP32S3'
     )
+
+
+# ── Hardware Emulation Setup ──────────────────────────────────────────────────
+_orig_open = builtins.open
+_orig_listdir = os.listdir
+_orig_stat = os.stat
+_orig_mkdir = os.mkdir
+_orig_remove = os.remove
+_orig_rmdir = os.rmdir
+_orig_rename = os.rename
 
 def setup_hardware_emulation():
     """Patch standard modules with realistic ESP32-S3 hardware mocks."""
@@ -122,64 +173,111 @@ def setup_hardware_emulation():
     impl_dict = {k: getattr(orig_impl, k) for k in dir(orig_impl) if not k.startswith("__")} if orig_impl else {}
     impl_dict.update({
         'name': 'micropython',
-        'version': (1, 22, 0),
+        'version': (1, 28, 0),
         '_machine': 'ESP32S3 module (octal SPI) with ESP32S3'
     })
     sys.implementation = types.SimpleNamespace(**impl_dict)
 
+    def _mock_print_exception(exc, file=sys.stderr):
+        import traceback
+        traceback.print_exception(type(exc), exc, exc.__traceback__, file=file)
+    sys.print_exception = _mock_print_exception
+
     # 2. Patch gc module
-    import gc
     gc.mem_free = mem_free
     gc.mem_alloc = mem_alloc
     gc.collect = collect
+    gc.threshold = lambda *a: 0
 
-    # 3. Patch os / uos statvfs, listdir, stat, and uname
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    _orig_listdir = os.listdir
-    _orig_stat = os.stat
+    # 3. Patch builtins.open to intercept LittleFS root paths
+    def mock_open(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+        normalized = normalize_sim_path(file)
+        # Ensure parent directories exist on write
+        if any(m in mode for m in ('w', 'a', '+')) and isinstance(normalized, str):
+            parent = os.path.dirname(normalized)
+            if parent and not os.path.exists(parent):
+                try:
+                    os.makedirs(parent, exist_ok=True)
+                except Exception:
+                    pass
+        return _orig_open(normalized, mode, buffering, encoding, errors, newline, closefd, opener)
 
+    builtins.open = mock_open
+
+    # 4. Patch os & uos functions with path normalization
     HOST_IGNORED = {'.git', '.venv', 'node_modules', '__pycache__', '.gemini', '.pytest_cache', 'build', 'dist', 'oreoSim', 'tools', 'oreo.elixpo'}
 
     def mock_listdir(path="."):
-        raw_list = []
-        if path == "/" or path == "" or path == "./":
-            raw_list = _orig_listdir(repo_root)
-        elif isinstance(path, str) and path.startswith("/") and not path.startswith(repo_root):
-            target = os.path.join(repo_root, path.lstrip("/"))
-            if os.path.exists(target):
-                raw_list = _orig_listdir(target)
-            else:
-                raw_list = _orig_listdir(path)
-        else:
-            raw_list = _orig_listdir(path)
-        return [entry for entry in raw_list if entry not in HOST_IGNORED and not entry.endswith('.pyc')]
+        norm_path = normalize_sim_path(path)
+        try:
+            raw_list = _orig_listdir(norm_path)
+            return [entry for entry in raw_list if entry not in HOST_IGNORED and not entry.endswith('.pyc')]
+        except Exception:
+            return []
+
+    def mock_ilistdir(path="."):
+        norm_path = normalize_sim_path(path)
+        try:
+            entries = _orig_listdir(norm_path)
+            for e in entries:
+                if e in HOST_IGNORED or e.endswith('.pyc'):
+                    continue
+                full = os.path.join(norm_path, e)
+                is_dir = os.path.isdir(full)
+                stat_res = _orig_stat(full)
+                # (name, type, inode, size) - 0x4000 = dir, 0x8000 = file
+                type_val = 0x4000 if is_dir else 0x8000
+                yield (e, type_val, stat_res.st_ino, stat_res.st_size)
+        except Exception:
+            return
 
     def mock_stat(path):
-        if path == "/" or path == "":
-            return _orig_stat(repo_root)
-        if isinstance(path, str) and path.startswith("/") and not path.startswith(repo_root):
-            target = os.path.join(repo_root, path.lstrip("/"))
-            if os.path.exists(target):
-                return _orig_stat(target)
-        return _orig_stat(path)
+        return _orig_stat(normalize_sim_path(path))
+
+    def mock_mkdir(path, mode=0o777):
+        return _orig_mkdir(normalize_sim_path(path), mode)
+
+    def mock_remove(path):
+        return _orig_remove(normalize_sim_path(path))
+
+    def mock_rmdir(path):
+        return _orig_rmdir(normalize_sim_path(path))
+
+    def mock_rename(src, dst):
+        return _orig_rename(normalize_sim_path(src), normalize_sim_path(dst))
 
     os.statvfs = mock_statvfs
     os.listdir = mock_listdir
     os.stat = mock_stat
+    os.mkdir = mock_mkdir
+    os.remove = mock_remove
+    os.rmdir = mock_rmdir
+    os.rename = mock_rename
 
     uos = types.ModuleType('uos')
     uos.statvfs = mock_statvfs
     uos.listdir = mock_listdir
+    uos.ilistdir = mock_ilistdir
     uos.stat = mock_stat
+    uos.mkdir = mock_mkdir
+    uos.remove = mock_remove
+    uos.rmdir = mock_rmdir
+    uos.rename = mock_rename
     uos.uname = uname
+    uos.urandom = lambda n: os.urandom(n)
+    uos.dupterm = lambda *a, **k: None
     sys.modules['uos'] = uos
 
-    # 4. Patch machine module
+    # 5. Patch machine module
     mock_m = sys.modules.get('machine') or types.ModuleType('machine')
     sys.modules['machine'] = mock_m
     mock_m.freq = lambda: CPU_FREQ_HZ
     mock_m.reset = lambda: sys.exit(0)
     mock_m.reset_cause = lambda: 0
+    mock_m.idle = lambda: time.sleep(0.001)
+    mock_m.lightsleep = lambda ms=0: time.sleep(ms / 1000.0)
+    mock_m.deepsleep = lambda ms=0: sys.exit(0)
+    mock_m.unique_id = lambda: b'\x24\x6f\x28\xab\xcd\xef'
     mock_m.BROWNOUT_RESET = 1
     mock_m.DEEPSLEEP_RESET = 2
     mock_m.PWRON_RESET = 0
@@ -187,6 +285,7 @@ def setup_hardware_emulation():
     class MockPin:
         IN = 1
         OUT = 2
+        OPEN_DRAIN = 3
         PULL_UP = 4
         PULL_DOWN = 8
         IRQ_RISING = 1
@@ -198,6 +297,10 @@ def setup_hardware_emulation():
             self._val = value
             self._handler = None
             self._trigger = 0
+        def init(self, mode=1, pull=-1, value=None):
+            self.mode = mode
+            self.pull = pull
+            if value is not None: self._val = int(value)
         def value(self, v=None):
             if v is not None:
                 self._val = int(v)
@@ -213,6 +316,7 @@ def setup_hardware_emulation():
         ATTN_6DB = 2
         ATTN_2_5DB = 1
         ATTN_0DB = 0
+        WIDTH_12BIT = 12
         def __init__(self, pin, atten=3):
             self.pin = pin
             self.atten_val = atten
@@ -220,9 +324,10 @@ def setup_hardware_emulation():
         def read_u16(self): return 32768
         def read_uv(self): return 1800000
         def atten(self, val): self.atten_val = val
+        def width(self, val): pass
 
     class MockPWM:
-        def __init__(self, pin, freq=1000, duty=0, duty_u16=0):
+        def __init__(self, pin, freq=1000, duty=0, duty_u16=0, duty_ns=0):
             self.pin = pin
             self._freq = freq
             self._duty = duty
@@ -235,10 +340,14 @@ def setup_hardware_emulation():
         def duty_u16(self, d=None):
             if d is not None: self._duty = d >> 6
             return self._duty << 6
+        def duty_ns(self, ns=None):
+            pass
         def deinit(self): pass
 
     class MockSPI:
         def __init__(self, id=0, baudrate=10000000, polarity=0, phase=0, sck=None, mosi=None, miso=None): pass
+        def init(self, *a, **k): pass
+        def deinit(self): pass
         def write(self, buf): pass
         def read(self, n, write=0): return bytearray(n)
         def readinto(self, buf, write=0): pass
@@ -246,21 +355,47 @@ def setup_hardware_emulation():
 
     class MockI2C:
         def __init__(self, id=0, scl=None, sda=None, freq=400000): pass
-        def scan(self): return []
+        def init(self, *a, **k): pass
+        def deinit(self): pass
+        def scan(self): return [0x68]  # Simulated MPU6050 / RTC address
         def readfrom(self, addr, nbytes, stop=True): return bytearray(nbytes)
         def readfrom_into(self, addr, buf, stop=True): pass
         def writeto(self, addr, buf, stop=True): return len(buf)
         def readfrom_mem(self, addr, memaddr, nbytes, addrsize=8): return bytearray(nbytes)
         def writeto_mem(self, addr, memaddr, buf, addrsize=8): pass
 
+    class MockRTC:
+        def __init__(self): pass
+        def init(self, datetime): pass
+        def datetime(self, val=None):
+            t = time.localtime()
+            # (year, month, day, weekday, hours, minutes, seconds, subseconds)
+            return (t.tm_year, t.tm_mon, t.tm_mday, t.tm_wday, t.tm_hour, t.tm_min, t.tm_sec, 0)
+
+    class MockWDT:
+        def __init__(self, id=0, timeout=5000):
+            self.timeout = timeout
+        def feed(self): pass
+
+    class MockTimer:
+        ONE_SHOT = 0
+        PERIODIC = 1
+        def __init__(self, id=0): pass
+        def init(self, mode=1, period=1000, callback=None): pass
+        def deinit(self): pass
+
     mock_m.Pin = MockPin
     mock_m.ADC = MockADC
     mock_m.PWM = MockPWM
     mock_m.SPI = MockSPI
+    mock_m.SoftSPI = MockSPI
     mock_m.I2C = MockI2C
     mock_m.SoftI2C = MockI2C
+    mock_m.RTC = MockRTC
+    mock_m.WDT = MockWDT
+    mock_m.Timer = MockTimer
 
-    # 4b. Patch esp32 module
+    # 6. Patch esp32 module
     mock_esp32 = sys.modules.get('esp32') or types.ModuleType('esp32')
     sys.modules['esp32'] = mock_esp32
 
@@ -273,11 +408,34 @@ def setup_hardware_emulation():
         def write_pulses(self, pulses, start_level=1): pass
         def wait_done(self, timeout=0): pass
 
-    mock_esp32.RMT = MockRMT
+    class MockNVS:
+        _storage = {}
+        def __init__(self, namespace="oreo"):
+            self.ns = namespace
+        def set_i32(self, key, val):
+            self._storage[f"{self.ns}:{key}"] = int(val)
+        def get_i32(self, key):
+            val = self._storage.get(f"{self.ns}:{key}")
+            if val is None: raise OSError(2)
+            return val
+        def set_blob(self, key, val):
+            self._storage[f"{self.ns}:{key}"] = bytes(val)
+        def get_blob(self, key, buf):
+            val = self._storage.get(f"{self.ns}:{key}")
+            if val is None: raise OSError(2)
+            buf[:len(val)] = val
+            return len(val)
+        def commit(self): pass
 
-    # 5. Patch time module for MicroPython ticks functions
-    import time
+    mock_esp32.RMT = MockRMT
+    mock_esp32.NVS = MockNVS
+    mock_esp32.raw_temperature = lambda: 38.5
+    mock_esp32.hall_sensor = lambda: 0
+
+    # 7. Patch time module MicroPython ticks functions
     time.ticks_ms = lambda: int(time.time() * 1000)
+    time.ticks_us = lambda: int(time.time() * 1000000)
+    time.ticks_cpu = lambda: int(time.time() * CPU_FREQ_HZ)
     time.ticks_diff = lambda a, b: a - b
     time.ticks_add = lambda a, b: a + b
     time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)

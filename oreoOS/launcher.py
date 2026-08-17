@@ -71,6 +71,7 @@ def load_app(app_dir):
     module_path = "apps.%s.main" % app_dir
     mod = __import__(module_path, None, None, ["App"])
     app = mod.App()
+    app.dir = app_dir
     # Pull manifest metadata (name, author, version) and stamp onto app instance
     try:
         manifest_path = "%s/%s/manifest.json" % (APPS_DIR, app_dir)
@@ -156,6 +157,15 @@ def run_app(os_obj, app):
         gc.collect()
     except Exception:
         pass
+
+    # Record active app for simulator hot-reloader persistence
+    app_id = getattr(app, "dir", None) or getattr(app, "name", None) or app.__class__.__name__
+    if app_id and str(app_id).lower() not in ("home", "__appmenu__"):
+        try:
+            import os
+            os.environ["OREOSIM_ACTIVE_APP"] = str(app_id)
+        except Exception:
+            pass
 
     app.on_enter(os_obj)
     last = time.ticks_ms()
@@ -706,29 +716,51 @@ def boot():
         _bc("wifi/bt block FAILED: %s" % e)
     _bc("entering main loop")
 
+    # Check for direct CLI target or hot-reload resumed app
+    initial_target = None
+    try:
+        import sys, os
+        for arg in sys.argv[1:]:
+            if arg.startswith("--app="):
+                initial_target = arg.split("=", 1)[1]
+            elif not arg.startswith("-") and arg:
+                initial_target = arg
+        if not initial_target:
+            initial_target = os.environ.get("OREOSIM_ACTIVE_APP")
+    except Exception:
+        pass
+
+    first_boot = True
     while True:
-        apps = list_apps()
-        home = Home(apps)
-        # Reaching the home screen is the "I'm done" signal — clear any
-        # launcher resume context so the next drawer open starts fresh
-        # rather than restoring the user to where they last were inside
-        # a category. HOME-from-app already chains via __appmenu__ and
-        # consumes the context; this just guarantees a clean slate when
-        # the user actually lands on home.
-        try:
-            os_obj._launcher_resume = None
-        except Exception:
-            pass
-        # Home is wrapped just like app launches below — a crash in the
-        # home screen used to take the whole OS down silently (the LCD
-        # froze on whatever was last drawn, no button polling, requiring
-        # a hardware reset). Now we paint a crash screen and loop back
-        # so the next iteration rebuilds Home from scratch.
-        try:
-            run_app(os_obj, home)
-        except Exception as e:
-            show_crash(os_obj, "home", e)
-            continue
+        if first_boot and initial_target and initial_target.lower() != "home":
+            first_boot = False
+            os_obj._launch_request = initial_target
+        else:
+            first_boot = False
+            apps = list_apps()
+            home = Home(apps)
+            # Reaching the home screen is the "I'm done" signal — clear any
+            # launcher resume context so the next drawer open starts fresh
+            # rather than restoring the user to where they last were inside
+            # a category. HOME-from-app already chains via __appmenu__ and
+            # consumes the context; this just guarantees a clean slate when
+            # the user actually lands on home.
+            try:
+                os_obj._launcher_resume = None
+                import os
+                os.environ.pop("OREOSIM_ACTIVE_APP", None)
+            except Exception:
+                pass
+            # Home is wrapped just like app launches below — a crash in the
+            # home screen used to take the whole OS down silently (the LCD
+            # froze on whatever was last drawn, no button polling, requiring
+            # a hardware reset). Now we paint a crash screen and loop back
+            # so the next iteration rebuilds Home from scratch.
+            try:
+                run_app(os_obj, home)
+            except Exception as e:
+                show_crash(os_obj, "home", e)
+                continue
 
         # Chain-launch loop. Each app may call os.launch(...) on the
         # way out (e.g. Settings → Gestures, Settings → WiFi). We keep
