@@ -771,15 +771,18 @@ def is_installed(name):
 
 
 def _invalidate_launcher_cache():
-    try:
-        from apps.launcher.main import invalidate_apps_cache
-
-        invalidate_apps_cache()
-    except Exception:
+    # Try all possible module paths for the launcher app depending on where
+    # it was loaded from (badge_data vs apps template vs legacy main.py)
+    modules = [
+        "badge_data.apps.launcher.src.app",
+        "badge_data.apps.launcher.main",
+        "apps.launcher.src.app",
+        "apps.launcher.main",
+    ]
+    for mod_path in modules:
         try:
-            from apps.launcher.src.app import invalidate_apps_cache
-
-            invalidate_apps_cache()
+            mod = __import__(mod_path, None, None, ["invalidate_apps_cache"])
+            mod.invalidate_apps_cache()
         except Exception:
             pass
 
