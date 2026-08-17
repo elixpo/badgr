@@ -1,0 +1,210 @@
+{
+  "Colors": {
+    "name": "Colors",
+    "description": "Interactive OS theme customizer & multi-slot dynamic palette designer.",
+    "type": "app",
+    "version": "1.0.0",
+    "icon": "color_icon.png",
+    "author": "sea-deep",
+    "color": "#9C27B0",
+    "category": "Tools"
+  },
+  "about": {
+    "name": "About",
+    "description": "Build info, OS version, and credits for the Elixpo badge.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "about_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "badge": {
+    "name": "Badge",
+    "description": "Show your conference badge with name, role, and pronouns.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "badge_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "bt": {
+    "name": "Bluetooth",
+    "description": "Pair with other badges and AirDrop-style transfers.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "bluetooth_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "commits": {
+    "name": "Commits",
+    "description": "Live GitHub commit feed from your followed repos.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "commits_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "flappy": {
+    "name": "Flappy Oreo",
+    "description": "Tap A to flap. Dodge pipes. High score lives on flash.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "flappy_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "gallery": {
+    "name": "Gallery",
+    "description": "Browse photos, pixel art, and uploaded videos.",
+    "type": "app",
+    "version": "0.2",
+    "icon": "gallery_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "gamepad": {
+    "name": "Gamepad",
+    "description": "Turn the badge into a Bluetooth gamepad for your laptop.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "gamepad_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "gestures": {
+    "name": "Gestures",
+    "description": "Configure shake, flip, and tap quick-actions.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "settings_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "identity": {
+    "name": "Identity",
+    "description": "Your name, handle, and contact card — share over IR.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "identity_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "launcher": {
+    "name": "Apps",
+    "description": "App drawer. Categorised grid of installed apps.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "apps_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "manager": {
+    "name": "App Manager",
+    "description": "System application manager: inspect storage, monitor RAM/heap, manage permissions, and uninstall packages on ESP32 & emulator.",
+    "type": "app",
+    "version": "1.0.0",
+    "icon": "manager_icon.png",
+    "author": "sea-deep",
+    "color": "#4CAF50",
+    "category": "Tools"
+  },
+  "quest": {
+    "name": "IR Quest",
+    "description": "Find other badges over IR and trade quest tokens.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "IR_Quest_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "racer": {
+    "name": "Racer",
+    "description": "Top-down arcade racer. UP/DOWN steer, A boosts.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "racer_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "reader": {
+    "name": "Reader",
+    "description": "Read embedded markdown and text files on the go.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "reader_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "settings": {
+    "name": "Settings",
+    "description": "Brightness, sleep timer, WiFi, time, and updates.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "settings_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "snake": {
+    "name": "Snake",
+    "description": "Classic Snake — eat the dot, don't bite yourself.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "snake_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "storage": {
+    "name": "Storage",
+    "description": "Disk usage breakdown by app and asset bundle.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "storage_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "store": {
+    "name": "Store",
+    "description": "Install community apps from GitHub at runtime.",
+    "type": "app",
+    "version": "0.2",
+    "icon": "store_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "updates": {
+    "name": "Updates",
+    "description": "Check for and install new OreoOS releases over WiFi.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "settings_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "weather": {
+    "name": "Weather",
+    "description": "Current conditions and 3-day forecast from OpenWeather.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "wallpaper_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "wifi": {
+    "name": "WiFi",
+    "description": "Scan and connect to nearby networks.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "wifi_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "Oreo Pet": {
+    "name": "Oreo Pet",
+    "description": "Tamagotchi panda. Feed, play, sleep — care daily.",
+    "type": "app",
+    "version": "0.1",
+    "icon": "elixpo_pet_icon.png",
+    "author": "Circuit-Overtime"
+  },
+  "doom": {
+    "name": "DOOM",
+    "description": "Authentic id Software DOOM 1993 for Oreo OS. E1M1 Hangar, shotgun, demons, full status bar.",
+    "type": "app",
+    "version": "1.0.0",
+    "icon": "doom_icon.png",
+    "author": "sea-deep",
+    "color": "#D32F2F",
+    "category": "Games"
+  },
+  "spotify": {
+    "name": "Spotify",
+    "description": "Stream & control Spotify playback with live album cover art photo sync, scrubber, and cloud PIN pairing.",
+    "type": "app",
+    "version": "1.1.0",
+    "icon": "spotify_icon.png",
+    "author": "sea-deep",
+    "color": "#1DB954",
+    "category": "Tools"
+  }
+}

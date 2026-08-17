@@ -4,6 +4,8 @@
   "private": true,
   "description": "The Oreo Badge — marketing site, app catalogue, and gated file-transfer launcher.",
   "scripts": {
+    "predev": "node scripts/syncManifests.js",
+    "prebuild": "node scripts/syncManifests.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
