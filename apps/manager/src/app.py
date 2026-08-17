@@ -121,8 +121,6 @@ def _get_ram_stats():
 
 
 class App(oreoOS.App):
-    name = "App Manager"
-    author = "sea-deep"
     SHOW_LOADING = True
     CONSUMES_C = True
 

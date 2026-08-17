@@ -416,8 +416,6 @@ def _draw_spans(d, spans, x, y, scale=1, code_bg=False):
 
 
 class App(oreoOS.App):
-    name = "Reader"
-
     def on_enter(self, os_):
         super().on_enter(os_)
         self._os = os_

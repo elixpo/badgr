@@ -47,8 +47,6 @@ BTN_Y = SH - widgets.HINT_H - BTN_H - 14
 
 
 class App(oreoOS.App):
-    name = "Updates"
-    author = "Circuit-Overtime"
     SHOW_LOADING = True
 
     BTN_INSTALL, BTN_CHANGELOG = 0, 1

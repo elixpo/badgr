@@ -42,8 +42,6 @@ def _os_version():
 
 
 class App(oreoOS.App):
-    name = "About"
-
     def on_enter(self, os):
         super().on_enter(os)
         self._os = os

@@ -52,8 +52,6 @@ KEY_TAB = 0x09  # 9   (KEY_TAB)
 
 
 class App(oreoOS.App):
-    name = "DOOM"
-    author = "sea-deep"
     FULLSCREEN = True
     NO_HEADER = True
     HIDE_HEADER = True

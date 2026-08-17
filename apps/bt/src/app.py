@@ -16,8 +16,6 @@ SH = api.SCREEN_H
 
 
 class App(oreoOS.App):
-    name = "Bluetooth"
-    author = "Circuit-Overtime"
     SHOW_LOADING = False
 
     def on_enter(self, os_):

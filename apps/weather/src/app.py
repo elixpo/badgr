@@ -202,7 +202,6 @@ def _fetch_owm(lat, lon, api_key, city_override=""):
 
 
 class App(oreoOS.App):
-    name = "Weather"
     SHOW_LOADING = True
 
     def on_enter(self, os):

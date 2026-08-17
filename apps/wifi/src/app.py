@@ -59,8 +59,6 @@ def _bars(rssi_dbm):
 
 
 class App(oreoOS.App):
-    name = "WiFi"
-    author = "Circuit-Overtime"
     SHOW_LOADING = True
 
     # Logical row indices — keeps cycle code readable when we re-order.

@@ -226,7 +226,6 @@ def _fmt_count(n):
 
 
 class App(oreoOS.App):
-    name = "Commits"
     SHOW_LOADING = False
 
     def on_enter(self, os):

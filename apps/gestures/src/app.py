@@ -47,8 +47,6 @@ _FLIP_LABELS = {
 
 
 class App(oreoOS.App):
-    name = "Gestures"
-    author = "Circuit-Overtime"
     SHOW_LOADING = True
 
     # Logical rows. Children rows are dimmed when the master is OFF.

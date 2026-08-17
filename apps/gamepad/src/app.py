@@ -36,7 +36,6 @@ HEADER_BG = api.rgb(30, 34, 46)
 
 
 class App(oreoOS.App):
-    name = "Gamepad"
     CONSUMES_C = True
 
     def on_enter(self, os):

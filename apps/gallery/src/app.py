@@ -428,8 +428,6 @@ def _wrap_help(text, max_chars):
 
 
 class App(oreoOS.App):
-    name = "Gallery"
-    author = "Circuit-Overtime"
     # _list_photos() + first-photo decode walks assets/optimized/ and
     # imports each baked RGB565 module. Cold-launch on a populated
     # gallery is in the 400-800 ms range — without the splash, the user

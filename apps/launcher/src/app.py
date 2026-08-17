@@ -301,7 +301,6 @@ def _rounded_outline(d, x, y, w, h, color, r=CORNER_R):
 
 # ─────────────────────────────────────────────────────────────────────────────
 class App(oreoOS.App):
-    name = "Apps"
     SHOW_LOADING = True  # ~80 ms upscaling 12 icons from 32→64 at on_enter
 
     def on_enter(self, os):

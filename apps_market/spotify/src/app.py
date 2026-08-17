@@ -200,8 +200,6 @@ def _draw_icon_speaker(d, x, y, color, vol=100):
 
 
 class App(oreoOS.App):
-    name = _get_manifest_name()
-    author = "sea-deep"
     SHOW_LOADING = True
     CONSUMES_C = True
 

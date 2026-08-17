@@ -21,7 +21,6 @@ from . import game, highscore, render
 
 
 class App(oreoOS.App):
-    name = "Snake"
     CONSUMES_C = True
 
     # ── lifecycle ──────────────────────────────────────────────────

@@ -191,7 +191,6 @@ def _draw_speech_bubble(d, x, y, w, h, text, color):
 
 
 class App(oreoOS.App):
-    name = "Oreo Pet"
     SHOW_LOADING = False
     CONSUMES_C = True
 

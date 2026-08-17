@@ -32,8 +32,6 @@ STALE_AFTER_MS = 12 * 60 * 60 * 1000  # 12 h
 
 
 class App(oreoOS.App):
-    name = "Store"
-    author = "Circuit-Overtime"
     SHOW_LOADING = True
 
     def on_enter(self, os_):

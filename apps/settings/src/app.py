@@ -61,8 +61,6 @@ class _Row:
 
 
 class App(oreoOS.App):
-    name = "Settings"
-    author = "Circuit-Overtime"
     SHOW_LOADING = True  # pulls the pink slide-down panel while on_enter
     # wires up WiFi / BT / power manager imports.
 

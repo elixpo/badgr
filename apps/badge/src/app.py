@@ -95,7 +95,6 @@ def _wrap(text, max_chars):
 
 
 class App(oreoOS.App):
-    name = "Badge"
     SHOW_LOADING = True
 
     # Cache the GitHub profile to flash for one hour. On entry we render
