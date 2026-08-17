@@ -651,17 +651,16 @@ def get_details(name_dir):
         _details_cache[name_dir] = disk
         return disk
 
-    # No network call — refresh() already enriched the catalogue entry
-    # with everything we need for the details page. The file-tree walk
-    # is deferred to install() so opening details is instant after the
-    # first catalogue load.
+    files = _walk(entry["path"])
+    total_bytes = sum(f.get("size", 0) for f in files) if files else 0
+
     out = {
         "name": entry.get("name") or name_dir,
         "icon": entry.get("icon") or None,
         "author": entry.get("author") or None,
         "description": entry.get("description") or "",
-        "files": None,  # populated lazily by install()
-        "bytes": None,
+        "files": files,
+        "bytes": total_bytes,
         "ok": True,
     }
     _details_cache[name_dir] = out
@@ -821,9 +820,24 @@ def _install_internal(name):
             break
     if not entry:
         return False
-    files = _walk(entry["path"])
-    if not files:
+
+    det = get_details(name)
+    if not det or not det.get("files"):
         return False
+    files = det["files"]
+    total_bytes = det.get("bytes", 0)
+
+    # Storage check
+    try:
+        st = _os.statvfs("/")
+        free_bytes = st[0] * st[3]
+        if total_bytes > free_bytes:
+            _bc("install FAIL: not enough storage (need %d, have %d)" % (total_bytes, free_bytes))
+            global _last_error
+            _last_error = "Not enough storage space"
+            return False
+    except Exception:
+        pass
 
     root_prefix = entry["path"] + "/"
     _rm_tree(tmp_root)

@@ -412,12 +412,6 @@ class App(oreoOS.App):
             for i, line in enumerate(_wrap(desc, 36, 5)):
                 d.text(line, ROW_PAD_X, body_y + i * 12, theme.TEXT_DIM, scale=1)
 
-        # Stats line. If the app is already installed we walk
-        # /apps/<dir>/ on disk and show its actual on-flash footprint;
-        # otherwise we show "Tap install to download" as a tiny
-        # disclosure. We deliberately don't probe GitHub for an
-        # estimated remote size — that's an extra round-trip the
-        # details page doesn't need to block on.
         stats_y = body_y + 5 * 12 + 4
         if store.is_installed(self._detail_for):
             sz = store.installed_size(self._detail_for)
@@ -426,7 +420,13 @@ class App(oreoOS.App):
             else:
                 stats = "Installed · %d B on flash" % sz
         else:
-            stats = "Tap install to download"
+            sz = det.get("bytes", 0)
+            if sz >= 10 * 1024:
+                stats = "Download size: %d KB" % (sz // 1024)
+            elif sz > 0:
+                stats = "Download size: %d B" % sz
+            else:
+                stats = "Tap install to download"
         d.text(stats, ROW_PAD_X, stats_y, theme.MUTED, scale=1)
 
         # Install / Uninstall button — bottom of the play area, full
