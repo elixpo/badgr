@@ -54,23 +54,26 @@ def bootstrap_badge_apps():
         ensure_state_dirs()
         apps_target = BADGE_DATA_DIR + "/apps"
 
-        # Check if already initialized and contains at least one app
+        stock_dir = "apps"
         try:
-            entries = [e for e in _os.listdir(apps_target) if not e.startswith(".")]
+            stock_entries = _os.listdir(stock_dir)
         except OSError:
-            entries = []
+            stock_entries = []
 
-        if not entries:
-            stock_dir = "apps"
+        for item in stock_entries:
+            if item.startswith(".") or item.startswith("_"):
+                continue
+            s_item = stock_dir + "/" + item
+            d_item = apps_target + "/" + item
+
+            # If the app's manifest is missing (e.g. from a partial wipe), copy it over.
+            needs_copy = False
             try:
-                stock_entries = _os.listdir(stock_dir)
+                _os.stat(d_item + "/manifest.json")
             except OSError:
-                stock_entries = []
-            for item in stock_entries:
-                if item.startswith(".") or item.startswith("_"):
-                    continue
-                s_item = stock_dir + "/" + item
-                d_item = apps_target + "/" + item
+                needs_copy = True
+
+            if needs_copy:
                 _copy_tree(s_item, d_item)
     except Exception:
         pass
