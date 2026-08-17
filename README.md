@@ -118,7 +118,7 @@ Bluetooth and WiFi don't get their own drawer tiles — they live inside **Setti
 
 ### 📦 App Market — install / uninstall extras on-device
 
-Apps that ship under [`apps_market/`](apps_market/) are **optional**. They aren't in the launcher drawer until you install them. The default catalogue today includes **Spotify**, **DOOM**, **Oreo Pet**, and **Color Picker**.
+Apps that ship under [`apps_market/`](apps_market/) are **optional**. They aren't in the launcher drawer until you install them.
 
 Open the **App Market** tile, scroll to the app you want, press **A**:
 - **INSTALL** → downloads and extracts the package into `badge_data/apps/<name>/`. Next time you open the drawer the tile is there.
