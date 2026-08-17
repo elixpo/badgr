@@ -8,6 +8,7 @@ every Elixpo repository.
 ## Ways to contribute
 
 - **Code** - fix a bug, build a feature, improve performance or accessibility.
+- **Apps** - create a new app! Drop your app in `apps_market/` for the market, or `apps/` for a default pre-installed app. *Note: All runtime app state must strictly write to `badge_data/apps/<name>/` rather than mutating source code.*
 - **Docs** - improve guides, READMEs, or inline comments.
 - **Design & brand** - icons, illustrations, and assets (see `brand/MASCOT.md`).
 - **Triage** - reproduce issues, suggest labels, help others in Discussions.
