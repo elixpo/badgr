@@ -253,6 +253,13 @@ class App(oreoOS.App):
         self._qr_url = None
         self._qr_matrix = None
         self._qr_poll_t = _ticks_ms()
+        # Compute relay display hostname once, not every frame inside draw
+        try:
+            _relay_raw = oreoOS.config.get("SPOTIFY_RELAY_URL", "oreo.elixpo.com")
+        except Exception:
+            _relay_raw = "oreo.elixpo.com"
+        _relay_raw = _relay_raw.replace("https://", "").replace("http://", "").rstrip("/")
+        self._relay_display_host = _relay_raw[:16] if len(_relay_raw) > 16 else _relay_raw
 
         # High-Responsiveness Volume Engine
         self._vol_buffered = False
@@ -812,21 +819,14 @@ class App(oreoOS.App):
         # ── QR Code Pairing Modal ─────────────────────────────────────────
         if self._show_qr:
             self._draw_qr_screen(d)
-            if self._toast_msg and _ticks_diff(self._toast_until, _ticks_ms()) > 0:
-                self._draw_toast(d, self._toast_msg, COL_SPOTIFY)
-            self._dirty = False
-            return
-
         # ── Hierarchical Tree Library View ────────────────────────────────
-        if self._view_mode == "LIBRARY":
+        elif self._view_mode == "LIBRARY":
             self._draw_library_tree(d)
-            if self._toast_msg and _ticks_diff(self._toast_until, _ticks_ms()) > 0:
-                self._draw_toast(d, self._toast_msg, COL_SPOTIFY)
-            self._dirty = False
-            return
-
         # ── Now Playing View ──────────────────────────────────────────────
-        self._draw_player(d)
+        else:
+            self._draw_player(d)
+
+        # Toast overlay rendered once, on top of whatever view is active
         if self._toast_msg and _ticks_diff(self._toast_until, _ticks_ms()) > 0:
             self._draw_toast(d, self._toast_msg, COL_SPOTIFY)
         self._dirty = False
@@ -1154,11 +1154,7 @@ class App(oreoOS.App):
             d.rect(tx, qy + 32, pin_box_w, 32, theme.GOLD, fill=False)
             d.text(code_str, tx + 12, qy + 40, theme.GOLD, scale=2)
 
-            from oreoOS import config
-            relay_base = config.get("SPOTIFY_RELAY_URL", "oreo.elixpo.com").replace("https://", "").replace("http://", "").rstrip("/")
-            if len(relay_base) > 16:
-                relay_base = relay_base[:16]
-            d.text(relay_base, tx, qy + 72, api.WHITE)
+            d.text(self._relay_display_host, tx, qy + 72, api.WHITE)
             d.text("/spotify", tx, qy + 84, api.WHITE)
             d.text("Waiting login...", tx, qy + 102, COL_CYAN)
         else:
