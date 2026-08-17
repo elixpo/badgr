@@ -155,6 +155,7 @@ class App(oreoOS.App):
             _Row(
                 "Version", "action", getter=self._os_version, setter=lambda v: self._open_updates()
             ),
+            _Row("Factory Reset", "action", setter=lambda v: self._factory_reset()),
             _Row("Reboot", "action", setter=lambda v: self._reboot()),
         ]
 
@@ -260,6 +261,22 @@ class App(oreoOS.App):
         except Exception:
             self._os.quit()
 
+    def _factory_reset(self):
+        row = self._rows[self._sel]
+        if row.label == "Factory Reset":
+            row.label = "Confirm Wipe?"
+            self._dirty = True
+        else:
+            try:
+                from oreoOS import config, storage
+
+                storage.rm_tree(config.get_state_path())
+                import machine
+
+                machine.reset()
+            except Exception:
+                self._os.quit()
+
     def _open_storage(self):
         try:
             self._os.launch("manager")
@@ -353,6 +370,12 @@ class App(oreoOS.App):
     # ── input ────────────────────────────────────────────────────────────
     def on_button_press(self, btn):
         n = len(self._rows)
+        if btn in (api.BTN_UP, api.BTN_DOWN, api.BTN_LEFT, api.BTN_RIGHT):
+            for r in self._rows:
+                if r.label == "Confirm Wipe?":
+                    r.label = "Factory Reset"
+                    self._dirty = True
+
         if btn == api.BTN_UP:
             self._sel = (self._sel - 1) % n
         elif btn == api.BTN_DOWN:
