@@ -37,7 +37,6 @@ state_*.json
 store_cache.json
 
 # Store downloads & non-stock market apps installed locally
-apps/Colors/
 apps/Oreo Pet/
 apps/spotify/
 apps/doom/

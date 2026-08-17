@@ -464,6 +464,7 @@ class App(oreoOS.App):
     def on_exit(self):
         """Free color splash buffers and sweep GC on exit."""
         self._splash_data = None
+        self._bg = None
         try:
             import gc
             gc.collect()

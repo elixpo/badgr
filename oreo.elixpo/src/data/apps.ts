@@ -16,7 +16,8 @@ export type AppIconId =
   | "Contact" | "Bird"     | "Image"      | "Worm"      | "Compass"
   | "BookOpen"| "Car"      | "Cloud"      | "GitCommit" | "User"
   | "Gamepad2"| "HardDrive"| "Palette"    | "PawPrint"  | "Cpu"
-  | "Wifi"    | "Bluetooth"| "RefreshCw"  | "Settings";
+  | "Wifi"    | "Bluetooth"| "RefreshCw"  | "Settings"  | "Music"
+  | "Flame";
 
 export type AppEntry = {
   slug:      string;
@@ -151,16 +152,34 @@ export const ALL_APPS: AppEntry[] = [
     blurb:   "Brightness, sleep timer, gestures, theme.",
     details: "Top-level settings hub. Drills into WiFi / Bluetooth / Gestures / " +
              "Updates as needed; persists every preference to flash." }),
+  app("Colors",   { name: "Colors",   category: "tool", tint: "lilac",   icon: "Palette",
+    author:  "@sea-deep", version: "1.0.0",
+    pngIcon: "/icons/color_icon.png",
+    blurb:   "Interactive OS theme customizer & dynamic palette designer.",
+    details: "Multi-slot real-time palette designer. Customize Primary, Background, Card, " +
+             "Secondary, and Accent colors with automatic contrast inversion and live OS preview." }),
+  app("manager",  { name: "App Manager", category: "core", tint: "teal", icon: "Cpu",
+    author:  "@sea-deep", version: "1.0.0",
+    pngIcon: "/icons/manager_icon.png",
+    blurb:   "Inspect flash storage, monitor heap/RAM, and uninstall packages.",
+    details: "System management suite: per-app flash footprint calculation, cache cleaning, " +
+             "safe package uninstaller, and real-time PSRAM heap monitoring with one-tap GC." }),
 ];
 
 export const STORE: AppEntry[] = [
-  app("Colors",   { name: "Color Picker", category: "store", tint: "lilac",   icon: "Palette",
-    pngIcon: "/icons/color_icon.png",
-    blurb:   "HSV picker — UP/DOWN sweeps each channel.",
-    details: "Live HSV-space colour picker with a big swatch preview. A cycles " +
-             "between channels; UP/DOWN adjusts. Useful for theme experimentation " +
-             "without re-deploying." }),
-  app("Oreo Pet", { name: "Oreo Pet",     category: "store", tint: "primary", icon: "PawPrint",
+  app("spotify",  { name: "Spotify",     category: "store", tint: "teal",    icon: "Music",
+    author:  "@sea-deep", version: "1.1.0",
+    pngIcon: "/icons/spotify_icon.png",
+    blurb:   "Stream & control Spotify with live album cover art & PIN pairing.",
+    details: "Production Spotify Web API controller with live album cover photo rendering, " +
+             "debounced volume slider, library drawer navigation, and zero-friction 6-digit cloud PIN pairing." }),
+  app("doom",     { name: "DOOM",        category: "store", tint: "primary", icon: "Flame",
+    author:  "@sea-deep", version: "1.0.0",
+    pngIcon: "/icons/doom_icon.png",
+    blurb:   "Authentic id Software DOOM 1993 for Oreo OS.",
+    details: "Authentic id Software DOOM engine port (E1M1 Hangar) featuring 1:1 pixel rendering, " +
+             "multi-tick button event queues, full weapon cycling, and fullscreen gaming." }),
+  app("Oreo Pet", { name: "Oreo Pet",    category: "store", tint: "primary", icon: "PawPrint",
     pngIcon: "/icons/elixpo_pet_icon.png",
     blurb:   "Tamagotchi panda. Feed, play, sleep, repeat.",
     details: "A virtual panda you have to care for. Three stats: happiness, hunger, " +

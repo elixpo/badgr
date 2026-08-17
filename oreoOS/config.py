@@ -122,9 +122,9 @@ WIFI_TX_DBM       = 11
 WIFI_POWERSAVE    = True
 BT_ADV_INTERVAL_MS = 500
 APP_CATEGORIES = (
-    ("Games",  "cat_games",  ("flappy", "snake", "racer", "pet")),
+    ("Games",  "cat_games",  ("flappy", "snake", "racer", "pet", "doom")),
     ("GitHub", "cat_github", ("badge",  "identity", "commits")),
-    ("Utils",  "cat_utils",  ("weather",)),
-    ("Tools",  "cat_tools",  ("gallery", "color_picker", "gamepad", "quest")),
-    ("System", "cat_system", ("settings", "about")),
+    ("Utils",  "cat_utils",  ("weather", "spotify")),
+    ("Tools",  "cat_tools",  ("gallery", "Colors", "gamepad", "quest", "manager", "reader")),
+    ("System", "cat_system", ("settings", "about", "store")),
 )

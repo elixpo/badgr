@@ -220,9 +220,12 @@ class App(oreoOS.App):
 
     def _open_storage(self):
         try:
-            self._os.launch("storage")
+            self._os.launch("manager")
         except Exception:
-            pass
+            try:
+                self._os.launch("storage")
+            except Exception:
+                pass
 
     # ── time sync ───────────────────────────────────────────────────────
     # Manual NTP re-sync. The boot path runs this once when WiFi comes up;
