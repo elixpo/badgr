@@ -19,10 +19,11 @@ from oreoOS.config import VERSION   # single source of truth; deploy bumps PATCH
 FRAME_MIN_MS = 30
 
 _APPS_CANDIDATES = ("/apps", "/remote/apps", "apps")
+_INSTALLED_CANDIDATES = ("/installed_apps", "installed_apps")
 
 
-def _find_apps_dir():
-    for d in _APPS_CANDIDATES:
+def _find_dir(candidates):
+    for d in candidates:
         try:
             _os.stat(d)
             return d
@@ -31,50 +32,75 @@ def _find_apps_dir():
     return None
 
 
-APPS_DIR = _find_apps_dir() or "/apps"
+APPS_DIR = _find_dir(_APPS_CANDIDATES) or "apps"
+INSTALLED_APPS_DIR = _find_dir(_INSTALLED_CANDIDATES) or "installed_apps"
 
 
 # ── app discovery ─────────────────────────────────────────────────────────────
 
-def list_apps():
+def list_apps(include_uninstalled=False):
     """Return [{'dir':..., 'name':..., 'type':...}, ...]  sorted alphabetically by name."""
-    apps = []
+    apps = {}
+    uninstalled = set()
     try:
-        entries = _os.listdir(APPS_DIR)
-    except OSError:
-        return apps
-    for entry in entries:
-        if entry.startswith(".") or entry.startswith("_"):
-            continue
+        from oreoOS.storage import get_uninstalled_apps
+        uninstalled = get_uninstalled_apps()
+    except Exception:
+        pass
+
+    # Scan stock apps (apps/) and user-installed apps (installed_apps/)
+    for base_dir in (APPS_DIR, INSTALLED_APPS_DIR):
         try:
-            with open("%s/%s/manifest.json" % (APPS_DIR, entry)) as f:
-                manifest = json.loads(f.read())
-            apps.append({
-                "dir":         entry,
-                "name":        manifest.get("name", entry),
-                "type":        manifest.get("type", "app"),
-                "color":       manifest.get("color", None),
-                "icon":        manifest.get("icon", None),
-                "author":      manifest.get("author", None),
-                "description": manifest.get("description", ""),
-                "version":     manifest.get("version", "1.0.0"),
-                "category":    manifest.get("category", "General"),
-            })
-        except (OSError, ValueError):
+            entries = _os.listdir(base_dir)
+        except OSError:
             continue
-    apps = [a for a in apps if a["type"] == "app"]
-    apps.sort(key=lambda a: (a.get("name") or a.get("dir", "")).lower())
-    return apps
+        for entry in entries:
+            if entry.startswith(".") or entry.startswith("_"):
+                continue
+            if not include_uninstalled and entry in uninstalled:
+                continue
+            try:
+                manifest_path = "%s/%s/manifest.json" % (base_dir, entry)
+                with open(manifest_path) as f:
+                    manifest = json.loads(f.read())
+                apps[entry] = {
+                    "dir":         entry,
+                    "name":        manifest.get("name", entry),
+                    "type":        manifest.get("type", "app"),
+                    "color":       manifest.get("color", None),
+                    "icon":        manifest.get("icon", None),
+                    "author":      manifest.get("author", None),
+                    "description": manifest.get("description", ""),
+                    "version":     manifest.get("version", "1.0.0"),
+                    "category":    manifest.get("category", "General"),
+                    "source_dir":  base_dir,
+                    "is_user_installed": (base_dir == INSTALLED_APPS_DIR),
+                    "is_uninstalled": (entry in uninstalled),
+                }
+            except (OSError, ValueError):
+                continue
+
+    app_list = [a for a in apps.values() if a["type"] == "app"]
+    app_list.sort(key=lambda a: (a.get("name") or a.get("dir", "")).lower())
+    return app_list
 
 
 def load_app(app_dir):
+    manifest_base = APPS_DIR
     module_path = "apps.%s.main" % app_dir
+    try:
+        _os.stat("%s/%s/main.py" % (INSTALLED_APPS_DIR, app_dir))
+        module_path = "installed_apps.%s.main" % app_dir
+        manifest_base = INSTALLED_APPS_DIR
+    except OSError:
+        pass
+
     mod = __import__(module_path, None, None, ["App"])
     app = mod.App()
     app.dir = app_dir
     # Pull manifest metadata (name, author, version) and stamp onto app instance
     try:
-        manifest_path = "%s/%s/manifest.json" % (APPS_DIR, app_dir)
+        manifest_path = "%s/%s/manifest.json" % (manifest_base, app_dir)
         with open(manifest_path) as f:
             manifest = json.loads(f.read())
         if manifest.get("author"):

@@ -214,3 +214,36 @@ def atomic_write(path, data):
         except OSError:
             pass
         return False
+
+
+UNINSTALLED_STATE_PATH = "state_uninstalled.json"
+
+
+def get_uninstalled_apps():
+    """Return set of app directory identifiers marked uninstalled by the user."""
+    try:
+        import json
+        with open(UNINSTALLED_STATE_PATH, "r") as f:
+            data = json.loads(f.read())
+            if isinstance(data, list):
+                return set(data)
+            elif isinstance(data, dict):
+                return set(data.keys())
+    except Exception:
+        pass
+    return set()
+
+
+def set_app_uninstalled(app_dir, uninstalled=True):
+    """Dynamically mark an app as uninstalled or restored without touching raw repository sources."""
+    try:
+        import json
+        cur = get_uninstalled_apps()
+        if uninstalled:
+            cur.add(app_dir)
+        else:
+            cur.discard(app_dir)
+        return atomic_write(UNINSTALLED_STATE_PATH, json.dumps(list(cur)))
+    except Exception:
+        return False
+

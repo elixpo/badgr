@@ -42,7 +42,9 @@ wifi.json
 .default.cfg
 apps/.tmp_*
 
-# Store downloads & non-stock market apps installed locally
+# Store downloads & user-installed apps (runtime sandbox)
+installed_apps/
+installed_apps/.tmp_*
 apps/Oreo Pet/
 apps/spotify/
 apps/doom/

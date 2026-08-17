@@ -94,6 +94,7 @@ def _start_hot_reloader():
         os.path.join(repo_root, 'oreoOS'),
         os.path.join(repo_root, 'oreoWare'),
         os.path.join(repo_root, 'apps'),
+        os.path.join(repo_root, 'installed_apps'),
         os.path.join(repo_root, 'apps_market'),
         os.path.join(repo_root, 'assets'),
         os.path.join(repo_root, 'oreoSim'),

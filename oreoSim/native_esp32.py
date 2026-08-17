@@ -36,7 +36,7 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # ── Universal Path Normalization ──────────────────────────────────────────────
 _DEVICE_ROOT_PREFIXES = (
-    "apps", "apps_market", "assets", "oreoOS", "oreoWare",
+    "apps", "installed_apps", "apps_market", "assets", "oreoOS", "oreoWare",
     "oreoSim", "documents", "store_icons", "store_details"
 )
 
