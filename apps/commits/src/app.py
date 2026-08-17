@@ -225,8 +225,18 @@ class App(oreoOS.App):
         from oreoOS import config
         self._user = config.get("GITHUB_USER") or "Circuit-Overtime"
         self._fetching = False
-        import threading
-        self._lock = threading.Lock()
+        try:
+            import _thread
+            self._lock = _thread.allocate_lock()
+        except Exception:
+            try:
+                import threading
+                self._lock = threading.Lock()
+            except Exception:
+                class _DummyLock:
+                    def __enter__(self): pass
+                    def __exit__(self, *a): pass
+                self._lock = _DummyLock()
 
         # 1. Instant Disk Cache Load — No UI freeze on entry!
         lv, ct, dt, age = _load_cache(self._user)
@@ -254,12 +264,16 @@ class App(oreoOS.App):
         self._fetching = True
         self._dirty = True
         try:
-            import threading
-            t = threading.Thread(target=self._fetch_worker, daemon=True)
-            t.start()
+            import _thread
+            _thread.start_new_thread(self._fetch_worker, ())
         except Exception:
-            # Fallback if threading unavailable
-            self._fetch_worker()
+            try:
+                import threading
+                t = threading.Thread(target=self._fetch_worker, daemon=True)
+                t.start()
+            except Exception:
+                # Fallback if threading unavailable
+                self._fetch_worker()
 
     def _fetch_worker(self):
         try:

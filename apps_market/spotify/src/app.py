@@ -60,6 +60,26 @@ COL_WARN     = api.rgb(240, 160,  40)  # Offline / Warning amber
 
 
 
+def _start_thread(func, args=()):
+    """Start background worker thread portably on MicroPython ESP32 and CPython."""
+    try:
+        import _thread
+        _thread.start_new_thread(func, args)
+        return True
+    except Exception:
+        try:
+            import threading
+            t = threading.Thread(target=func, args=args, daemon=True)
+            t.start()
+            return True
+        except Exception:
+            try:
+                func(*args)
+            except Exception:
+                pass
+            return False
+
+
 def _is_wifi_up():
     try:
         from oreoWare import wifi
@@ -306,11 +326,7 @@ class App(oreoOS.App):
                 self._tree_loading = False
                 self._dirty = True
 
-        try:
-            import threading
-            threading.Thread(target=_worker, daemon=True).start()
-        except Exception:
-            self._tree_loading = False
+        _start_thread(_worker)
 
     def _open_folder(self, folder_id, label):
         """Open a folder in the tree view and load its tracks or playlists."""
@@ -336,11 +352,7 @@ class App(oreoOS.App):
                     finally:
                         self._tree_loading = False
                         self._dirty = True
-                try:
-                    import threading
-                    threading.Thread(target=_load_pls_worker, daemon=True).start()
-                except Exception:
-                    self._tree_loading = False
+                _start_thread(_load_pls_worker)
             return
 
         # Regular Track Folder (liked, top, recent)
@@ -375,11 +387,7 @@ class App(oreoOS.App):
                 finally:
                     self._tree_loading = False
                     self._dirty = True
-            try:
-                import threading
-                threading.Thread(target=_load_worker, daemon=True).start()
-            except Exception:
-                self._tree_loading = False
+            _start_thread(_load_worker)
 
     def _open_playlist(self, pl):
         """Open a specific playlist from the playlists list."""
@@ -409,11 +417,7 @@ class App(oreoOS.App):
             finally:
                 self._tree_loading = False
                 self._dirty = True
-        try:
-            import threading
-            threading.Thread(target=_worker, daemon=True).start()
-        except Exception:
-            self._tree_loading = False
+        _start_thread(_worker)
 
     def _set_volume_async(self, vol):
         if not self._spotify.is_configured():
@@ -423,11 +427,7 @@ class App(oreoOS.App):
                 self._spotify.set_volume(vol)
             except Exception:
                 pass
-        try:
-            import threading
-            threading.Thread(target=_worker, daemon=True).start()
-        except Exception:
-            pass
+        _start_thread(_worker)
 
     def _start_qr_session(self):
         def _worker():
@@ -439,10 +439,7 @@ class App(oreoOS.App):
                 self._qr_matrix = mat
                 self._show_qr = True
                 self._dirty = True
-        try:
-            import threading
-            threading.Thread(target=_worker, daemon=True).start()
-        except Exception:
+        if not _start_thread(_worker):
             self._qr_session_id, self._qr_url = create_relay_session()
             if self._qr_url:
                 self._qr_matrix = QRCode.encode(self._qr_url)
@@ -510,11 +507,7 @@ class App(oreoOS.App):
                 self._poll_in_progress = False
                 self._dirty = True
 
-        try:
-            import threading
-            threading.Thread(target=_worker, daemon=True).start()
-        except Exception:
-            self._poll_in_progress = False
+        _start_thread(_worker)
 
     def on_button_press(self, btn):
         # ── QR Modal Handling ─────────────────────────────────────────────
@@ -622,11 +615,7 @@ class App(oreoOS.App):
                                 self._trigger_async_poll()
                             except Exception:
                                 pass
-                        try:
-                            import threading
-                            threading.Thread(target=_play_pl_worker, args=(pl_uri,), daemon=True).start()
-                        except Exception:
-                            pass
+                        _start_thread(_play_pl_worker, (pl_uri,))
                     self._dirty = True
                     return
                 elif btn == api.BTN_RIGHT:
@@ -691,11 +680,7 @@ class App(oreoOS.App):
                                 self._trigger_async_poll()
                             except Exception:
                                 pass
-                        try:
-                            import threading
-                            threading.Thread(target=_play_worker, args=(track_target, context_target), daemon=True).start()
-                        except Exception:
-                            pass
+                        _start_thread(_play_worker, (track_target, context_target))
                     self._dirty = True
                     return
             return
@@ -728,11 +713,7 @@ class App(oreoOS.App):
                     self._trigger_async_poll()
                 except Exception:
                     pass
-            try:
-                import threading
-                threading.Thread(target=_toggle_worker, args=(target_play,), daemon=True).start()
-            except Exception:
-                pass
+            _start_thread(_toggle_worker, (target_play,))
 
         elif btn == api.BTN_RIGHT:
             def _next_worker():
@@ -742,11 +723,7 @@ class App(oreoOS.App):
                     self._trigger_async_poll()
                 except Exception:
                     pass
-            try:
-                import threading
-                threading.Thread(target=_next_worker, daemon=True).start()
-            except Exception:
-                pass
+            _start_thread(_next_worker)
             self._dirty = True
 
         elif btn == api.BTN_LEFT:
@@ -757,11 +734,7 @@ class App(oreoOS.App):
                     self._trigger_async_poll()
                 except Exception:
                     pass
-            try:
-                import threading
-                threading.Thread(target=_prev_worker, daemon=True).start()
-            except Exception:
-                pass
+            _start_thread(_prev_worker)
             self._dirty = True
 
         elif btn == api.BTN_UP:
@@ -809,11 +782,7 @@ class App(oreoOS.App):
                                 self._dirty = True
                     except Exception:
                         pass
-                try:
-                    import threading
-                    threading.Thread(target=_qr_check, daemon=True).start()
-                except Exception:
-                    pass
+                _start_thread(_qr_check)
 
         # Periodic Asynchronous Playback Polling
         if not self._show_qr and self._spotify.is_configured():

@@ -132,18 +132,38 @@ def _get_auth_url():
 
 _COVER_CACHE = {}
 
-def create_relay_session():
-    """Request a 6-character PIN session from configured SPOTIFY_RELAY_URL."""
-    url = _get_relay_url("api/spotify/session")
+def _http_get_json(url, timeout_s=4.0):
+    try:
+        from oreoOS import _http
+        body = _http.get_url(url, timeout_s=timeout_s)
+        if body:
+            return _json.loads(body.decode('utf-8'))
+    except Exception:
+        pass
+    try:
+        import urequests
+        resp = urequests.get(url, headers={"User-Agent": "OreoBadge/1.0"}, timeout=timeout_s)
+        data = resp.json()
+        resp.close()
+        return data
+    except Exception:
+        pass
     try:
         import urllib.request
         req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
-        with urllib.request.urlopen(req, timeout=4.0) as resp:
-            data = _json.loads(resp.read().decode())
-            if data.get("status") == "ok":
-                return data.get("code"), data.get("url")
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+            return _json.loads(resp.read().decode('utf-8'))
     except Exception:
         pass
+    return None
+
+
+def create_relay_session():
+    """Request a 6-character PIN session from configured SPOTIFY_RELAY_URL."""
+    url = _get_relay_url("api/spotify/session")
+    data = _http_get_json(url, timeout_s=4.0)
+    if data and data.get("status") == "ok":
+        return data.get("code"), data.get("url")
     return None, _get_auth_url()
 
 
@@ -152,14 +172,7 @@ def poll_relay_session(code):
     if not code:
         return None
     url = _get_relay_url("api/spotify/poll?code=" + str(code))
-    try:
-        import urllib.request
-        req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
-        with urllib.request.urlopen(req, timeout=3.5) as resp:
-            return _json.loads(resp.read().decode())
-    except Exception:
-        pass
-    return None
+    return _http_get_json(url, timeout_s=3.5)
 
 
 def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
@@ -170,14 +183,29 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
         return _COVER_CACHE[cache_key]
 
     try:
-        import urllib.request
+        data = None
+        try:
+            from oreoOS import _http
+            data = _http.get_url(url, timeout_s=3.0)
+        except Exception:
+            pass
+
+        if not data:
+            try:
+                import urllib.request
+                req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
+                with urllib.request.urlopen(req, timeout=3.0) as resp:
+                    data = resp.read()
+            except Exception:
+                pass
+
+        if not data:
+            return None
+
         import io
         import gc
         try:
             import PIL.Image as Image
-            req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                data = resp.read()
             img = Image.open(io.BytesIO(data)).convert("RGB").resize((target_w, target_h))
             raw = bytearray(target_w * target_h * 2)
             idx = 0
