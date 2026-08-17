@@ -447,45 +447,32 @@ class App(oreoOS.App):
     # ── category-view helpers ──────────────────────────────────────────────
     def _build_categories(self):
         """Return [(cat_name, icon_stem_or_None, [app_idx, ...]), ...].
-
-        Reads oreoOS.config.APP_CATEGORIES, which is either:
-            ("Name", ("dir", ...))                 — legacy 2-tuple
-            ("Name", "icon_stem", ("dir", ...))    — new 3-tuple
-        Both shapes work so a stale config still loads. Apps not listed
-        end up in a trailing "More" bucket; the "More" tile re-uses its
-        first app's icon.
+        Groups apps dynamically based on their `category` metadata.
         """
-        try:
-            from oreoOS.config import APP_CATEGORIES
-        except Exception:
-            APP_CATEGORIES = ()
 
-        def _unpack(entry):
-            # entry is either (name, dirs) or (name, icon_stem, dirs)
-            if len(entry) == 2:
-                return entry[0], None, entry[1]
-            return entry[0], entry[1], entry[2]
+        def _get_icon_for_category(cat):
+            cat_lower = cat.lower()
+            if cat_lower in ("games", "game"):
+                return "cat_games"
+            if cat_lower in ("github", "git"):
+                return "cat_github"
+            if cat_lower in ("utils", "utilities"):
+                return "cat_utils"
+            if cat_lower in ("tools", "tool"):
+                return "cat_tools"
+            if cat_lower in ("system", "core"):
+                return "cat_system"
+            return "cat_utils"
 
-        cat_for = {}
-        for entry in APP_CATEGORIES:
-            name, _icon, dirs = _unpack(entry)
-            for d in dirs:
-                cat_for[d] = name
         by_cat = {}
-        misc = []
         for i, a in enumerate(self._apps):
-            cat = cat_for.get(a["dir"])
-            if cat:
-                by_cat.setdefault(cat, []).append(i)
-            else:
-                misc.append(i)
+            cat = a.get("category", "General")
+            by_cat.setdefault(cat, []).append(i)
+
         out = []
-        for entry in APP_CATEGORIES:
-            name, icon, _dirs = _unpack(entry)
-            if name in by_cat:
-                out.append((name, icon, by_cat[name]))
-        if misc:
-            out.append(("More", None, misc))
+        # Sort categories alphabetically
+        for cat, idxs in sorted(by_cat.items()):
+            out.append((cat, _get_icon_for_category(cat), idxs))
         return out
 
     def _enter_category(self, cat_idx):
