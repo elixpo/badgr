@@ -18,89 +18,119 @@ from oreoOS.config import VERSION   # single source of truth; deploy bumps PATCH
 # gameplay; it caps idle screens so they don't hammer the panel >50 fps.
 FRAME_MIN_MS = 30
 
-_APPS_CANDIDATES = ("/apps", "/remote/apps", "apps")
-_INSTALLED_CANDIDATES = ("/installed_apps", "installed_apps")
-
-
-def _find_dir(candidates):
-    for d in candidates:
+def _copy_tree(src, dst):
+    """Recursively copy directory tree from src to dst."""
+    stack = [(src, dst)]
+    while stack:
+        s, d = stack.pop()
         try:
-            _os.stat(d)
-            return d
+            _os.mkdir(d)
+        except Exception:
+            pass
+        try:
+            for item in _os.listdir(s):
+                if item.startswith(".") or item == "__pycache__":
+                    continue
+                s_item = s + "/" + item
+                d_item = d + "/" + item
+                try:
+                    st = _os.stat(s_item)
+                    if st[0] & 0x4000:
+                        stack.append((s_item, d_item))
+                    else:
+                        with open(s_item, "rb") as sf, open(d_item, "wb") as df:
+                            df.write(sf.read())
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+
+def bootstrap_badge_apps():
+    """Ensure badge_data/apps/ is initialized with stock default apps on first boot."""
+    try:
+        from oreoOS.config import BADGE_DATA_DIR, ensure_state_dirs
+        ensure_state_dirs()
+        apps_target = BADGE_DATA_DIR + "/apps"
+
+        # Check if already initialized and contains at least one app
+        try:
+            entries = [e for e in _os.listdir(apps_target) if not e.startswith(".")]
         except OSError:
-            continue
-    return None
+            entries = []
+
+        if not entries:
+            stock_dir = "apps"
+            try:
+                stock_entries = _os.listdir(stock_dir)
+            except OSError:
+                stock_entries = []
+            for item in stock_entries:
+                if item.startswith(".") or item.startswith("_"):
+                    continue
+                s_item = stock_dir + "/" + item
+                d_item = apps_target + "/" + item
+                _copy_tree(s_item, d_item)
+    except Exception:
+        pass
 
 
-APPS_DIR = _find_dir(_APPS_CANDIDATES) or "apps"
-INSTALLED_APPS_DIR = _find_dir(_INSTALLED_CANDIDATES) or "installed_apps"
+# Ensure badge apps are bootstrapped on module load
+bootstrap_badge_apps()
+
+APPS_DIR = "badge_data/apps"
+
+
+def invalidate_apps_cache():
+    """Invalidate any cached application rosters across the system."""
+    pass
 
 
 # ── app discovery ─────────────────────────────────────────────────────────────
 
-def list_apps(include_uninstalled=False):
+def list_apps():
     """Return [{'dir':..., 'name':..., 'type':...}, ...]  sorted alphabetically by name."""
-    apps = {}
-    uninstalled = set()
+    apps = []
     try:
-        from oreoOS.storage import get_uninstalled_apps
-        uninstalled = get_uninstalled_apps()
-    except Exception:
-        pass
-
-    # Scan stock apps (apps/) and user-installed apps (installed_apps/)
-    for base_dir in (APPS_DIR, INSTALLED_APPS_DIR):
-        try:
-            entries = _os.listdir(base_dir)
-        except OSError:
+        entries = _os.listdir(APPS_DIR)
+    except OSError:
+        return apps
+    for entry in entries:
+        if entry.startswith(".") or entry.startswith("_"):
             continue
-        for entry in entries:
-            if entry.startswith(".") or entry.startswith("_"):
-                continue
-            if not include_uninstalled and entry in uninstalled:
-                continue
-            try:
-                manifest_path = "%s/%s/manifest.json" % (base_dir, entry)
-                with open(manifest_path) as f:
-                    manifest = json.loads(f.read())
-                apps[entry] = {
-                    "dir":         entry,
-                    "name":        manifest.get("name", entry),
-                    "type":        manifest.get("type", "app"),
-                    "color":       manifest.get("color", None),
-                    "icon":        manifest.get("icon", None),
-                    "author":      manifest.get("author", None),
-                    "description": manifest.get("description", ""),
-                    "version":     manifest.get("version", "1.0.0"),
-                    "category":    manifest.get("category", "General"),
-                    "source_dir":  base_dir,
-                    "is_user_installed": (base_dir == INSTALLED_APPS_DIR),
-                    "is_uninstalled": (entry in uninstalled),
-                }
-            except (OSError, ValueError):
-                continue
-
-    app_list = [a for a in apps.values() if a["type"] == "app"]
-    app_list.sort(key=lambda a: (a.get("name") or a.get("dir", "")).lower())
-    return app_list
+        try:
+            with open("%s/%s/manifest.json" % (APPS_DIR, entry)) as f:
+                manifest = json.loads(f.read())
+            apps.append({
+                "dir":         entry,
+                "name":        manifest.get("name", entry),
+                "type":        manifest.get("type", "app"),
+                "color":       manifest.get("color", None),
+                "icon":        manifest.get("icon", None),
+                "author":      manifest.get("author", None),
+                "description": manifest.get("description", ""),
+                "version":     manifest.get("version", "1.0.0"),
+                "category":    manifest.get("category", "General"),
+            })
+        except (OSError, ValueError):
+            continue
+    apps = [a for a in apps if a["type"] == "app"]
+    apps.sort(key=lambda a: (a.get("name") or a.get("dir", "")).lower())
+    return apps
 
 
 def load_app(app_dir):
-    manifest_base = APPS_DIR
-    module_path = "apps.%s.main" % app_dir
+    module_path = "badge_data.apps.%s.main" % app_dir
     try:
-        _os.stat("%s/%s/main.py" % (INSTALLED_APPS_DIR, app_dir))
-        module_path = "installed_apps.%s.main" % app_dir
-        manifest_base = INSTALLED_APPS_DIR
-    except OSError:
-        pass
+        mod = __import__(module_path, None, None, ["App"])
+    except ImportError:
+        mod = __import__("apps.%s.main" % app_dir, None, None, ["App"])
 
-    mod = __import__(module_path, None, None, ["App"])
     app = mod.App()
     app.dir = app_dir
     # Pull manifest metadata (name, author, version) and stamp onto app instance
     try:
-        manifest_path = "%s/%s/manifest.json" % (manifest_base, app_dir)
+        manifest_path = "%s/%s/manifest.json" % (APPS_DIR, app_dir)
         with open(manifest_path) as f:
             manifest = json.loads(f.read())
         if manifest.get("author"):

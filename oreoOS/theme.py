@@ -446,12 +446,17 @@ def get_current_name():
 
 # ── Persistence Engine ──────────────────────────────────────────────────────
 
-THEME_STATE_PATH = "state_theme.json"
+try:
+    from oreoOS.config import get_state_path
+    THEME_STATE_PATH = get_state_path("state_theme.json")
+except Exception:
+    THEME_STATE_PATH = "badge_data/state_theme.json"
+
 LEGACY_STATE_PATH = "state_color.txt"
 
 
 def save_theme_state():
-    """Persist current active theme configuration to disk."""
+    """Persist current active theme configuration to disk inside badge_data/."""
     try:
         data = {
             "preset_id": CURRENT_THEME.id,

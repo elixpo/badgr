@@ -93,8 +93,8 @@ def _start_hot_reloader():
     watch_dirs = [
         os.path.join(repo_root, 'oreoOS'),
         os.path.join(repo_root, 'oreoWare'),
+        os.path.join(repo_root, 'badge_data', 'apps'),
         os.path.join(repo_root, 'apps'),
-        os.path.join(repo_root, 'installed_apps'),
         os.path.join(repo_root, 'apps_market'),
         os.path.join(repo_root, 'assets'),
         os.path.join(repo_root, 'oreoSim'),
@@ -103,7 +103,7 @@ def _start_hot_reloader():
     IGNORED_DIRS = {
         '__pycache__', '.venv', '.git', 'node_modules', '.gemini',
         '.pytest_cache', 'shipready_results', 'dist', 'build',
-        'store_icons', 'store_details', '.savegame'
+        'store_icons', 'store_details', '.savegame', 'cache', 'saves'
     }
 
     def _get_files_snapshot():

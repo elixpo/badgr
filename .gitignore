@@ -31,6 +31,10 @@ secrets.py
 *.env
 !.env.example
 
+# Unified Badge Runtime State Directory (all mutable runtime state, themes, creds, installed apps)
+badge_data/
+badge_data/*
+
 # Runtime state, caches & highscores
 *.txt
 state_*
@@ -41,13 +45,6 @@ wifi.json
 .savegame/
 .default.cfg
 apps/.tmp_*
-
-# Store downloads & user-installed apps (runtime sandbox)
-installed_apps/
-installed_apps/.tmp_*
-apps/Oreo Pet/
-apps/spotify/
-apps/doom/
 store_icons/
 store_details/
 

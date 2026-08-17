@@ -33,11 +33,16 @@ Usage:
     wifi.is_connected()
     wifi.list_saved()                 # for the settings UI
     wifi.add_saved(ssid, pw, priority=10, metered=False)
-    wifi.remove_saved(ssid)
     wifi.is_metered()                 # current link metered?
 """
 
-import network
+try:
+    import network
+except ImportError:
+    try:
+        from oreoSim import native_wifi as network
+    except Exception:
+        network = None
 import time
 
 try:
@@ -50,9 +55,12 @@ try:
 except ImportError:
     _os = None
 
-_wlan = None
+try:
+    from oreoOS.config import get_state_path
+    _SAVED_PATH = get_state_path("wifi.json")
+except Exception:
+    _SAVED_PATH = "badge_data/wifi.json"
 
-_SAVED_PATH       = "/wifi.json"
 _PER_NET_TIMEOUT  = 10000   
 
 

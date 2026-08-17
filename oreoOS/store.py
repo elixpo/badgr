@@ -227,14 +227,13 @@ try:
 except Exception:
     STORE_REF = "main"
 MARKET_PATH  = "apps_market"
-CACHE_PATH   = "store_cache.json"
+CACHE_PATH   = "badge_data/cache/store_cache.json"
 
 T_API        = 6        # seconds — GitHub Contents API call
 T_FILE       = 25       # seconds — raw-file download (per file)
 
 USER_AGENT   = "OreoBadge-Store"
-APPS_DIR     = "apps"
-INSTALLED_APPS_DIR = "installed_apps"
+APPS_DIR     = "badge_data/apps"
 
 
 # In-memory mirror of the catalogue. Loaded lazily on first access.
@@ -328,7 +327,7 @@ def _walk(path):
     return out
 
 
-_STORE_ICONS_DIR = "store_icons"
+_STORE_ICONS_DIR = "badge_data/cache/store_icons"
 
 
 def _q(path):
@@ -392,12 +391,10 @@ def load_store_icon(name_dir):
 
 
 def installed_size(name_dir):
-    """Sum of file sizes under installed_apps/<name>/ or apps/<name>/, in bytes. 0 if not
+    """Sum of file sizes under badge_data/apps/<name>/, in bytes. 0 if not
     installed. Walks the dir each call — cheap on the tiny app trees
     we ship, and avoids stale cached numbers."""
-    root = INSTALLED_APPS_DIR + "/" + name_dir
-    if not _exists(root):
-        root = APPS_DIR + "/" + name_dir
+    root = APPS_DIR + "/" + name_dir
     if not _exists(root):
         return 0
     total = 0
@@ -708,17 +705,8 @@ def cache_age_ms():
 # ── install / uninstall ─────────────────────────────────────────────────
 
 def is_installed(name):
-    """An app is 'installed' if it exists in installed_apps/ or is active in apps/."""
-    if _exists(INSTALLED_APPS_DIR + "/" + name + "/main.py"):
-        return True
-    if _exists(APPS_DIR + "/" + name + "/main.py"):
-        try:
-            from oreoOS.storage import get_uninstalled_apps
-            if name not in get_uninstalled_apps():
-                return True
-        except Exception:
-            return True
-    return False
+    """An app is 'installed' iff badge_data/apps/<name>/main.py exists."""
+    return _exists(APPS_DIR + "/" + name + "/main.py")
 
 
 def _invalidate_launcher_cache():
@@ -743,16 +731,11 @@ def install(name):
 
 
 def _install_internal(name):
-    """Install an app into `installed_apps/<name>/` without touching apps/ source."""
-    target_root = INSTALLED_APPS_DIR + "/" + name
-    tmp_root = INSTALLED_APPS_DIR + "/.tmp_" + name
-
-    # If it was marked uninstalled in state, unmark it
-    try:
-        from oreoOS.storage import set_app_uninstalled
-        set_app_uninstalled(name, False)
-    except Exception:
-        pass
+    """Install an app into `badge_data/apps/<name>/`. Checks local `apps_market/<name>/`
+    first (for local dev/offline testing), otherwise downloads every file
+    from GitHub. Returns True iff main.py landed cleanly."""
+    target_root = APPS_DIR + "/" + name
+    tmp_root = APPS_DIR + "/.tmp_" + name
 
     # 1. Fast local install if the app directory exists on disk under apps_market/
     local_src = MARKET_PATH + "/" + name
@@ -883,18 +866,13 @@ def _install_internal(name):
 
 
 def uninstall(name):
-    """Uninstall an app. Removes from installed_apps/ or toggles uninstalled state for stock apps."""
-    dst_installed = INSTALLED_APPS_DIR + "/" + name
-    if _exists(dst_installed):
-        _rm_tree(dst_installed)
-
-    dst_stock = APPS_DIR + "/" + name
-    if _exists(dst_stock):
-        try:
-            from oreoOS.storage import set_app_uninstalled
-            set_app_uninstalled(name, True)
-        except Exception:
-            pass
-
-    _invalidate_launcher_cache()
-    return True
+    """Uninstall an app from badge_data/apps/<name>/."""
+    dst = APPS_DIR + "/" + name
+    if not _exists(dst):
+        _invalidate_launcher_cache()
+        return True
+    _rm_tree(dst)
+    ok = not _exists(dst)
+    if ok:
+        _invalidate_launcher_cache()
+    return ok

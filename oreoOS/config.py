@@ -128,3 +128,29 @@ APP_CATEGORIES = (
     ("Tools",  "cat_tools",  ("gallery", "Colors", "gamepad", "quest", "manager", "reader")),
     ("System", "cat_system", ("settings", "about", "store")),
 )
+
+# ── Unified Badge Runtime State Directory ────────────────────────────────────
+BADGE_DATA_DIR = "badge_data"
+
+
+def get_state_path(rel_path=""):
+    """Return absolute/relative path inside the unified badge_data state directory."""
+    if not rel_path:
+        return BADGE_DATA_DIR
+    rel = rel_path.lstrip("/")
+    return BADGE_DATA_DIR + "/" + rel
+
+
+def ensure_state_dirs():
+    """Ensure badge_data root and state subdirectories exist."""
+    import os
+    for sub in ("", "apps", "saves", "cache"):
+        p = get_state_path(sub)
+        try:
+            os.stat(p)
+        except OSError:
+            try:
+                os.mkdir(p)
+            except Exception:
+                pass
+

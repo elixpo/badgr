@@ -164,9 +164,9 @@ class App(oreoOS.App):
                 pass
 
     def _scan_installed_apps(self):
-        """Scan all apps in apps/ and installed_apps/ dynamically."""
+        """Scan all apps in badge_data/apps/ dynamically."""
         from oreoOS import launcher
-        raw_apps = launcher.list_apps(include_uninstalled=True)
+        raw_apps = launcher.list_apps()
 
         self._apps = []
         self._icon_cache = {}
@@ -174,8 +174,7 @@ class App(oreoOS.App):
         total_app_bytes = 0
         for item in raw_apps:
             app_dir = item["dir"]
-            source_dir = item.get("source_dir", "apps")
-            path = source_dir + "/" + app_dir
+            path = launcher.APPS_DIR + "/" + app_dir
             size_b, file_cnt = _calc_dir_footprint(path)
             total_app_bytes += size_b
 
@@ -189,17 +188,11 @@ class App(oreoOS.App):
                 "size_bytes": size_b,
                 "size_str": _format_size(size_b),
                 "files_count": file_cnt,
-                "source_dir": source_dir,
-                "is_user_installed": item.get("is_user_installed", False),
-                "is_uninstalled": item.get("is_uninstalled", False),
                 "icon": item.get("icon"),
             }
             self._apps.append(entry)
 
-        # Sort: Active apps first (by name), then uninstalled apps
-        self._apps.sort(key=lambda x: (x["is_uninstalled"], x["name"].lower()))
-        self._total_apps_size = total_app_bytes
-        self._dirty = True
+        self._apps.sort(key=lambda x: x["name"].lower())
         self._total_apps_size = total_app_bytes
         self._dirty = True
 
@@ -298,9 +291,7 @@ class App(oreoOS.App):
             self._dirty = True
             return
 
-        is_uninstalled = self._detail_app.get("is_uninstalled", False)
-        max_options = 2 if is_uninstalled else 4
-
+        max_options = 4
         if btn == api.BTN_UP:
             self._detail_sel = (self._detail_sel - 1) % max_options
             self._dirty = True
@@ -309,46 +300,27 @@ class App(oreoOS.App):
             self._dirty = True
         elif btn == api.BTN_A:
             app_dir = self._detail_app["dir"]
-            if is_uninstalled:
-                if self._detail_sel == 0:
-                    # Restore App
-                    try:
-                        from oreoOS import storage
-                        storage.set_app_uninstalled(app_dir, False)
-                        from oreoOS.launcher import invalidate_apps_cache
-                        invalidate_apps_cache()
-                    except Exception:
-                        pass
-                    self._toast_msg = "Restored %s!" % self._detail_app["name"]
-                    self._toast_until = _ticks_ms() + 2000
-                    self._mode = "LIST"
-                    self._scan_installed_apps()
-                    self._dirty = True
-                else:
-                    self._mode = "LIST"
-                    self._dirty = True
-            else:
-                if self._detail_sel == 0:
-                    # Launch App
-                    self._os.launch(app_dir)
-                elif self._detail_sel == 1:
-                    # Clean Cache
-                    self._clean_app_cache(app_dir)
-                elif self._detail_sel == 2:
-                    # Uninstall
-                    self._mode = "CONFIRM_UNINSTALL"
-                    self._dirty = True
-                elif self._detail_sel == 3:
-                    # Back
-                    self._mode = "LIST"
-                    self._dirty = True
+            if self._detail_sel == 0:
+                # Launch App
+                self._os.launch(app_dir)
+            elif self._detail_sel == 1:
+                # Clean Cache
+                self._clean_app_cache(app_dir)
+            elif self._detail_sel == 2:
+                # Uninstall
+                self._mode = "CONFIRM_UNINSTALL"
+                self._dirty = True
+            elif self._detail_sel == 3:
+                # Back
+                self._mode = "LIST"
+                self._dirty = True
 
     def _clean_app_cache(self, app_dir):
         """Remove __pycache__ inside the app directory."""
-        source_dir = self._detail_app.get("source_dir", "apps")
-        cache_path = source_dir + "/" + app_dir + "/__pycache__"
+        from oreoOS.launcher import APPS_DIR
+        cache_path = APPS_DIR + "/" + app_dir + "/__pycache__"
         _rm_tree_safe(cache_path)
-        cache_path_src = source_dir + "/" + app_dir + "/src/__pycache__"
+        cache_path_src = APPS_DIR + "/" + app_dir + "/src/__pycache__"
         _rm_tree_safe(cache_path_src)
         self._toast_msg = "Cache cleared!"
         self._toast_until = _ticks_ms() + 2000
@@ -372,19 +344,10 @@ class App(oreoOS.App):
                 self._dirty = True
                 return
 
-            if self._detail_app.get("is_user_installed"):
-                _rm_tree_safe("installed_apps/" + app_dir)
-            else:
-                # Stock repository app: mark uninstalled in runtime state without deleting git source
-                try:
-                    from oreoOS import storage
-                    storage.set_app_uninstalled(app_dir, True)
-                except Exception:
-                    pass
+            from oreoOS.launcher import APPS_DIR, invalidate_apps_cache
+            _rm_tree_safe(APPS_DIR + "/" + app_dir)
 
-            # Invalidate launcher apps roster cache
             try:
-                from oreoOS.launcher import invalidate_apps_cache
                 invalidate_apps_cache()
             except Exception:
                 pass
@@ -519,16 +482,9 @@ class App(oreoOS.App):
         size_w = len(size_str) * 8
         d.text(size_str, card_x + card_w - size_w - 6, y + 6, theme.TEXT_BRIGHT, scale=1)
 
-        # Tag: USER (green), STOCK (teal), or DISABLED (amber)
-        if app.get("is_uninstalled"):
-            tag = "DISABLED"
-            tag_col = theme.GOLD
-        elif app.get("is_user_installed"):
-            tag = "USER"
-            tag_col = theme.GREEN
-        else:
-            tag = "STOCK"
-            tag_col = theme.TEAL
+        # Tag: Category Badge
+        tag = app.get("category", "APP")[:6].upper()
+        tag_col = theme.PRIMARY
         tag_w = len(tag) * 8 + 8
         tx = card_x + card_w - tag_w - 6
         ty = y + 19
@@ -637,10 +593,7 @@ class App(oreoOS.App):
         d.text(spec_ln[:34], 22, 107, theme.TEAL)
 
         # Action Options
-        if app.get("is_uninstalled"):
-            opts = ["1. Restore / Enable App", "2. Back to Apps"]
-        else:
-            opts = ["1. Launch App", "2. Clear Cache (__pycache__)", "3. Uninstall App", "4. Back to Apps"]
+        opts = ["1. Launch App", "2. Clear Cache (__pycache__)", "3. Uninstall App", "4. Back to Apps"]
 
         opt_y = 127
         for i, opt in enumerate(opts):
