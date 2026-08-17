@@ -34,52 +34,51 @@ Hi-score persists in apps/racer/hi.txt.
 import oreoOS
 from oreoOS import api
 
-
-SW = api.SCREEN_W       # 320
-SH = api.SCREEN_H       # 240
+SW = api.SCREEN_W  # 320
+SH = api.SCREEN_H  # 240
 
 INTRO, PLAY, OVER, PAUSE = 1, 2, 3, 4
 
 # ── game tuning ──────────────────────────────────────────────────────────────
-ROAD_W       = 200                      # rendered road width
-ROAD_X       = (SW - ROAD_W) // 2
-PLAY_TOP     = 0                        # full-screen for the Flappy look
-PLAY_BOT     = SH
-PLAY_H       = PLAY_BOT - PLAY_TOP
+ROAD_W = 200  # rendered road width
+ROAD_X = (SW - ROAD_W) // 2
+PLAY_TOP = 0  # full-screen for the Flappy look
+PLAY_BOT = SH
+PLAY_H = PLAY_BOT - PLAY_TOP
 
 CAR_W, CAR_H = 32, 40
-PLAYER_Y     = PLAY_BOT - CAR_H - 18
+PLAYER_Y = PLAY_BOT - CAR_H - 18
 
 ENEMY_W, ENEMY_H = 32, 40
-ENEMY_LANES  = (ROAD_X + 28, ROAD_X + ROAD_W // 2 - ENEMY_W // 2, ROAD_X + ROAD_W - ENEMY_W - 28)
+ENEMY_LANES = (ROAD_X + 28, ROAD_X + ROAD_W // 2 - ENEMY_W // 2, ROAD_X + ROAD_W - ENEMY_W - 28)
 
-MAX_STEER_PX_PER_S   = 260.0   # keeps lane changes ahead of the faster
-                                # scroll so the game stays playable.
-ROAD_SCROLL_MIN      = 60.0    # bumped — even a coasting car feels alive.
-ROAD_SCROLL_MAX      = 320.0   # bumped — flat-out scroll baseline.
-ENEMY_SPAWN_SEC0     = 1.3     # tighter start; was 1.6.
-ENEMY_SPAWN_FLOOR    = 0.28    # tighter cap; was 0.40. At score ~100 you
-                                # see a new car roughly every 0.3 s.
+MAX_STEER_PX_PER_S = 260.0  # keeps lane changes ahead of the faster
+# scroll so the game stays playable.
+ROAD_SCROLL_MIN = 60.0  # bumped — even a coasting car feels alive.
+ROAD_SCROLL_MAX = 320.0  # bumped — flat-out scroll baseline.
+ENEMY_SPAWN_SEC0 = 1.3  # tighter start; was 1.6.
+ENEMY_SPAWN_FLOOR = 0.28  # tighter cap; was 0.40. At score ~100 you
+# see a new car roughly every 0.3 s.
 
 # Collision tightness — how many pixels we deduct from each axis of the
 # overlap test. Higher = more forgiving (smaller effective hitbox). 14 leaves
 # roughly the body of the car as the hit-zone, ignoring the rounded fenders.
-HIT_SLACK_PX         = 14
+HIT_SLACK_PX = 14
 
-ROLL_DEADZONE_DEG    = 4.0
-ROLL_SATURATION_DEG  = 30.0
-PITCH_DEADZONE_DEG   = 5.0
+ROLL_DEADZONE_DEG = 4.0
+ROLL_SATURATION_DEG = 30.0
+PITCH_DEADZONE_DEG = 5.0
 PITCH_SATURATION_DEG = 25.0
 
 # Flappy-derived palette — warm, bright, with consistent shadow colour.
-C_GRASS      = api.rgb( 40, 110,  50)
-C_ROAD       = api.rgb( 64,  64,  72)
-C_DASH       = api.WHITE
-C_TITLE      = api.rgb(255,  93, 104)   # pink
-C_HI         = api.rgb(255, 230,  80)   # gold
-C_TEXT       = api.WHITE
-C_DIM        = api.rgb(200, 180, 160)
-C_SHADOW     = api.rgb( 20,  30,  45)
+C_GRASS = api.rgb(40, 110, 50)
+C_ROAD = api.rgb(64, 64, 72)
+C_DASH = api.WHITE
+C_TITLE = api.rgb(255, 93, 104)  # pink
+C_HI = api.rgb(255, 230, 80)  # gold
+C_TEXT = api.WHITE
+C_DIM = api.rgb(200, 180, 160)
+C_SHADOW = api.rgb(20, 30, 45)
 
 HI_PATH = "apps/racer/hi.txt"
 
@@ -102,16 +101,17 @@ def _save_hi(v):
 
 def _try_sprite(name):
     try:
-        m = __import__("apps.racer.assets.optimized." + name, None, None,
-                       ["DATA", "W", "H"])
+        m = __import__("apps.racer.assets.optimized." + name, None, None, ["DATA", "W", "H"])
         return (bytearray(m.DATA), m.W, m.H)
     except (ImportError, AttributeError):
         return None
 
 
 def _clamp(v, lo, hi):
-    if v < lo: return lo
-    if v > hi: return hi
+    if v < lo:
+        return lo
+    if v > hi:
+        return hi
     return v
 
 
@@ -130,32 +130,33 @@ def _norm_input(value, deadzone, saturation):
 
 
 class _Enemy:
-    __slots__ = ("x", "y", "spr")
+    __slots__ = ("spr", "x", "y")
+
     def __init__(self, x, y, spr):
         self.x, self.y, self.spr = x, y, spr
 
 
 class App(oreoOS.App):
-    name         = "Racer"
-    FULLSCREEN   = True
-    CONSUMES_C   = True
+    name = "Racer"
+    FULLSCREEN = True
+    CONSUMES_C = True
     SHOW_LOADING = True
-    BLOCK_IDLE   = True
+    BLOCK_IDLE = True
 
     def on_enter(self, os):
-        self._os    = os
+        self._os = os
         self._state = INTRO
-        self._hi    = _load_hi()
+        self._hi = _load_hi()
         self._new_hi = False
-        self._blink  = 0.0
-        self._dirty  = True
+        self._blink = 0.0
+        self._dirty = True
 
-        self._spr_player  = _try_sprite("racer_player")
-        self._spr_crash   = _try_sprite("racer_player_crash")
+        self._spr_player = _try_sprite("racer_player")
+        self._spr_crash = _try_sprite("racer_player_crash")
         self._spr_enemy_a = _try_sprite("racer_enemy_a")
         self._spr_enemy_b = _try_sprite("racer_enemy_b")
-        self._spr_tree    = _try_sprite("racer_tree")
-        self._spr_road    = _try_sprite("racer_road")
+        self._spr_tree = _try_sprite("racer_tree")
+        self._spr_road = _try_sprite("racer_road")
 
         # IMU detection is delegated to oreoWare.imu.detect() so we get
         # 0x68/0x69 address fallback + a 3× retry loop "for free". The
@@ -167,6 +168,7 @@ class App(oreoOS.App):
         if self._imu is None:
             try:
                 from oreoWare import imu as _imu_mod
+
                 self._imu = _imu_mod.detect()
             except Exception:
                 self._imu = None
@@ -200,7 +202,7 @@ class App(oreoOS.App):
             self._mode = "IMU" if self._imu else "BTN"
         # Smoothed digital-input axes for BTN mode (lerp toward the held
         # state so tap-tap doesn't snap the car instantly).
-        self._btn_steer    = 0.0
+        self._btn_steer = 0.0
         self._btn_throttle = 0.0
 
         self._reset_run()
@@ -225,6 +227,7 @@ class App(oreoOS.App):
         self._spr_road = None
         self._enemies = []
         import gc
+
         gc.collect()
 
     def _save_mode(self):
@@ -234,15 +237,15 @@ class App(oreoOS.App):
             pass
 
     def _reset_run(self):
-        self._player_x   = ROAD_X + (ROAD_W - CAR_W) // 2
-        self._enemies    = []
+        self._player_x = ROAD_X + (ROAD_W - CAR_W) // 2
+        self._enemies = []
         self._spawn_left = ENEMY_SPAWN_SEC0
-        self._spawn_int  = ENEMY_SPAWN_SEC0
-        self._scroll_y   = 0.0
-        self._scroll_v   = ROAD_SCROLL_MIN
-        self._score      = 0
-        self._tree_t     = 0.0
-        self._dirty      = True
+        self._spawn_int = ENEMY_SPAWN_SEC0
+        self._scroll_y = 0.0
+        self._scroll_v = ROAD_SCROLL_MIN
+        self._score = 0
+        self._tree_t = 0.0
+        self._dirty = True
 
     # ── input ───────────────────────────────────────────────────────────
     def on_button_press(self, btn):
@@ -286,7 +289,7 @@ class App(oreoOS.App):
             try:
                 pitch, roll = self._imu.tilt_deg()
                 return (
-                    _norm_input(roll,  ROLL_DEADZONE_DEG,  ROLL_SATURATION_DEG),
+                    _norm_input(roll, ROLL_DEADZONE_DEG, ROLL_SATURATION_DEG),
                     _norm_input(pitch, PITCH_DEADZONE_DEG, PITCH_SATURATION_DEG),
                 )
             except Exception:
@@ -295,19 +298,19 @@ class App(oreoOS.App):
         # BTN mode (or IMU fallback when the sensor errored out).
         b = self._os.buttons
         try:
-            left  = b.is_pressed(api.BTN_LEFT)
+            left = b.is_pressed(api.BTN_LEFT)
             right = b.is_pressed(api.BTN_RIGHT)
-            up    = b.is_pressed(api.BTN_UP)
-            down  = b.is_pressed(api.BTN_DOWN)
+            up = b.is_pressed(api.BTN_UP)
+            down = b.is_pressed(api.BTN_DOWN)
         except Exception:
             left = right = up = down = False
 
-        tgt_steer    = (1.0 if right else 0.0) - (1.0 if left else 0.0)
-        tgt_throttle = (1.0 if up    else 0.0) - (1.0 if down else 0.0)
+        tgt_steer = (1.0 if right else 0.0) - (1.0 if left else 0.0)
+        tgt_throttle = (1.0 if up else 0.0) - (1.0 if down else 0.0)
         # Lerp toward target — 8/s = roll-on in ~125 ms when held, decay
         # back to 0 in the same time when released.
         lerp = min(1.0, dt * 8.0)
-        self._btn_steer    += (tgt_steer    - self._btn_steer)    * lerp
+        self._btn_steer += (tgt_steer - self._btn_steer) * lerp
         self._btn_throttle += (tgt_throttle - self._btn_throttle) * lerp
         return self._btn_steer, self._btn_throttle
 
@@ -318,29 +321,24 @@ class App(oreoOS.App):
 
         if self._state == PLAY:
             self._player_x += steer * MAX_STEER_PX_PER_S * dt
-            self._player_x  = _clamp(self._player_x,
-                                     ROAD_X + 4,
-                                     ROAD_X + ROAD_W - CAR_W - 4)
+            self._player_x = _clamp(self._player_x, ROAD_X + 4, ROAD_X + ROAD_W - CAR_W - 4)
 
             # Top speed climbs with score. +1.6 % per point + a higher cap
             # (2.6×). At score 40 you're at full speed already; after that
             # the spawn cadence keeps escalating instead.
             speed_mult = min(2.6, 1.0 + 0.016 * self._score)
             effective_max = ROAD_SCROLL_MAX * speed_mult
-            target = ROAD_SCROLL_MIN + (
-                effective_max - ROAD_SCROLL_MIN) * max(0.0, throttle)
+            target = ROAD_SCROLL_MIN + (effective_max - ROAD_SCROLL_MIN) * max(0.0, throttle)
             if throttle < -0.2:
                 target = ROAD_SCROLL_MIN * 0.3
             self._scroll_v += (target - self._scroll_v) * min(1.0, dt * 4)
 
             self._scroll_y += self._scroll_v * dt
-            self._tree_t   += self._scroll_v * dt
+            self._tree_t += self._scroll_v * dt
 
             self._spawn_left -= dt
             if self._spawn_left <= 0:
-                self._spawn_int = max(
-                    ENEMY_SPAWN_FLOOR,
-                    ENEMY_SPAWN_SEC0 - self._score * 0.01)
+                self._spawn_int = max(ENEMY_SPAWN_FLOOR, ENEMY_SPAWN_SEC0 - self._score * 0.01)
                 self._spawn_left = self._spawn_int
 
                 # Spacing rule: the new enemy spawns at y = PLAY_TOP - ENEMY_H.
@@ -353,13 +351,14 @@ class App(oreoOS.App):
                 # player needs more time to react → bigger gap. At minimum
                 # speed it's ENEMY_H * 1.5 (~60 px); at top speed it's
                 # ENEMY_H * 2.4 (~96 px).
-                speed_frac   = (self._scroll_v - ROAD_SCROLL_MIN) / max(
-                    1.0, ROAD_SCROLL_MAX * 2.2 - ROAD_SCROLL_MIN)
-                speed_frac   = max(0.0, min(1.0, speed_frac))
+                speed_frac = (self._scroll_v - ROAD_SCROLL_MIN) / max(
+                    1.0, ROAD_SCROLL_MAX * 2.2 - ROAD_SCROLL_MIN
+                )
+                speed_frac = max(0.0, min(1.0, speed_frac))
                 # Tighter than before — 1.2× car-height at low speed and
                 # only 2.0× at flat-out (was 1.5 / 2.4). Less breathing
                 # room between approaching enemies, more difficulty.
-                MIN_VGAP     = ENEMY_H * (1.2 + 0.8 * speed_frac)
+                MIN_VGAP = ENEMY_H * (1.2 + 0.8 * speed_frac)
                 too_close = False
                 for e in self._enemies:
                     if e.y < PLAY_TOP + MIN_VGAP:
@@ -373,10 +372,10 @@ class App(oreoOS.App):
                     # Lane choice: avoid lanes that still have an enemy in
                     # the upper REACTION_PX band (gives the player room to
                     # leave that lane before this new car arrives).
-                    REACTION_PX = ENEMY_H + 60   # was +90 — adjacent-lane
-                                                 # blocks lift sooner so an
-                                                 # enemy can appear in the
-                                                 # same lane you just left.
+                    REACTION_PX = ENEMY_H + 60  # was +90 — adjacent-lane
+                    # blocks lift sooner so an
+                    # enemy can appear in the
+                    # same lane you just left.
                     blocked = set()
                     for e in self._enemies:
                         if e.y < PLAY_TOP + REACTION_PX:
@@ -387,9 +386,8 @@ class App(oreoOS.App):
                     free = [i for i in range(len(ENEMY_LANES)) if i not in blocked]
                     if free:
                         pick = free[int(self._blink * 31) % len(free)]
-                        spr  = self._spr_enemy_a if int(self._blink * 17) & 1 else self._spr_enemy_b
-                        self._enemies.append(_Enemy(ENEMY_LANES[pick],
-                                                    PLAY_TOP - ENEMY_H, spr))
+                        spr = self._spr_enemy_a if int(self._blink * 17) & 1 else self._spr_enemy_b
+                        self._enemies.append(_Enemy(ENEMY_LANES[pick], PLAY_TOP - ENEMY_H, spr))
 
             new_enemies = []
             for e in self._enemies:
@@ -400,10 +398,12 @@ class App(oreoOS.App):
                 # AABB collision with a HIT_SLACK_PX deduction on each axis
                 # so only a real body-on-body overlap counts. Was -6 which
                 # treated rounded fenders as solid.
-                if (abs((e.x + ENEMY_W // 2) - (self._player_x + CAR_W // 2))
-                        < (CAR_W + ENEMY_W) // 2 - HIT_SLACK_PX
+                if (
+                    abs((e.x + ENEMY_W // 2) - (self._player_x + CAR_W // 2))
+                    < (CAR_W + ENEMY_W) // 2 - HIT_SLACK_PX
                     and abs((e.y + ENEMY_H // 2) - (PLAYER_Y + CAR_H // 2))
-                        < (CAR_H + ENEMY_H) // 2 - HIT_SLACK_PX):
+                    < (CAR_H + ENEMY_H) // 2 - HIT_SLACK_PX
+                ):
                     self._on_crash()
                     return
                 new_enemies.append(e)
@@ -415,12 +415,12 @@ class App(oreoOS.App):
             # Keep the world animating behind the menus — Flappy style.
             self._scroll_v += (40.0 - self._scroll_v) * min(1.0, dt * 2)
             self._scroll_y += self._scroll_v * dt
-            self._tree_t   += self._scroll_v * dt
-            self._dirty     = True
+            self._tree_t += self._scroll_v * dt
+            self._dirty = True
 
     def _on_crash(self):
         if self._score > self._hi:
-            self._hi     = self._score
+            self._hi = self._score
             self._new_hi = True
             _save_hi(self._hi)
         else:
@@ -436,9 +436,7 @@ class App(oreoOS.App):
 
         self._draw_world(d)
         self._draw_enemies(d)
-        self._draw_player(
-            d,
-            sprite=(self._spr_crash if self._state == OVER else self._spr_player))
+        self._draw_player(d, sprite=(self._spr_crash if self._state == OVER else self._spr_player))
 
         if self._state == PLAY:
             self._draw_hud(d)
@@ -462,7 +460,7 @@ class App(oreoOS.App):
         if self._spr_road:
             data, rw, rh = self._spr_road
             y0 = PLAY_TOP + (int(self._scroll_y) % rh) - rh
-            y  = y0
+            y = y0
             while y < PLAY_BOT:
                 x = ROAD_X
                 while x < ROAD_X + ROAD_W:
@@ -472,11 +470,11 @@ class App(oreoOS.App):
         else:
             d.rect(ROAD_X, PLAY_TOP, ROAD_W, PLAY_H, C_ROAD, fill=True)
             dash_h = 24
-            gap    = 16
-            step   = dash_h + gap
-            y0     = PLAY_TOP + (int(self._scroll_y) % step) - step
-            cx     = ROAD_X + ROAD_W // 2 - 2
-            y      = y0
+            gap = 16
+            step = dash_h + gap
+            y0 = PLAY_TOP + (int(self._scroll_y) % step) - step
+            cx = ROAD_X + ROAD_W // 2 - 2
+            y = y0
             while y < PLAY_BOT:
                 yy = max(PLAY_TOP, y)
                 hh = min(dash_h, PLAY_BOT - yy)
@@ -488,12 +486,12 @@ class App(oreoOS.App):
         if self._spr_tree:
             data, tw, th = self._spr_tree
             step = th + 24
-            y0   = PLAY_TOP + (int(self._tree_t) % step) - step
-            y    = y0
+            y0 = PLAY_TOP + (int(self._tree_t) % step) - step
+            y = y0
             while y < PLAY_BOT:
                 if y + th > PLAY_TOP:
-                    d.blit(data, ROAD_X - tw - 2,         y, tw, th)
-                    d.blit(data, ROAD_X + ROAD_W + 2,     y, tw, th)
+                    d.blit(data, ROAD_X - tw - 2, y, tw, th)
+                    d.blit(data, ROAD_X + ROAD_W + 2, y, tw, th)
                 y += step
 
     def _draw_enemies(self, d):
@@ -519,10 +517,9 @@ class App(oreoOS.App):
         # max (which climbs with score) so a full bar always means "flat out".
         bar_w = 60
         d.rect(8, SH - 12, bar_w, 4, C_SHADOW, fill=True)
-        speed_mult    = min(1.8, 1.0 + 0.005 * self._score)
+        speed_mult = min(1.8, 1.0 + 0.005 * self._score)
         effective_max = ROAD_SCROLL_MAX * speed_mult
-        v_pct = (self._scroll_v - ROAD_SCROLL_MIN) / max(
-            1.0, effective_max - ROAD_SCROLL_MIN)
+        v_pct = (self._scroll_v - ROAD_SCROLL_MIN) / max(1.0, effective_max - ROAD_SCROLL_MIN)
         v_pct = max(0.0, min(1.0, v_pct))
         d.rect(8, SH - 12, int(bar_w * v_pct), 4, C_HI, fill=True)
 
@@ -533,7 +530,7 @@ class App(oreoOS.App):
 
     def _shadow_text(self, d, s, x, y, color, scale=1):
         d.text(s, x + 1, y + 1, C_SHADOW, scale=scale)
-        d.text(s, x,     y,     color,    scale=scale)
+        d.text(s, x, y, color, scale=scale)
 
     def _center_text(self, d, s, y, color, scale=1):
         w = len(s) * 8 * scale
@@ -556,20 +553,19 @@ class App(oreoOS.App):
             self._center_text(d, "HIGH %d" % self._hi, 80, C_HI, scale=2)
         # Active mode + how to swap. B from a menu toggles between
         # TILT (MPU6050) and BUTTONS (D-pad).
-        self._center_text(d, "Mode: %s  (B = swap)" % self._mode_label(),
-                          108, C_TITLE, scale=1)
+        self._center_text(d, "Mode: %s  (B = swap)" % self._mode_label(), 108, C_TITLE, scale=1)
         if int(self._blink * 2) % 2 == 0:
             self._center_text(d, "Press A to start", 132, C_TEXT, scale=2)
         self._center_text(d, self._mode_hint(), 180, C_DIM, scale=1)
-        self._center_text(d, "HOME = back",     200, C_DIM, scale=1)
+        self._center_text(d, "HOME = back", 200, C_DIM, scale=1)
 
     def _draw_pause(self, d):
         # Centered "PAUSED" card on the dimmed world. We keep the score
         # visible so the user knows what they're returning to, and blink
         # the "A to resume" line so it stays obvious which button comes
         # next (matches the A-to-advance rhythm of INTRO/OVER).
-        self._center_text(d, "PAUSED",            44, C_TITLE, scale=3)
-        self._center_text(d, "Score %d" % self._score, 84,  C_TEXT, scale=2)
+        self._center_text(d, "PAUSED", 44, C_TITLE, scale=3)
+        self._center_text(d, "Score %d" % self._score, 84, C_TEXT, scale=2)
         if int(self._blink * 2) % 2 == 0:
             self._center_text(d, "A or B to resume", 124, C_TEXT, scale=2)
         self._center_text(d, "HOME = quit", 168, C_DIM, scale=1)
@@ -581,8 +577,7 @@ class App(oreoOS.App):
             self._center_text(d, "NEW HIGH!", 108, C_HI, scale=2)
         else:
             self._center_text(d, "Best %d" % self._hi, 108, C_HI, scale=2)
-        self._center_text(d, "Mode: %s  (B = swap)" % self._mode_label(),
-                          136, C_TITLE, scale=1)
+        self._center_text(d, "Mode: %s  (B = swap)" % self._mode_label(), 136, C_TITLE, scale=1)
         if int(self._blink * 2) % 2 == 0:
             self._center_text(d, "Press A to retry", 160, C_TEXT, scale=2)
         self._center_text(d, "HOME = back", 200, C_DIM, scale=1)

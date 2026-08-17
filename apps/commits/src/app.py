@@ -26,23 +26,22 @@ Controls:
 """
 
 import oreoOS
-from oreoOS import api
-from oreoOS import theme, widgets
+from oreoOS import api, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-WEEKS    = 52
-DAYS     = 7
-CELL_PX  = 5
-GAP_PX   = 1
+WEEKS = 52
+DAYS = 7
+CELL_PX = 5
+GAP_PX = 1
 
 BUCKETS = [
     (235, 237, 240),
     (155, 233, 168),
-    ( 64, 196,  99),
-    ( 48, 161,  78),
-    ( 33, 110,  57),
+    (64, 196, 99),
+    (48, 161, 78),
+    (33, 110, 57),
 ]
 
 
@@ -77,12 +76,21 @@ def _fetch_contributions(user):
         counts_matrix = [[0 for _ in range(days)] for _ in range(weeks)]
 
         import re
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', body, re.DOTALL)
+
+        rows = re.findall(r"<tr[^>]*>(.*?)</tr>", body, re.DOTALL)
         day_idx = 0
         for row in rows:
-            cells = re.findall(r'<td[^>]*data-date=\"([^\"]+)\"[^>]*data-level=\"([^\"]+)\"[^>]*>(.*?)</td>', row, re.DOTALL)
+            cells = re.findall(
+                r"<td[^>]*data-date=\"([^\"]+)\"[^>]*data-level=\"([^\"]+)\"[^>]*>(.*?)</td>",
+                row,
+                re.DOTALL,
+            )
             if not cells:
-                cells = re.findall(r'<td[^>]*data-level=\"([^\"]+)\"[^>]*data-date=\"([^\"]+)\"[^>]*>(.*?)</td>', row, re.DOTALL)
+                cells = re.findall(
+                    r"<td[^>]*data-level=\"([^\"]+)\"[^>]*data-date=\"([^\"]+)\"[^>]*>(.*?)</td>",
+                    row,
+                    re.DOTALL,
+                )
                 cells = [(d, l, c) for l, d, c in cells]
             if not cells:
                 continue
@@ -94,7 +102,7 @@ def _fetch_contributions(user):
                     except ValueError:
                         level = 0
 
-                    cnt_match = re.search(r'([0-9]+)\s+contribution', inner)
+                    cnt_match = re.search(r"([0-9]+)\s+contribution", inner)
                     cnt = int(cnt_match.group(1)) if cnt_match else (1 if level > 0 else 0)
 
                     matrix[week_idx][day_idx] = level
@@ -124,6 +132,7 @@ def _save_cache(user, levels, counts, dates):
     """Persist the fetched grid so re-opening the app is instant — no spinner."""
     try:
         import time as _t
+
         with open(CACHE_PATH, "w") as f:
             f.write("%s|%d\n" % (user, int(_t.time())))
             f.write(",".join("%d" % v for v in levels) + "\n")
@@ -137,6 +146,7 @@ def _load_cache(user):
     """Return (levels, counts, dates, age_sec) for `user`, or (None,)*4."""
     try:
         import time as _t
+
         with open(CACHE_PATH) as f:
             head = f.readline().strip()
             if "|" not in head:
@@ -146,15 +156,14 @@ def _load_cache(user):
                 return None, None, None, None
             levels = [int(x) for x in f.readline().strip().split(",") if x]
             counts = [int(x) for x in f.readline().strip().split(",") if x]
-            dates  = [x for x in f.readline().strip().split(",")]
-            age    = max(0, int(_t.time()) - int(ts))
+            dates = [x for x in f.readline().strip().split(",")]
+            age = max(0, int(_t.time()) - int(ts))
             return levels, counts, dates, age
     except Exception:
         return None, None, None, None
 
 
-_MONTHS = ("", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+_MONTHS = ("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
 def _fmt_date(iso):
@@ -170,7 +179,7 @@ def _fmt_date(iso):
 
 def _demo_grid():
     seed = 0xC0FFEE
-    out  = []
+    out = []
     for i in range(WEEKS * DAYS):
         seed = (seed * 1103515245 + 12345) & 0xFFFFFFFF
         wday = i % DAYS
@@ -204,7 +213,7 @@ def _current_streak(levels):
 def _busiest_week(levels):
     best = 0
     for w in range(0, len(levels) - DAYS + 1, DAYS):
-        s = sum(levels[w:w + DAYS])
+        s = sum(levels[w : w + DAYS])
         if s > best:
             best = s
     return best
@@ -217,25 +226,33 @@ def _fmt_count(n):
 
 
 class App(oreoOS.App):
-    name         = "Commits"
+    name = "Commits"
     SHOW_LOADING = False
 
     def on_enter(self, os):
         self._os = os
         from oreoOS import config
+
         self._user = config.get("GITHUB_USER") or "Circuit-Overtime"
         self._fetching = False
         try:
             import _thread
+
             self._lock = _thread.allocate_lock()
         except Exception:
             try:
                 import threading
+
                 self._lock = threading.Lock()
             except Exception:
+
                 class _DummyLock:
-                    def __enter__(self): pass
-                    def __exit__(self, *a): pass
+                    def __enter__(self):
+                        pass
+
+                    def __exit__(self, *a):
+                        pass
+
                 self._lock = _DummyLock()
 
         # 1. Instant Disk Cache Load — No UI freeze on entry!
@@ -243,15 +260,15 @@ class App(oreoOS.App):
         if lv:
             self._levels = lv
             self._counts = ct
-            self._dates  = dt
-            self._live   = (age < 3600)
-            self._age    = age
+            self._dates = dt
+            self._live = age < 3600
+            self._age = age
         else:
             self._levels = _demo_grid()
             self._counts = [0] * len(self._levels)
-            self._dates  = [""] * len(self._levels)
-            self._live   = False
-            self._age    = None
+            self._dates = [""] * len(self._levels)
+            self._live = False
+            self._age = None
 
         self._dirty = True
 
@@ -265,10 +282,12 @@ class App(oreoOS.App):
         self._dirty = True
         try:
             import _thread
+
             _thread.start_new_thread(self._fetch_worker, ())
         except Exception:
             try:
                 import threading
+
                 t = threading.Thread(target=self._fetch_worker, daemon=True)
                 t.start()
             except Exception:
@@ -282,13 +301,15 @@ class App(oreoOS.App):
                 with self._lock:
                     self._levels = lv
                     self._counts = ct or [0] * len(lv)
-                    self._dates  = dt or [""] * len(lv)
-                    self._live   = True
-                    self._age    = 0
+                    self._dates = dt or [""] * len(lv)
+                    self._live = True
+                    self._age = 0
                 _save_cache(self._user, lv, ct or [0] * len(lv), dt or [""] * len(lv))
         except Exception as e:
             from oreoOS import config
-            if config.DEBUG: print("Commits fetch err:", e)
+
+            if config.DEBUG:
+                print("Commits fetch err:", e)
         finally:
             self._fetching = False
             self._dirty = True
@@ -305,7 +326,7 @@ class App(oreoOS.App):
             return
         d.clear(theme.BG)
         widgets.draw_header(d, "COMMITS")
-        widgets.draw_hint  (d, "A=refresh  HOME=back")
+        widgets.draw_hint(d, "A=refresh  HOME=back")
 
         # Full-height card filling the play area.
         card_x = 10
@@ -313,8 +334,8 @@ class App(oreoOS.App):
         card_w = SW - 20
         card_h = SH - widgets.HEADER_H - widgets.HINT_H - 8
         d.rect(card_x + 2, card_y + 2, card_w, card_h, theme.MUTED2, fill=True)
-        d.rect(card_x,     card_y,     card_w, card_h, theme.CARD,   fill=True)
-        d.rect(card_x,     card_y,     card_w, 3,      theme.PRIMARY, fill=True)
+        d.rect(card_x, card_y, card_w, card_h, theme.CARD, fill=True)
+        d.rect(card_x, card_y, card_w, 3, theme.PRIMARY, fill=True)
 
         # Username (scale=2 pink) + gold underline.
         user_str = "@" + self._user[:20]
@@ -333,49 +354,46 @@ class App(oreoOS.App):
         active = sum(1 for x in levels if x > 0)
         streak = _max_streak(levels)
         sub = "%d active days  ~  %d-day streak" % (active, streak)
-        sw  = len(sub) * 8
+        sw = len(sub) * 8
         d.text(sub, (SW - sw) // 2, uy + 28, theme.TEXT_BRIGHT)
 
         # Date range strip — "from 12 May 2025 to 13 May 2026" — pulled from
         # the SVG so the user knows exactly what window this grid covers.
-        first = _fmt_date(dates[0])  if dates else ""
-        last  = _fmt_date(dates[-1]) if dates else ""
+        first = _fmt_date(dates[0]) if dates else ""
+        last = _fmt_date(dates[-1]) if dates else ""
         if first and last:
             rng = "%s  -  %s" % (first, last)
-            rw  = len(rng) * 8
+            rw = len(rng) * 8
             d.text(rng, (SW - rw) // 2, uy + 40, theme.MUTED)
 
         # Grid — centred horizontally and vertically between subtitle and
         # stat strip so it fills the cream void.
         grid_w = WEEKS * (CELL_PX + GAP_PX) - GAP_PX
-        grid_h = DAYS  * (CELL_PX + GAP_PX) - GAP_PX
-        gx0    = (SW - grid_w) // 2
+        grid_h = DAYS * (CELL_PX + GAP_PX) - GAP_PX
+        gx0 = (SW - grid_w) // 2
 
-        sub_bot   = uy + 52                  # subtitle + date range
-        strip_top = card_y + card_h - 60     # reserve for stat strip + legend
-        gy0       = sub_bot + max(0, (strip_top - sub_bot - grid_h) // 2)
+        sub_bot = uy + 52  # subtitle + date range
+        strip_top = card_y + card_h - 60  # reserve for stat strip + legend
+        gy0 = sub_bot + max(0, (strip_top - sub_bot - grid_h) // 2)
 
         gp = 4
-        d.rect(gx0 - gp, gy0 - gp,
-               grid_w + gp * 2, grid_h + gp * 2,
-               theme.DOCK_SEL, fill=True)
+        d.rect(gx0 - gp, gy0 - gp, grid_w + gp * 2, grid_h + gp * 2, theme.DOCK_SEL, fill=True)
         for i in range(min(len(levels), WEEKS * DAYS)):
             week = i // DAYS
-            day  = i %  DAYS
-            cx   = gx0 + week * (CELL_PX + GAP_PX)
-            cy   = gy0 + day  * (CELL_PX + GAP_PX)
-            d.rect(cx, cy, CELL_PX, CELL_PX,
-                   _bucket_color(levels[i]), fill=True)
+            day = i % DAYS
+            cx = gx0 + week * (CELL_PX + GAP_PX)
+            cy = gy0 + day * (CELL_PX + GAP_PX)
+            d.rect(cx, cy, CELL_PX, CELL_PX, _bucket_color(levels[i]), fill=True)
 
         # Stat strip — current streak / busiest week / total commits.
         strip_y = strip_top + 4
-        total   = sum(counts) if any(counts) else active
+        total = sum(counts) if any(counts) else active
         cur_str = _current_streak(levels)
-        busy    = _busiest_week(levels)
+        busy = _busiest_week(levels)
         cols = [
             ("current", "%dd" % cur_str),
-            ("busiest", "%d"  % busy),
-            ("total",   _fmt_count(total)),
+            ("busiest", "%d" % busy),
+            ("total", _fmt_count(total)),
         ]
         col_w = card_w // len(cols)
         for i, (lbl, val) in enumerate(cols):
@@ -388,19 +406,26 @@ class App(oreoOS.App):
         lg_x = card_x + 10
         d.text("less", lg_x, lg_y + (CELL_PX - 8) // 2, theme.MUTED)
         for i in range(5):
-            d.rect(lg_x + 36 + i * (CELL_PX + GAP_PX), lg_y,
-                   CELL_PX, CELL_PX, _bucket_color(i), fill=True)
-        d.text("more", lg_x + 36 + 5 * (CELL_PX + GAP_PX) + 4,
-               lg_y + (CELL_PX - 8) // 2, theme.MUTED)
+            d.rect(
+                lg_x + 36 + i * (CELL_PX + GAP_PX),
+                lg_y,
+                CELL_PX,
+                CELL_PX,
+                _bucket_color(i),
+                fill=True,
+            )
+        d.text(
+            "more", lg_x + 36 + 5 * (CELL_PX + GAP_PX) + 4, lg_y + (CELL_PX - 8) // 2, theme.MUTED
+        )
 
         if getattr(self, "_fetching", False):
-            pill   = "SYNCING"
+            pill = "SYNCING"
             pill_c = theme.GOLD
         elif live_status:
-            pill   = "LIVE"
+            pill = "LIVE"
             pill_c = theme.GREEN
         else:
-            pill   = "OFFLINE"
+            pill = "OFFLINE"
             pill_c = theme.MUTED
 
         pw = len(pill) * 8 + 12
@@ -416,6 +441,7 @@ class App(oreoOS.App):
         self._dates = []
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass

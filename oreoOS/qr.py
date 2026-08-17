@@ -9,6 +9,7 @@ and standard 2D barcode scanners with zero external dependencies.
 _EXP = [0] * 512
 _LOG = [0] * 256
 
+
 def _init_gf():
     x = 1
     for i in range(255):
@@ -17,6 +18,7 @@ def _init_gf():
         _LOG[x] = i
         x = ((x << 1) ^ 0x11D) if (x & 0x80) else (x << 1)
     _LOG[0] = 0
+
 
 _init_gf()
 
@@ -49,7 +51,7 @@ def _rs_encode(data, num_ec):
             log_lead = _LOG[lead]
             for j in range(len(gen)):
                 msg[i + j] ^= _EXP[log_lead + _LOG[gen[j]]]
-    return msg[len(data):]
+    return msg[len(data) :]
 
 
 # Version table for ECC-L: (total_cw, ec_cw_per_block, [(b1_count, b1_data), (b2_count, b2_data)], align_coords)
@@ -69,7 +71,7 @@ def _bch_format(ec_level=1, mask=0):
     g = 0x537
     for i in range(14, 9, -1):
         if (d >> i) & 1:
-            d ^= (g << (i - 10))
+            d ^= g << (i - 10)
     raw = (data << 10) | d
     return raw ^ 0x5412
 
@@ -99,7 +101,7 @@ class QRCode:
         # Select smallest version that fits (4 bits mode + 8 bits len + data)
         version = None
         for v in sorted(_V_TABLE.keys()):
-            tot, ec, blocks, align = _V_TABLE[v]
+            _tot, ec, blocks, align = _V_TABLE[v]
             data_cap = sum(cnt * dcw for cnt, dcw in blocks)
             if 12 + n_bytes * 8 <= data_cap * 8:
                 version = v
@@ -107,7 +109,7 @@ class QRCode:
         if version is None:
             version = 6
 
-        tot, ec, blocks, align = _V_TABLE[version]
+        _tot, ec, blocks, align = _V_TABLE[version]
         data_cap = sum(cnt * dcw for cnt, dcw in blocks)
 
         # 1. Assemble bitstream
@@ -142,7 +144,7 @@ class QRCode:
         data_codewords = []
         for i in range(0, len(bits), 8):
             byte_val = 0
-            for bit in bits[i:i + 8]:
+            for bit in bits[i : i + 8]:
                 byte_val = (byte_val << 1) | bit
             data_codewords.append(byte_val)
 
@@ -191,7 +193,7 @@ class QRCode:
                     mr, mc = top + r, left + c
                     if 0 <= mr < size and 0 <= mc < size:
                         if 0 <= r <= 6 and 0 <= c <= 6:
-                            val = (r in (0, 6) or c in (0, 6) or (2 <= r <= 4 and 2 <= c <= 4))
+                            val = r in (0, 6) or c in (0, 6) or (2 <= r <= 4 and 2 <= c <= 4)
                             set_fn(mr, mc, val)
                         else:
                             set_fn(mr, mc, False)
@@ -211,11 +213,15 @@ class QRCode:
         if align:
             for r in align:
                 for c in align:
-                    if (r <= 8 and c <= 8) or (r <= 8 and c >= size - 9) or (r >= size - 9 and c <= 8):
+                    if (
+                        (r <= 8 and c <= 8)
+                        or (r <= 8 and c >= size - 9)
+                        or (r >= size - 9 and c <= 8)
+                    ):
                         continue
                     for dr in range(-2, 3):
                         for dc in range(-2, 3):
-                            val = (abs(dr) == 2 or abs(dc) == 2 or (dr == 0 and dc == 0))
+                            val = abs(dr) == 2 or abs(dc) == 2 or (dr == 0 and dc == 0)
                             set_fn(r + dr, c + dc, val)
 
         # Dark module
@@ -234,7 +240,8 @@ class QRCode:
         direction = -1
         c = size - 1
         while c > 0:
-            if c == 6: c -= 1
+            if c == 6:
+                c -= 1
             for row_step in range(size):
                 r = (size - 1 - row_step) if direction == -1 else row_step
                 for col_step in (c, c - 1):
@@ -242,7 +249,7 @@ class QRCode:
                         b = final_bits[bit_idx] if bit_idx < len(final_bits) else 0
                         bit_idx += 1
                         # Mask pattern 0: (r + col) % 2 == 0
-                        mask = ((r + col_step) % 2 == 0)
+                        mask = (r + col_step) % 2 == 0
                         matrix[r][col_step] = bool(b ^ mask)
             direction = -direction
             c -= 2

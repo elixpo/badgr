@@ -20,18 +20,18 @@ def _crash_message(err):
     itself fails (display not initialized, OOM, etc.) we silently fall
     through to the reset path so the badge never gets stuck."""
     try:
-        from oreoWare.display import Display
         from oreoOS import api
+        from oreoWare.display import Display
+
         d = Display()
         d.clear(api.rgb(220, 40, 60))
-        d.text("OREO CRASHED",   16, 40,  api.WHITE, scale=2)
-        d.text("rebooting...",   16, 70,  api.WHITE, scale=1)
+        d.text("OREO CRASHED", 16, 40, api.WHITE, scale=2)
+        d.text("rebooting...", 16, 70, api.WHITE, scale=1)
         # Truncate so a long traceback line doesn't blow past 36 chars
         # at scale=1 (≈8 px/glyph on a 320 px-wide screen).
         msg = (str(err) or "(no message)")[:36]
         d.text(msg, 16, 100, api.WHITE, scale=1)
-        d.text("if this loops, hold HOME on power",
-               16, 200, api.WHITE, scale=1)
+        d.text("if this loops, hold HOME on power", 16, 200, api.WHITE, scale=1)
         d.present()
     except Exception:
         pass
@@ -40,11 +40,13 @@ def _crash_message(err):
 def _settle_then_reset():
     try:
         import time
+
         time.sleep_ms(3000)
     except Exception:
         pass
     try:
         import machine
+
         machine.reset()
     except Exception:
         # Build-host fallback — no machine module. Re-raise to surface
@@ -54,6 +56,7 @@ def _settle_then_reset():
 
 def main():
     from oreoOS import launcher
+
     try:
         launcher.boot()
     except Exception as e:

@@ -18,10 +18,11 @@ ICON_SIZE = 32
 def _png_to_rgb565(path: str, size=ICON_SIZE) -> bytes | None:
     try:
         from PIL import Image
+
         from oreoOS import theme
+
         img = Image.open(path).convert("RGBA").resize((size, size), Image.LANCZOS)
-        bg = Image.new("RGBA", (size, size),
-                       (theme.BG_R, theme.BG_G, theme.BG_B, 255))
+        bg = Image.new("RGBA", (size, size), (theme.BG_R, theme.BG_G, theme.BG_B, 255))
         bg.paste(img, mask=img.split()[3])
         rgb = bg.convert("RGB")
         pixels = []
@@ -60,8 +61,9 @@ def load(app_dir: str, icon_filename: str | None = None) -> tuple | None:
         stem = (icon_filename or app_dir).rsplit(".", 1)[0].replace("-", "_")
         for mod_name in [stem, "%s_icon" % app_dir]:
             try:
-                mod = __import__("assets.icons.optimized.%s" % mod_name,
-                                 None, None, ["DATA", "W", "H"])
+                mod = __import__(
+                    "assets.icons.optimized.%s" % mod_name, None, None, ["DATA", "W", "H"]
+                )
                 result = (mod.DATA, mod.W, mod.H)
                 break
             except (ImportError, AttributeError):

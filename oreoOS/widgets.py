@@ -10,16 +10,17 @@ backgrounds) so the OS feels cohesive. Apps just call:
 and the look is consistent.
 """
 
-from oreoOS import api, pixelfont
-from oreoOS import theme
 import time as _time
-from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
+
+from oreoOS import api, pixelfont, theme
+from oreoOS.api import ticks_diff as _ticks_diff
+from oreoOS.api import ticks_ms as _ticks_ms
 
 HEADER_H = 26
-HINT_H   = 16
+HINT_H = 16
 
 # Forest-green header for the home screen (matches the bg image's tones).
-HEADER_HOME_BG = api.rgb(46, 102,  74)
+HEADER_HOME_BG = api.rgb(46, 102, 74)
 
 # ── status bar cache & polling ────────────────────────────────────────────────
 _STATUS_POLL_MS = 2000
@@ -28,7 +29,7 @@ _status_cache = {
     "bt": False,
     "battery_pct": 85,
     "last_ms": None,
-    "time_str": "12:00"
+    "time_str": "12:00",
 }
 
 
@@ -41,6 +42,7 @@ def _poll_status():
 
     try:
         from oreoOS import timeutil
+
         h, m, *_ = timeutil.now()
         _status_cache["time_str"] = "%02d:%02d" % (h, m)
     except Exception:
@@ -48,18 +50,21 @@ def _poll_status():
 
     try:
         from oreoWare import wifi as _w
+
         _status_cache["wifi"] = bool(_w.is_connected())
     except Exception:
         pass
 
     try:
         from oreoWare import bt as _b
+
         _status_cache["bt"] = bool(_b.is_active())
     except Exception:
         pass
 
     try:
         from oreoWare import battery as _bat
+
         _status_cache["battery_pct"] = int(_bat.read_percent())
     except Exception:
         pass
@@ -71,8 +76,7 @@ def _poll_status():
 def _load_status_icon(name):
     """Try to load a pre-baked 13×13 status icon. Returns (data,w,h) or None."""
     try:
-        mod = __import__("assets.status.optimized.%s" % name,
-                         None, None, ["DATA", "W", "H"])
+        mod = __import__("assets.status.optimized.%s" % name, None, None, ["DATA", "W", "H"])
         return (mod.DATA, mod.W, mod.H)
     except Exception:
         return None
@@ -159,7 +163,7 @@ def draw_header(d, title=None, color=None, accent=None):
     accent : 1-px line under the header (default theme.STATUS_ACCENT)
     """
     SW = api.SCREEN_W
-    bg = color  or theme.STATUS_BG
+    bg = color or theme.STATUS_BG
     ac = accent or theme.STATUS_ACCENT or theme.PRIMARY
     fg = theme.STATUS_TEXT
     d.rect(0, 0, SW, HEADER_H, bg, fill=True)
@@ -184,24 +188,24 @@ def draw_header(d, title=None, color=None, accent=None):
 
     # Right: Full OS Status Cluster (WiFi + BT + Battery % + Battery Icon)
     right_pad = 6
-    bat_w     = 22
-    icon_w    = 13
-    gap       = 4
+    bat_w = 22
+    icon_w = 13
+    gap = 4
 
     pct_str = "%d%%" % status.get("battery_pct", 85)
-    text_w  = len(pct_str) * 8
+    text_w = len(pct_str) * 8
 
-    bat_x   = SW - right_pad - bat_w
-    pct_x   = bat_x - gap - text_w
-    bt_x    = pct_x - gap - icon_w
-    wifi_x  = bt_x  - gap - icon_w
+    bat_x = SW - right_pad - bat_w
+    pct_x = bat_x - gap - text_w
+    bt_x = pct_x - gap - icon_w
+    wifi_x = bt_x - gap - icon_w
 
     icon_y = (HEADER_H - icon_w) // 2 + 1
     text_y = (HEADER_H - 8) // 2 + 1
-    bat_y  = (HEADER_H - 10) // 2 + 1
+    bat_y = (HEADER_H - 10) // 2 + 1
 
-    _icon_wifi   (d, wifi_x, icon_y, connected=status.get("wifi", False), color=fg)
-    _icon_bt     (d, bt_x,   icon_y, active=status.get("bt", False), color=fg)
+    _icon_wifi(d, wifi_x, icon_y, connected=status.get("wifi", False), color=fg)
+    _icon_bt(d, bt_x, icon_y, active=status.get("bt", False), color=fg)
     d.text(pct_str, pct_x, text_y, fg)
     _icon_battery(d, bat_x, bat_y, pct=status.get("battery_pct", 85), color=fg)
 
@@ -213,7 +217,7 @@ def draw_hint(d, text, color=None):
     """
     SW = api.SCREEN_W
     SH = api.SCREEN_H
-    y  = SH - HINT_H
+    y = SH - HINT_H
     d.rect(0, y, SW, HINT_H, theme.DOCK_BG, fill=True)
     d.rect(0, y, SW, 1, theme.MUTED2, fill=True)
     tx = (SW - len(text) * 8) // 2
@@ -231,8 +235,10 @@ def draw_panel(d, x, y, w, h, color=None, border=True):
 
 def play_area():
     """(x, y, w, h) of the screen region between header and hint bar."""
-    SW = api.SCREEN_W
-    SH = api.SCREEN_H
+    _SW = api.SCREEN_W
+    _SH = api.SCREEN_H
+
+
 def draw_scrollbar(d, x, y, w, h, total, current, visible=1, horizontal=False, fg=None, bg=None):
     """Draw a sleek, high-visibility proportional scrollbar indicator.
 
@@ -284,19 +290,19 @@ def show_loading(os_obj, label, author=None, subtitle=None):
     buttons = getattr(os_obj, "buttons", None)
     SW = api.SCREEN_W
     SH = api.SCREEN_H
-    label  = (label  or "")[:16].upper()
+    label = (label or "")[:16].upper()
     byline = ("By @" + str(author)[:24]) if author else ""
-    sub    = str(subtitle)[:24] if subtitle else ""
+    sub = str(subtitle)[:24] if subtitle else ""
 
-    steps      = 12          # 12 keyframes for smooth slide
-    frame_ms   = 33          # ≈ 30 fps
-    label_lbl  = "LOADING"
-    label_x_l  = (SW - len(label_lbl) * 16) // 2
-    label_x_n  = (SW - len(label)     *  8) // 2
-    byline_x   = (SW - len(byline)    *  8) // 2
-    sub_x      = (SW - len(sub)       *  8) // 2
-    hint       = "HOME to cancel"
-    hint_x     = (SW - len(hint) * 8) // 2
+    steps = 12  # 12 keyframes for smooth slide
+    frame_ms = 33  # ≈ 30 fps
+    label_lbl = "LOADING"
+    label_x_l = (SW - len(label_lbl) * 16) // 2
+    label_x_n = (SW - len(label) * 8) // 2
+    byline_x = (SW - len(byline) * 8) // 2
+    sub_x = (SW - len(sub) * 8) // 2
+    hint = "HOME to cancel"
+    hint_x = (SW - len(hint) * 8) // 2
 
     for i in range(steps + 1):
         if buttons is not None:
@@ -304,9 +310,9 @@ def show_loading(os_obj, label, author=None, subtitle=None):
             if buttons.just_pressed(api.BTN_HOME):
                 return True
 
-        t        = i / steps
-        eased    = 1.0 - (1.0 - t) ** 3
-        panel_h  = int(eased * SH)
+        t = i / steps
+        eased = 1.0 - (1.0 - t) ** 3
+        panel_h = int(eased * SH)
 
         display.rect(0, 0, SW, panel_h, theme.PRIMARY, fill=True)
         if panel_h < SH:
@@ -315,11 +321,11 @@ def show_loading(os_obj, label, author=None, subtitle=None):
         if panel_h > 60:
             cy = panel_h // 2
             display.text(label_lbl, label_x_l, cy - 24, api.WHITE, scale=2)
-            display.text(label,     label_x_n, cy +  2, api.WHITE)
+            display.text(label, label_x_n, cy + 2, api.WHITE)
             if byline and panel_h > 95:
                 display.text(byline, byline_x, cy + 20, theme.GOLD)
             elif sub and panel_h > 95:
-                display.text(sub,    sub_x,    cy + 20, theme.GOLD)
+                display.text(sub, sub_x, cy + 20, theme.GOLD)
             if panel_h > 140:
                 display.text(hint, hint_x, panel_h - 22, api.WHITE)
 
@@ -331,8 +337,8 @@ def show_loading(os_obj, label, author=None, subtitle=None):
 
     try:
         import gc
+
         gc.collect()
     except Exception:
         pass
     return False
-

@@ -9,7 +9,8 @@ import time
 
 try:
     import socket as _socket
-    import ssl    as _ssl
+    import ssl as _ssl
+
     _RAW_OK = True
 except ImportError:
     _RAW_OK = False
@@ -27,6 +28,7 @@ except ImportError:
 
 try:
     from oreoOS.config import get_state_path
+
     STATE_FILE = get_state_path("saves/state_spotify.json")
 except Exception:
     STATE_FILE = "badge_data/saves/state_spotify.json"
@@ -34,7 +36,7 @@ except Exception:
 
 def _base64_encode(s):
     try:
-        return _binascii.b2a_base64(s.encode('utf-8')).decode('utf-8').strip()
+        return _binascii.b2a_base64(s.encode("utf-8")).decode("utf-8").strip()
     except Exception:
         return ""
 
@@ -45,7 +47,7 @@ def load_persisted_credentials():
         "badge_data/state_spotify.json",
         "state_spotify.json",
         "apps_market/spotify/state_spotify.json",
-        "apps/spotify/state_spotify.json"
+        "apps/spotify/state_spotify.json",
     ):
         try:
             with open(fpath, "r") as f:
@@ -58,7 +60,11 @@ def load_persisted_credentials():
                     pass
                 else:
                     token = None
-                if isinstance(refresh_token, str) and refresh_token.strip() and not refresh_token.startswith("{"):
+                if (
+                    isinstance(refresh_token, str)
+                    and refresh_token.strip()
+                    and not refresh_token.startswith("{")
+                ):
                     pass
                 else:
                     refresh_token = None
@@ -82,7 +88,9 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
 
         cur_t, cur_rt, cur_ci, cur_cs = load_persisted_credentials()
         final_token = token if (isinstance(token, str) and token.strip()) else cur_t
-        final_rt = refresh_token if (isinstance(refresh_token, str) and refresh_token.strip()) else cur_rt
+        final_rt = (
+            refresh_token if (isinstance(refresh_token, str) and refresh_token.strip()) else cur_rt
+        )
         final_ci = client_id or cur_ci
         final_cs = client_secret or cur_cs
 
@@ -95,9 +103,10 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
             "refresh_token": final_rt,
             "client_id": final_ci,
             "client_secret": final_cs,
-            "updated_at": int(time.time() if hasattr(time, 'time') else 0),
+            "updated_at": int(time.time() if hasattr(time, "time") else 0),
         }
         import os
+
         # Ensure parent dir exists
         parent = os.path.dirname(STATE_FILE)
         if parent:
@@ -121,10 +130,11 @@ def clear_credentials():
         "badge_data/state_spotify.json",
         "state_spotify.json",
         "apps_market/spotify/state_spotify.json",
-        "apps/spotify/state_spotify.json"
+        "apps/spotify/state_spotify.json",
     ):
         try:
             import os
+
             if os.path.exists(fpath):
                 os.remove(fpath)
         except Exception:
@@ -140,6 +150,7 @@ def clear_credentials():
 def _get_relay_url(endpoint=""):
     try:
         from oreoOS import config
+
         base = config.get("SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app").rstrip("/")
     except Exception:
         base = "https://oreo-delta.vercel.app"
@@ -149,6 +160,7 @@ def _get_relay_url(endpoint=""):
 def _get_auth_url():
     try:
         from oreoOS import config
+
         return config.get("SPOTIFY_AUTH_URL", _get_relay_url("spotify"))
     except Exception:
         return _get_relay_url("spotify")
@@ -156,16 +168,19 @@ def _get_auth_url():
 
 _COVER_CACHE = {}
 
+
 def _http_get_json(url, timeout_s=4.0):
     try:
         from oreoOS import _http
+
         body = _http.get_url(url, timeout_s=timeout_s)
         if body:
-            return _json.loads(body.decode('utf-8'))
+            return _json.loads(body.decode("utf-8"))
     except Exception:
         pass
     try:
         import urequests
+
         resp = urequests.get(url, headers={"User-Agent": "OreoBadge/1.0"}, timeout=timeout_s)
         data = resp.json()
         resp.close()
@@ -174,9 +189,10 @@ def _http_get_json(url, timeout_s=4.0):
         pass
     try:
         import urllib.request
+
         req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-            return _json.loads(resp.read().decode('utf-8'))
+            return _json.loads(resp.read().decode("utf-8"))
     except Exception:
         pass
     return None
@@ -210,6 +226,7 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
         data = None
         try:
             from oreoOS import _http
+
             data = _http.get_url(url, timeout_s=3.0)
         except Exception:
             pass
@@ -217,6 +234,7 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
         if not data:
             try:
                 import urllib.request
+
                 req = urllib.request.Request(url, headers={"User-Agent": "OreoBadge/1.0"})
                 with urllib.request.urlopen(req, timeout=3.0) as resp:
                     data = resp.read()
@@ -226,10 +244,12 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
         if not data:
             return None
 
-        import io
         import gc
+        import io
+
         try:
             import PIL.Image as Image
+
             img = Image.open(io.BytesIO(data)).convert("RGB").resize((target_w, target_h))
             raw = bytearray(target_w * target_h * 2)
             idx = 0
@@ -240,7 +260,7 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
                     raw[idx] = (rgb565 >> 8) & 0xFF
                     raw[idx + 1] = rgb565 & 0xFF
                     idx += 2
-            
+
             # Bound cache size to 5 items to prevent heap bloat on ESP32-S3
             if len(_COVER_CACHE) >= 5:
                 oldest = next(iter(_COVER_CACHE))
@@ -257,20 +277,20 @@ def fetch_cover_art_rgb565(url, target_w=64, target_h=64):
 
 
 class SpotifyClient:
-    API_HOST  = "api.spotify.com"
+    API_HOST = "api.spotify.com"
     AUTH_HOST = "accounts.spotify.com"
-    PORT      = 443
+    PORT = 443
     TIMEOUT_S = 3.5
 
     def __init__(self, token=None, refresh_token=None, client_id=None, client_secret=None):
-        self.token          = token
-        self.refresh_token  = refresh_token
-        self.client_id      = client_id
-        self.client_secret  = client_secret
-        self.last_sync_ms   = 0
-        self.device_name    = ""
+        self.token = token
+        self.refresh_token = refresh_token
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.last_sync_ms = 0
+        self.device_name = ""
         self.active_device_id = None
-        self.last_error     = ""
+        self.last_error = ""
 
         if not self.is_configured():
             self.reload_persisted()
@@ -280,10 +300,14 @@ class SpotifyClient:
 
     def reload_persisted(self):
         t, rt, ci, cs = load_persisted_credentials()
-        if t:  self.token = t
-        if rt: self.refresh_token = rt
-        if ci: self.client_id = ci
-        if cs: self.client_secret = cs
+        if t:
+            self.token = t
+        if rt:
+            self.refresh_token = rt
+        if ci:
+            self.client_id = ci
+        if cs:
+            self.client_secret = cs
         return self.is_configured()
 
     def disconnect(self):
@@ -306,7 +330,7 @@ class SpotifyClient:
         headers.setdefault("Connection", "close")
 
         if body_data:
-            b_bytes = body_data.encode('utf-8') if isinstance(body_data, str) else body_data
+            b_bytes = body_data.encode("utf-8") if isinstance(body_data, str) else body_data
             headers["Content-Length"] = str(len(b_bytes))
         else:
             headers["Content-Length"] = "0"
@@ -325,8 +349,10 @@ class SpotifyClient:
                     break
                 except Exception:
                     if raw is not None:
-                        try: raw.close()
-                        except Exception: pass
+                        try:
+                            raw.close()
+                        except Exception:
+                            pass
                     raw = None
 
             if raw is None:
@@ -349,7 +375,7 @@ class SpotifyClient:
             req_lines.append("")
             req_lines.append("")
             header_str = "\r\n".join(req_lines)
-            s.write(header_str.encode('utf-8'))
+            s.write(header_str.encode("utf-8"))
             if b_bytes:
                 s.write(b_bytes)
 
@@ -380,9 +406,9 @@ class SpotifyClient:
                 body_part = b""
             else:
                 header_part = resp[:header_end]
-                body_part = resp[header_end + 4:]
+                body_part = resp[header_end + 4 :]
 
-            first_line = header_part.split(b"\r\n", 1)[0].decode('utf-8', 'ignore')
+            first_line = header_part.split(b"\r\n", 1)[0].decode("utf-8", "ignore")
             parts = first_line.split(" ")
             status = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
 
@@ -391,11 +417,15 @@ class SpotifyClient:
         except Exception as e:
             self.last_error = str(e)
             if s is not None:
-                try: s.close()
-                except Exception: pass
+                try:
+                    s.close()
+                except Exception:
+                    pass
             elif raw is not None:
-                try: raw.close()
-                except Exception: pass
+                try:
+                    raw.close()
+                except Exception:
+                    pass
             return 0, None
 
     def _refresh_via_relay(self):
@@ -406,12 +436,13 @@ class SpotifyClient:
 
         try:
             import urllib.request
+
             body = _json.dumps({"refresh_token": self.refresh_token}).encode("utf-8")
             req = urllib.request.Request(
                 relay_url,
                 data=body,
                 headers={"Content-Type": "application/json", "User-Agent": "OreoBadge-Spotify/1.0"},
-                method="POST"
+                method="POST",
             )
             with urllib.request.urlopen(req, timeout=4.0) as resp:
                 data = _json.loads(resp.read().decode("utf-8"))
@@ -424,7 +455,7 @@ class SpotifyClient:
                         token=new_token,
                         refresh_token=new_rt,
                         client_id=self.client_id or data.get("client_id"),
-                        client_secret=self.client_secret
+                        client_secret=self.client_secret,
                     )
                     return True
         except Exception:
@@ -452,7 +483,7 @@ class SpotifyClient:
                         token=new_token,
                         refresh_token=new_rt,
                         client_id=self.client_id or data.get("client_id"),
-                        client_secret=self.client_secret
+                        client_secret=self.client_secret,
                     )
                     return True
         except Exception:
@@ -466,21 +497,30 @@ class SpotifyClient:
 
         if self.client_secret and self.client_id:
             try:
-                auth_str = _base64_encode("%s:%s" % (self.client_id or "", self.client_secret or ""))
+                auth_str = _base64_encode(
+                    "%s:%s" % (self.client_id or "", self.client_secret or "")
+                )
                 headers = {
                     "Authorization": "Basic " + auth_str,
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/x-www-form-urlencoded",
                 }
                 body = "grant_type=refresh_token&refresh_token=" + self.refresh_token
-                status, resp_bytes = self._http_request(self.AUTH_HOST, "POST", "/api/token", headers, body)
+                status, resp_bytes = self._http_request(
+                    self.AUTH_HOST, "POST", "/api/token", headers, body
+                )
                 if status == 200 and resp_bytes:
-                    data = _json.loads(resp_bytes.decode('utf-8'))
+                    data = _json.loads(resp_bytes.decode("utf-8"))
                     new_token = data.get("access_token")
                     new_rt = data.get("refresh_token") or self.refresh_token
                     if new_token:
                         self.token = new_token
                         self.refresh_token = new_rt
-                        save_credentials(token=new_token, refresh_token=new_rt, client_id=self.client_id, client_secret=self.client_secret)
+                        save_credentials(
+                            token=new_token,
+                            refresh_token=new_rt,
+                            client_id=self.client_id,
+                            client_secret=self.client_secret,
+                        )
                         return True
             except Exception:
                 pass
@@ -495,10 +535,12 @@ class SpotifyClient:
         status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + str(self.token)}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/devices", headers)
+            status, body = self._http_request(
+                self.API_HOST, "GET", "/v1/me/player/devices", headers
+            )
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 devs = data.get("devices", []) or []
                 if devs:
                     for d in devs:
@@ -530,25 +572,25 @@ class SpotifyClient:
 
         if status == 403:
             return {
-                "connected":   True,
-                "active":      True,
-                "is_playing":  False,
-                "title":       "Spotify Connected",
-                "artist":      "Open Spotify on device",
-                "album":       "",
-                "image_url":   "",
-                "duration_s":  0,
-                "progress_s":  0,
-                "volume":      70,
+                "connected": True,
+                "active": True,
+                "is_playing": False,
+                "title": "Spotify Connected",
+                "artist": "Open Spotify on device",
+                "album": "",
+                "image_url": "",
+                "duration_s": 0,
+                "progress_s": 0,
+                "volume": 70,
                 "device_name": "Ready",
-                "shuffle":     False,
-                "repeat":      "off"
+                "shuffle": False,
+                "repeat": "off",
             }
 
         # 1. If /v1/me/player returned 200 with track item
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 item = data.get("item")
                 if item:
                     artists = item.get("artists", [])
@@ -559,32 +601,36 @@ class SpotifyClient:
                     dev = data.get("device", {})
                     if dev and dev.get("id"):
                         self.active_device_id = dev.get("id")
-                    is_active = bool(data.get("is_playing", False)) or bool(dev.get("is_active", False))
+                    is_active = bool(data.get("is_playing", False)) or bool(
+                        dev.get("is_active", False)
+                    )
                     self.device_name = dev.get("name", "Spotify") if dev else "Spotify (Ready)"
 
                     return {
-                        "connected":   True,
-                        "active":      is_active,
-                        "is_playing":  bool(data.get("is_playing", False)),
-                        "title":       item.get("name", ""),
-                        "artist":      artist_names,
-                        "album":       (item.get("album") or {}).get("name", ""),
-                        "image_url":   image_url,
-                        "duration_s":  (item.get("duration_ms", 0) or 0) / 1000.0,
-                        "progress_s":  (data.get("progress_ms", 0) or 0) / 1000.0,
-                        "volume":      dev.get("volume_percent", 70),
+                        "connected": True,
+                        "active": is_active,
+                        "is_playing": bool(data.get("is_playing", False)),
+                        "title": item.get("name", ""),
+                        "artist": artist_names,
+                        "album": (item.get("album") or {}).get("name", ""),
+                        "image_url": image_url,
+                        "duration_s": (item.get("duration_ms", 0) or 0) / 1000.0,
+                        "progress_s": (data.get("progress_ms", 0) or 0) / 1000.0,
+                        "volume": dev.get("volume_percent", 70),
                         "device_name": self.device_name,
-                        "shuffle":     bool(data.get("shuffle_state", False)),
-                        "repeat":      data.get("repeat_state", "off"),
+                        "shuffle": bool(data.get("shuffle_state", False)),
+                        "repeat": data.get("repeat_state", "off"),
                     }
             except Exception:
                 pass
 
         # 2. Fallback: Query /v1/me/player/currently-playing (reliable for Web Player & desktop apps)
-        status_cp, body_cp = self._http_request(self.API_HOST, "GET", "/v1/me/player/currently-playing", headers)
+        status_cp, body_cp = self._http_request(
+            self.API_HOST, "GET", "/v1/me/player/currently-playing", headers
+        )
         if status_cp == 200 and body_cp:
             try:
-                data_cp = _json.loads(body_cp.decode('utf-8'))
+                data_cp = _json.loads(body_cp.decode("utf-8"))
                 item = data_cp.get("item")
                 if item:
                     artists = item.get("artists", [])
@@ -606,19 +652,19 @@ class SpotifyClient:
                             vol = devs[0].get("volume_percent", 70)
 
                     return {
-                        "connected":   True,
-                        "active":      True,
-                        "is_playing":  bool(data_cp.get("is_playing", False)),
-                        "title":       item.get("name", ""),
-                        "artist":      artist_names,
-                        "album":       (item.get("album") or {}).get("name", ""),
-                        "image_url":   image_url,
-                        "duration_s":  (item.get("duration_ms", 0) or 0) / 1000.0,
-                        "progress_s":  (data_cp.get("progress_ms", 0) or 0) / 1000.0,
-                        "volume":      vol,
+                        "connected": True,
+                        "active": True,
+                        "is_playing": bool(data_cp.get("is_playing", False)),
+                        "title": item.get("name", ""),
+                        "artist": artist_names,
+                        "album": (item.get("album") or {}).get("name", ""),
+                        "image_url": image_url,
+                        "duration_s": (item.get("duration_ms", 0) or 0) / 1000.0,
+                        "progress_s": (data_cp.get("progress_ms", 0) or 0) / 1000.0,
+                        "volume": vol,
                         "device_name": dev_name,
-                        "shuffle":     False,
-                        "repeat":      "off",
+                        "shuffle": False,
+                        "repeat": "off",
                     }
             except Exception:
                 pass
@@ -637,18 +683,18 @@ class SpotifyClient:
                 self.active_device_id = devs[0].get("id")
 
         return {
-            "connected":   True,
-            "active":      False,
-            "is_playing":  False,
-            "title":       "No Active Playback",
-            "artist":      "Open Spotify on device",
-            "album":       "Ready",
-            "image_url":   "",
-            "duration_s":  0.0,
-            "progress_s":  0.0,
-            "volume":      70,
+            "connected": True,
+            "active": False,
+            "is_playing": False,
+            "title": "No Active Playback",
+            "artist": "Open Spotify on device",
+            "album": "Ready",
+            "image_url": "",
+            "duration_s": 0.0,
+            "progress_s": 0.0,
+            "volume": 70,
             "device_name": dev_name,
-            "repeat":      "off"
+            "repeat": "off",
         }
 
     def transfer_playback(self, device_id=None, play=True):
@@ -722,32 +768,45 @@ class SpotifyClient:
         if not self.token and not self.refresh_access_token():
             return []
         headers = {"Authorization": "Bearer " + str(self.token)}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/tracks?limit=%d" % limit, headers)
+        status, body = self._http_request(
+            self.API_HOST, "GET", "/v1/me/tracks?limit=%d" % limit, headers
+        )
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + str(self.token)}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/tracks?limit=%d" % limit, headers)
+            status, body = self._http_request(
+                self.API_HOST, "GET", "/v1/me/tracks?limit=%d" % limit, headers
+            )
         tracks = []
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 for entry in data.get("items", []) or []:
-                    if not entry or not isinstance(entry, dict): continue
+                    if not entry or not isinstance(entry, dict):
+                        continue
                     tr = entry.get("track") or {}
-                    if not tr or not isinstance(tr, dict): continue
+                    if not tr or not isinstance(tr, dict):
+                        continue
                     name = tr.get("name")
-                    if not name: continue
+                    if not name:
+                        continue
                     artists_list = tr.get("artists", []) or []
-                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    artists = ", ".join(
+                        a.get("name", "")
+                        for a in artists_list
+                        if isinstance(a, dict) and a.get("name")
+                    )
                     album_info = tr.get("album") or {}
                     album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
-                    tracks.append({
-                        "title": name,
-                        "artist": artists or "Unknown Artist",
-                        "album": album_name,
-                        "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
-                        "uri": tr.get("uri", ""),
-                        "category": "Liked"
-                    })
+                    tracks.append(
+                        {
+                            "title": name,
+                            "artist": artists or "Unknown Artist",
+                            "album": album_name,
+                            "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
+                            "uri": tr.get("uri", ""),
+                            "category": "Liked",
+                        }
+                    )
             except Exception:
                 pass
         return tracks
@@ -757,30 +816,42 @@ class SpotifyClient:
         if not self.token and not self.refresh_access_token():
             return []
         headers = {"Authorization": "Bearer " + str(self.token)}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/top/tracks?limit=%d" % limit, headers)
+        status, body = self._http_request(
+            self.API_HOST, "GET", "/v1/me/top/tracks?limit=%d" % limit, headers
+        )
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + str(self.token)}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/top/tracks?limit=%d" % limit, headers)
+            status, body = self._http_request(
+                self.API_HOST, "GET", "/v1/me/top/tracks?limit=%d" % limit, headers
+            )
         tracks = []
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 for tr in data.get("items", []) or []:
-                    if not tr or not isinstance(tr, dict): continue
+                    if not tr or not isinstance(tr, dict):
+                        continue
                     name = tr.get("name")
-                    if not name: continue
+                    if not name:
+                        continue
                     artists_list = tr.get("artists", []) or []
-                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    artists = ", ".join(
+                        a.get("name", "")
+                        for a in artists_list
+                        if isinstance(a, dict) and a.get("name")
+                    )
                     album_info = tr.get("album") or {}
                     album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
-                    tracks.append({
-                        "title": name,
-                        "artist": artists or "Unknown Artist",
-                        "album": album_name,
-                        "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
-                        "uri": tr.get("uri", ""),
-                        "category": "Top"
-                    })
+                    tracks.append(
+                        {
+                            "title": name,
+                            "artist": artists or "Unknown Artist",
+                            "album": album_name,
+                            "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
+                            "uri": tr.get("uri", ""),
+                            "category": "Top",
+                        }
+                    )
             except Exception:
                 pass
         return tracks
@@ -790,34 +861,47 @@ class SpotifyClient:
         if not self.token and not self.refresh_access_token():
             return []
         headers = {"Authorization": "Bearer " + str(self.token)}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers)
+        status, body = self._http_request(
+            self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers
+        )
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + str(self.token)}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers)
+            status, body = self._http_request(
+                self.API_HOST, "GET", "/v1/me/player/recently-played?limit=%d" % limit, headers
+            )
         tracks = []
         seen = set()
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 for entry in data.get("items", []) or []:
-                    if not entry or not isinstance(entry, dict): continue
+                    if not entry or not isinstance(entry, dict):
+                        continue
                     tr = entry.get("track") or {}
-                    if not tr or not isinstance(tr, dict): continue
+                    if not tr or not isinstance(tr, dict):
+                        continue
                     name = tr.get("name")
-                    if not name or name in seen: continue
+                    if not name or name in seen:
+                        continue
                     seen.add(name)
                     artists_list = tr.get("artists", []) or []
-                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    artists = ", ".join(
+                        a.get("name", "")
+                        for a in artists_list
+                        if isinstance(a, dict) and a.get("name")
+                    )
                     album_info = tr.get("album") or {}
                     album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
-                    tracks.append({
-                        "title": name,
-                        "artist": artists or "Unknown Artist",
-                        "album": album_name,
-                        "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
-                        "uri": tr.get("uri", ""),
-                        "category": "Recent"
-                    })
+                    tracks.append(
+                        {
+                            "title": name,
+                            "artist": artists or "Unknown Artist",
+                            "album": album_name,
+                            "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
+                            "uri": tr.get("uri", ""),
+                            "category": "Recent",
+                        }
+                    )
             except Exception:
                 pass
         return tracks
@@ -827,18 +911,24 @@ class SpotifyClient:
         if not self.token and not self.refresh_access_token():
             return []
         headers = {"Authorization": "Bearer " + str(self.token)}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/me/playlists?limit=%d" % limit, headers)
+        status, body = self._http_request(
+            self.API_HOST, "GET", "/v1/me/playlists?limit=%d" % limit, headers
+        )
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + str(self.token)}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/me/playlists?limit=%d" % limit, headers)
+            status, body = self._http_request(
+                self.API_HOST, "GET", "/v1/me/playlists?limit=%d" % limit, headers
+            )
         playlists = []
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 for pl in data.get("items", []) or []:
-                    if not pl or not isinstance(pl, dict): continue
+                    if not pl or not isinstance(pl, dict):
+                        continue
                     name = pl.get("name")
-                    if not name: continue
+                    if not name:
+                        continue
                     items_info = pl.get("items") or {}
                     tracks_info = pl.get("tracks") or {}
                     t_count = 0
@@ -849,14 +939,20 @@ class SpotifyClient:
                     elif "total_tracks" in pl:
                         t_count = pl.get("total_tracks", 0)
                     owner_info = pl.get("owner") or {}
-                    owner_name = owner_info.get("display_name", "Spotify") if isinstance(owner_info, dict) else "Spotify"
-                    playlists.append({
-                        "name": name,
-                        "id": pl.get("id", ""),
-                        "uri": pl.get("uri", ""),
-                        "tracks_count": t_count,
-                        "owner": owner_name
-                    })
+                    owner_name = (
+                        owner_info.get("display_name", "Spotify")
+                        if isinstance(owner_info, dict)
+                        else "Spotify"
+                    )
+                    playlists.append(
+                        {
+                            "name": name,
+                            "id": pl.get("id", ""),
+                            "uri": pl.get("uri", ""),
+                            "tracks_count": t_count,
+                            "owner": owner_name,
+                        }
+                    )
             except Exception:
                 pass
         return playlists
@@ -868,32 +964,48 @@ class SpotifyClient:
         if not self.token and not self.refresh_access_token():
             return []
         headers = {"Authorization": "Bearer " + str(self.token)}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/playlists/%s/tracks?limit=%d" % (playlist_id, limit), headers)
+        status, body = self._http_request(
+            self.API_HOST, "GET", "/v1/playlists/%s/tracks?limit=%d" % (playlist_id, limit), headers
+        )
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + str(self.token)}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/playlists/%s/tracks?limit=%d" % (playlist_id, limit), headers)
+            status, body = self._http_request(
+                self.API_HOST,
+                "GET",
+                "/v1/playlists/%s/tracks?limit=%d" % (playlist_id, limit),
+                headers,
+            )
         tracks = []
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 for entry in data.get("items", []) or []:
-                    if not entry or not isinstance(entry, dict): continue
+                    if not entry or not isinstance(entry, dict):
+                        continue
                     tr = entry.get("track") or {}
-                    if not tr or not isinstance(tr, dict): continue
+                    if not tr or not isinstance(tr, dict):
+                        continue
                     name = tr.get("name")
-                    if not name: continue
+                    if not name:
+                        continue
                     artists_list = tr.get("artists", []) or []
-                    artists = ", ".join(a.get("name", "") for a in artists_list if isinstance(a, dict) and a.get("name"))
+                    artists = ", ".join(
+                        a.get("name", "")
+                        for a in artists_list
+                        if isinstance(a, dict) and a.get("name")
+                    )
                     album_info = tr.get("album") or {}
                     album_name = album_info.get("name", "") if isinstance(album_info, dict) else ""
-                    tracks.append({
-                        "title": name,
-                        "artist": artists or "Unknown Artist",
-                        "album": album_name,
-                        "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
-                        "uri": tr.get("uri", ""),
-                        "category": "Playlist"
-                    })
+                    tracks.append(
+                        {
+                            "title": name,
+                            "artist": artists or "Unknown Artist",
+                            "album": album_name,
+                            "duration": int((tr.get("duration_ms", 0) or 0) / 1000),
+                            "uri": tr.get("uri", ""),
+                            "category": "Playlist",
+                        }
+                    )
             except Exception:
                 pass
         return tracks
@@ -919,17 +1031,22 @@ class SpotifyClient:
                 return None
         try:
             import urllib.parse
+
             q = urllib.parse.quote(str(query))
         except Exception:
             q = str(query).replace(" ", "+")
         headers = {"Authorization": "Bearer " + self.token}
-        status, body = self._http_request(self.API_HOST, "GET", "/v1/search?q=" + q + "&type=track&limit=1", headers)
+        status, body = self._http_request(
+            self.API_HOST, "GET", "/v1/search?q=" + q + "&type=track&limit=1", headers
+        )
         if status == 401 and self.refresh_access_token():
             headers = {"Authorization": "Bearer " + self.token}
-            status, body = self._http_request(self.API_HOST, "GET", "/v1/search?q=" + q + "&type=track&limit=1", headers)
+            status, body = self._http_request(
+                self.API_HOST, "GET", "/v1/search?q=" + q + "&type=track&limit=1", headers
+            )
         if status == 200 and body:
             try:
-                data = _json.loads(body.decode('utf-8'))
+                data = _json.loads(body.decode("utf-8"))
                 items = data.get("tracks", {}).get("items", [])
                 if items:
                     t = items[0]
@@ -941,7 +1058,7 @@ class SpotifyClient:
                         "album": (t.get("album") or {}).get("name", ""),
                         "duration_s": (t.get("duration_ms", 0) or 0) / 1000.0,
                         "uri": t.get("uri"),
-                        "image_url": images[-1].get("url", "") if images else ""
+                        "image_url": images[-1].get("url", "") if images else "",
                     }
             except Exception:
                 pass
@@ -972,7 +1089,9 @@ class SpotifyClient:
                 headers = {"Authorization": "Bearer " + self.token}
                 if body_data:
                     headers["Content-Type"] = "application/json"
-                status, _ = self._http_request(self.API_HOST, method, path, headers, body_data=body_data)
+                status, _ = self._http_request(
+                    self.API_HOST, method, path, headers, body_data=body_data
+                )
             else:
                 self.token = None
                 return False

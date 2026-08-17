@@ -6,8 +6,8 @@ will land here once we have NVS / filesystem-backed storage.
 """
 
 from oreoOS import api
-from oreoWare.display import Display
 from oreoWare.buttons import Buttons
+from oreoWare.display import Display
 
 
 class OS(api.OS):
@@ -16,8 +16,8 @@ class OS(api.OS):
         self.buttons = Buttons()
         # backends added incrementally — wired up as each peripheral comes online
         self.leds = None
-        self.ir   = None
-        self.adc  = None
+        self.ir = None
+        self.adc = None
 
         self._quit_requested = False
         self._launch_request = None

@@ -32,11 +32,14 @@ on_packet(code_or_None, info_dict)
 """
 
 import time
+
 from machine import Pin
+
 from oreoWare import pins
 
 try:
     from esp32 import RMT
+
     _HAVE_RMT = True
 except ImportError:
     _HAVE_RMT = False
@@ -44,8 +47,8 @@ except ImportError:
 
 # ── NEC timing (microseconds) ────────────────────────────────────────────────
 NEC_LEAD_HIGH = 9000
-NEC_LEAD_LOW  = 4500
-NEC_BIT_HIGH  = 562
+NEC_LEAD_LOW = 4500
+NEC_BIT_HIGH = 562
 NEC_BIT_LOW_0 = 562
 NEC_BIT_LOW_1 = 1687
 NEC_TAIL_HIGH = 562
@@ -57,8 +60,8 @@ _RMT_CLOCK_DIV = 80
 
 # ── TX ──────────────────────────────────────────────────────────────────────
 
-_rmt          = None
-_rmt_carrier  = 0
+_rmt = None
+_rmt_carrier = 0
 
 
 def _get_rmt(carrier_hz):
@@ -72,10 +75,7 @@ def _get_rmt(carrier_hz):
         #   33 % duty is the canonical IR-remote level; the LED is only
         #   on for one-third of each carrier cycle which dramatically
         #   cuts average current while keeping the TSOP AGC happy.
-        _rmt = RMT(0,
-                   pin=Pin(pins.IR_TX),
-                   clock_div=_RMT_CLOCK_DIV,
-                   tx_carrier=(carrier_hz, 33, 1))
+        _rmt = RMT(0, pin=Pin(pins.IR_TX), clock_div=_RMT_CLOCK_DIV, tx_carrier=(carrier_hz, 33, 1))
         _rmt_carrier = carrier_hz
     return _rmt
 
@@ -91,7 +91,7 @@ def transmit_nec(code32, carrier_hz=38000):
         pulses.append(NEC_BIT_LOW_1 if bit else NEC_BIT_LOW_0)
     pulses.append(NEC_TAIL_HIGH)
     rmt = _get_rmt(carrier_hz)
-    rmt.write_pulses(pulses, 1)   # 1 = start HIGH
+    rmt.write_pulses(pulses, 1)  # 1 = start HIGH
     try:
         rmt.wait_done(timeout=500)
     except Exception:
@@ -112,13 +112,13 @@ def transmit_raw(durations_us, carrier_hz=38000):
 
 # ── RX ──────────────────────────────────────────────────────────────────────
 
-_rx_pin       = None
-_rx_callback  = None
-_rx_mode      = "focus"
-_pulse_buf    = []
+_rx_pin = None
+_rx_callback = None
+_rx_mode = "focus"
+_pulse_buf = []
 _last_edge_us = 0
-_frame_start  = 0
-_END_OF_FRAME_US = 60_000     # ≥60 ms silence → frame complete
+_frame_start = 0
+_END_OF_FRAME_US = 60_000  # ≥60 ms silence → frame complete
 
 
 def _on_edge(p):
@@ -147,14 +147,13 @@ def start_receive(on_packet, mode="focus"):
     app can render differently — the decoder runs the same in both.
     """
     global _rx_pin, _rx_callback, _rx_mode, _pulse_buf, _last_edge_us
-    _rx_callback  = on_packet
-    _rx_mode      = mode
-    _pulse_buf    = []
+    _rx_callback = on_packet
+    _rx_mode = mode
+    _pulse_buf = []
     _last_edge_us = 0
     if _rx_pin is None:
         _rx_pin = Pin(pins.IR_RX, Pin.IN)
-    _rx_pin.irq(handler=_on_edge,
-                trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING)
+    _rx_pin.irq(handler=_on_edge, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING)
 
 
 def stop_receive():
@@ -184,14 +183,14 @@ def poll():
 
     pulses = _pulse_buf
     _pulse_buf = []
-    duration  = sum(pulses)
+    duration = sum(pulses)
 
     code = _try_decode_nec(pulses)
     info = {
         "pulse_count": len(pulses),
         "duration_us": duration,
-        "carrier":     38000,        # we only know the TSOP center freq
-        "protocol":    "nec" if code is not None else "raw",
+        "carrier": 38000,  # we only know the TSOP center freq
+        "protocol": "nec" if code is not None else "raw",
     }
     try:
         _rx_callback(code, info)
@@ -205,10 +204,12 @@ def _try_decode_nec(pulses):
     Lenient timing windows so cheap remotes / breadboard wiring still
     decode without requiring a logic analyser.
     """
-    if len(pulses) < 67:    # leader(2) + 32×bits(64) + tail(1)
+    if len(pulses) < 67:  # leader(2) + 32×bits(64) + tail(1)
         return None
-    if not (7500 < pulses[0] < 10500):  return None    # 9 ms leader HIGH
-    if not (3500 < pulses[1] < 5500):   return None    # 4.5 ms leader LOW
+    if not (7500 < pulses[0] < 10500):
+        return None  # 9 ms leader HIGH
+    if not (3500 < pulses[1] < 5500):
+        return None  # 4.5 ms leader LOW
 
     code = 0
     for i in range(32):

@@ -32,43 +32,58 @@ Controls:
 
 import time
 import unicodedata
+
 import oreoOS
 from oreoOS import api, theme, widgets
 
 try:
-    from .spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
+    from .spotify import (
+        SpotifyClient,
+        clear_credentials,
+        create_relay_session,
+        fetch_cover_art_rgb565,
+        poll_relay_session,
+        save_credentials,
+    )
 except ImportError:
-    from apps_market.spotify.src.spotify import SpotifyClient, fetch_cover_art_rgb565, create_relay_session, poll_relay_session, save_credentials, clear_credentials
+    from apps_market.spotify.src.spotify import (
+        SpotifyClient,
+        clear_credentials,
+        create_relay_session,
+        fetch_cover_art_rgb565,
+        poll_relay_session,
+        save_credentials,
+    )
 
+from oreoOS.api import ticks_diff as _ticks_diff
+from oreoOS.api import ticks_ms as _ticks_ms
 from oreoOS.qr import QRCode
-
-from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
 # Palette
-COL_SPOTIFY  = api.rgb(29,  185, 84)   # Signature Spotify Green
-COL_BG       = api.rgb(14,  15,  20)   # Deep OLED Midnight
-COL_CARD     = api.rgb(24,  26,  34)   # Card background
-COL_CARD_BD  = api.rgb(44,  48,  64)   # Card border
-COL_MUTED    = api.rgb(150, 155, 170)  # Subtext / timer
-COL_BAR_BG   = api.rgb(38,  40,  52)   # Empty progress / vol bar
-COL_CYAN     = api.rgb(80,  200, 255)  # Device pill cyan
-COL_WARN     = api.rgb(240, 160,  40)  # Offline / Warning amber
-
-
+COL_SPOTIFY = api.rgb(29, 185, 84)  # Signature Spotify Green
+COL_BG = api.rgb(14, 15, 20)  # Deep OLED Midnight
+COL_CARD = api.rgb(24, 26, 34)  # Card background
+COL_CARD_BD = api.rgb(44, 48, 64)  # Card border
+COL_MUTED = api.rgb(150, 155, 170)  # Subtext / timer
+COL_BAR_BG = api.rgb(38, 40, 52)  # Empty progress / vol bar
+COL_CYAN = api.rgb(80, 200, 255)  # Device pill cyan
+COL_WARN = api.rgb(240, 160, 40)  # Offline / Warning amber
 
 
 def _start_thread(func, args=()):
     """Start background worker thread portably on MicroPython ESP32 and CPython."""
     try:
         import _thread
+
         _thread.start_new_thread(func, args)
         return True
     except Exception:
         try:
             import threading
+
             t = threading.Thread(target=func, args=args, daemon=True)
             t.start()
             return True
@@ -83,11 +98,13 @@ def _start_thread(func, args=()):
 def _is_wifi_up():
     try:
         from oreoWare import wifi
+
         return bool(wifi.is_connected())
     except Exception:
         pass
     try:
         import native_wifi
+
         return bool(native_wifi.is_connected())
     except Exception:
         pass
@@ -98,6 +115,7 @@ def _get_manifest_name():
     for p in ("apps/spotify/manifest.json", "apps_market/spotify/manifest.json"):
         try:
             import json
+
             with open(p) as f:
                 d = json.load(f)
                 if "name" in d:
@@ -118,7 +136,9 @@ def _clean_text(s):
     if not s:
         return ""
     try:
-        s_norm = "".join(c for c in unicodedata.normalize("NFKD", str(s)) if unicodedata.category(c) != "Mn")
+        s_norm = "".join(
+            c for c in unicodedata.normalize("NFKD", str(s)) if unicodedata.category(c) != "Mn"
+        )
         cleaned = "".join(c if 32 <= ord(c) <= 126 else "" for c in s_norm)
         while "  " in cleaned:
             cleaned = cleaned.replace("  ", " ")
@@ -138,9 +158,9 @@ def _marquee(text, max_chars, scroll_offset):
         return text[:max_chars]
     elif idx < 3 + overflow:
         shift = idx - 3
-        return text[shift:shift + max_chars]
+        return text[shift : shift + max_chars]
     else:
-        return text[overflow:overflow + max_chars]
+        return text[overflow : overflow + max_chars]
 
 
 def _draw_icon_prev(d, x, y, color):
@@ -188,6 +208,7 @@ class App(oreoOS.App):
     def on_enter(self, os):
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass
@@ -200,7 +221,9 @@ class App(oreoOS.App):
         self._last_wifi_check = _ticks_ms()
 
         # Hierarchical Tree Navigation State
-        self._tree_state = "ROOT"   # "ROOT" (Folders) | "PLAYLISTS" (Playlists) | "TRACKS" (Track List)
+        self._tree_state = (
+            "ROOT"  # "ROOT" (Folders) | "PLAYLISTS" (Playlists) | "TRACKS" (Track List)
+        )
         self._tree_parent_state = "ROOT"
         self._tree_idx = 0
         self._tree_scroll = 0
@@ -211,10 +234,10 @@ class App(oreoOS.App):
 
         # Tree Data Caches
         self._tree_folders = [
-            {"id": "liked",     "label": "Liked Songs",     "icon": "DIR",  "count": 0},
-            {"id": "top",       "label": "Top Tracks",      "icon": "DIR",  "count": 0},
-            {"id": "recent",    "label": "Recently Played", "icon": "DIR",  "count": 0},
-            {"id": "playlists", "label": "Playlists",       "icon": "DIR",  "count": 0},
+            {"id": "liked", "label": "Liked Songs", "icon": "DIR", "count": 0},
+            {"id": "top", "label": "Top Tracks", "icon": "DIR", "count": 0},
+            {"id": "recent", "label": "Recently Played", "icon": "DIR", "count": 0},
+            {"id": "playlists", "label": "Playlists", "icon": "DIR", "count": 0},
         ]
         self._folder_tracks_cache = {
             "liked": [],
@@ -284,6 +307,7 @@ class App(oreoOS.App):
         self._playlists_cache = []
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass
@@ -348,6 +372,7 @@ class App(oreoOS.App):
             # Trigger fresh load if cache is empty
             if not self._playlists_cache and self._spotify.is_configured():
                 self._tree_loading = True
+
                 def _load_pls_worker():
                     try:
                         pls = self._spotify.get_user_playlists(20)
@@ -359,6 +384,7 @@ class App(oreoOS.App):
                     finally:
                         self._tree_loading = False
                         self._dirty = True
+
                 _start_thread(_load_pls_worker)
             return
 
@@ -376,6 +402,7 @@ class App(oreoOS.App):
         # Fetch fresh in background if empty
         if not cached_tracks and self._spotify.is_configured():
             self._tree_loading = True
+
             def _load_worker():
                 try:
                     if folder_id == "liked":
@@ -394,6 +421,7 @@ class App(oreoOS.App):
                 finally:
                     self._tree_loading = False
                     self._dirty = True
+
             _start_thread(_load_worker)
 
     def _open_playlist(self, pl):
@@ -410,6 +438,7 @@ class App(oreoOS.App):
 
         pl_id = pl.get("id")
         pl_uri = pl.get("uri")
+
         def _worker():
             try:
                 tracks = self._spotify.get_playlist_tracks(pl_id, 25)
@@ -424,16 +453,19 @@ class App(oreoOS.App):
             finally:
                 self._tree_loading = False
                 self._dirty = True
+
         _start_thread(_worker)
 
     def _set_volume_async(self, vol):
         if not self._spotify.is_configured():
             return
+
         def _worker():
             try:
                 self._spotify.set_volume(vol)
             except Exception:
                 pass
+
         _start_thread(_worker)
 
     def _start_qr_session(self):
@@ -446,6 +478,7 @@ class App(oreoOS.App):
                 self._qr_matrix = mat
                 self._show_qr = True
                 self._dirty = True
+
         if not _start_thread(_worker):
             self._qr_session_id, self._qr_url = create_relay_session()
             if self._qr_url:
@@ -475,7 +508,17 @@ class App(oreoOS.App):
                     self._device_name = state.get("device_name", "Spotify Connect")
 
                     title = state.get("title", "")
-                    if active and title and title not in ("No Active Playback", "Ready", "Spotify Connected", "No Active Device"):
+                    if (
+                        active
+                        and title
+                        and title
+                        not in (
+                            "No Active Playback",
+                            "Ready",
+                            "Spotify Connected",
+                            "No Active Device",
+                        )
+                    ):
                         self._title = _clean_text(title)
                         self._artist = _clean_text(state.get("artist", self._artist))
                         self._album = _clean_text(state.get("album", ""))
@@ -483,7 +526,10 @@ class App(oreoOS.App):
 
                         server_progress = max(0.0, float(state.get("progress_s", 0.0)))
                         if abs(self._progress - server_progress) > 1.5 or not self._is_playing:
-                            self._progress = min(server_progress, self._duration if self._duration > 0 else server_progress)
+                            self._progress = min(
+                                server_progress,
+                                self._duration if self._duration > 0 else server_progress,
+                            )
 
                         if _ticks_diff(now, self._vol_user_interacting_until) >= 0:
                             self._volume = state.get("volume", self._volume)
@@ -493,7 +539,9 @@ class App(oreoOS.App):
                         if img_url and img_url != self._last_image_url:
                             self._last_image_url = img_url
                             try:
-                                self._cover_art = fetch_cover_art_rgb565(img_url, self._cover_size, self._cover_size)
+                                self._cover_art = fetch_cover_art_rgb565(
+                                    img_url, self._cover_size, self._cover_size
+                                )
                             except Exception:
                                 self._cover_art = None
                     else:
@@ -615,6 +663,7 @@ class App(oreoOS.App):
                         self._is_playing = True
                         self._view_mode = "PLAYER"
                         self._poll_skip_until = _ticks_ms() + 3000
+
                         def _play_pl_worker(target_uri):
                             try:
                                 self._spotify.play(context_uri=target_uri)
@@ -622,6 +671,7 @@ class App(oreoOS.App):
                                 self._trigger_async_poll()
                             except Exception:
                                 pass
+
                         _start_thread(_play_pl_worker, (pl_uri,))
                     self._dirty = True
                     return
@@ -654,7 +704,10 @@ class App(oreoOS.App):
                         self._dirty = True
                     return
                 elif btn == api.BTN_DOWN:
-                    if self._current_track_list and self._tree_idx < len(self._current_track_list) - 1:
+                    if (
+                        self._current_track_list
+                        and self._tree_idx < len(self._current_track_list) - 1
+                    ):
                         self._tree_idx += 1
                         if self._tree_idx >= self._tree_scroll + 5:
                             self._tree_scroll = self._tree_idx - 4
@@ -677,6 +730,7 @@ class App(oreoOS.App):
 
                         track_target = t.get("uri") or (t["title"] + " " + t["artist"])
                         context_target = t.get("context_uri")
+
                         def _play_worker(target, ctx):
                             try:
                                 if target and str(target).startswith("spotify:track:"):
@@ -687,6 +741,7 @@ class App(oreoOS.App):
                                 self._trigger_async_poll()
                             except Exception:
                                 pass
+
                         _start_thread(_play_worker, (track_target, context_target))
                     self._dirty = True
                     return
@@ -720,9 +775,11 @@ class App(oreoOS.App):
                     self._trigger_async_poll()
                 except Exception:
                     pass
+
             _start_thread(_toggle_worker, (target_play,))
 
         elif btn == api.BTN_RIGHT:
+
             def _next_worker():
                 try:
                     self._spotify.next_track()
@@ -730,10 +787,12 @@ class App(oreoOS.App):
                     self._trigger_async_poll()
                 except Exception:
                     pass
+
             _start_thread(_next_worker)
             self._dirty = True
 
         elif btn == api.BTN_LEFT:
+
             def _prev_worker():
                 try:
                     self._spotify.prev_track()
@@ -741,6 +800,7 @@ class App(oreoOS.App):
                     self._trigger_async_poll()
                 except Exception:
                     pass
+
             _start_thread(_prev_worker)
             self._dirty = True
 
@@ -777,6 +837,7 @@ class App(oreoOS.App):
         if self._show_qr and self._qr_session_id:
             if _ticks_diff(now, self._qr_poll_t) > 2000:
                 self._qr_poll_t = now
+
                 def _qr_check():
                     try:
                         creds = poll_relay_session(self._qr_session_id)
@@ -789,6 +850,7 @@ class App(oreoOS.App):
                                 self._dirty = True
                     except Exception:
                         pass
+
                 _start_thread(_qr_check)
 
         # Periodic Asynchronous Playback Polling
@@ -848,7 +910,14 @@ class App(oreoOS.App):
         cover_box_y = widgets.HEADER_H + 5
 
         d.rect(cover_box_x - 2, cover_box_y - 2, csz + 4, csz + 4, COL_CARD_BD, fill=True)
-        d.rect(cover_box_x - 2, cover_box_y - 2, csz + 4, csz + 4, COL_SPOTIFY if self._is_playing else COL_CARD_BD, fill=False)
+        d.rect(
+            cover_box_x - 2,
+            cover_box_y - 2,
+            csz + 4,
+            csz + 4,
+            COL_SPOTIFY if self._is_playing else COL_CARD_BD,
+            fill=False,
+        )
 
         if self._cover_art:
             d.blit(self._cover_art, cover_box_x, cover_box_y, csz, csz)
@@ -879,12 +948,12 @@ class App(oreoOS.App):
 
         album_str = _clean_text(self._album or "Single")
         if len(album_str) > max_chars:
-            album_str = album_str[:max_chars - 2] + ".."
+            album_str = album_str[: max_chars - 2] + ".."
         d.text(album_str, meta_x + 7, meta_y + 39, COL_MUTED)
 
         dev_tag = _clean_text(self._device_name or "Spotify Connect")
         if len(dev_tag) > max_chars - 3:
-            dev_tag = dev_tag[:max_chars - 5] + ".."
+            dev_tag = dev_tag[: max_chars - 5] + ".."
         pill_w = len(dev_tag) * 8 + 14
         d.rect(meta_x + 7, meta_y + 54, pill_w, 13, COL_CARD_BD, fill=True)
         d.rect(meta_x + 7, meta_y + 54, pill_w, 13, COL_SPOTIFY, fill=False)
@@ -904,7 +973,9 @@ class App(oreoOS.App):
         status_label = "PLAYING" if self._is_playing else "PAUSED"
         stat_w = len(status_label) * 8
         stat_x = (SW - stat_w) // 2
-        d.text(status_label, stat_x, prog_card_y + 8, COL_SPOTIFY if self._is_playing else theme.GOLD)
+        d.text(
+            status_label, stat_x, prog_card_y + 8, COL_SPOTIFY if self._is_playing else theme.GOLD
+        )
 
         bar_x = 16
         bar_y = prog_card_y + 26
@@ -979,7 +1050,7 @@ class App(oreoOS.App):
                 ry = card_y + 4 + i * (row_h + 2)
                 rx = card_x + 4
                 rw = card_w - 8
-                is_sel = (i == self._tree_idx)
+                is_sel = i == self._tree_idx
 
                 if is_sel:
                     d.rect(rx, ry, rw, row_h, api.rgb(38, 44, 60), fill=True)
@@ -1024,12 +1095,13 @@ class App(oreoOS.App):
                 vis_count = 5
                 for i in range(vis_count):
                     item_idx = self._tree_scroll + i
-                    if item_idx >= len(pls): break
+                    if item_idx >= len(pls):
+                        break
                     pl = pls[item_idx]
                     ry = card_y + 4 + i * (row_h + 2)
                     rx = card_x + 4
                     rw = card_w - 14
-                    is_sel = (item_idx == self._tree_idx)
+                    is_sel = item_idx == self._tree_idx
 
                     if is_sel:
                         d.rect(rx, ry, rw, row_h, api.rgb(38, 44, 60), fill=True)
@@ -1047,12 +1119,26 @@ class App(oreoOS.App):
                     # Track count
                     t_cnt = pl.get("tracks_count", 0)
                     owner = _clean_text(pl.get("owner", "Spotify"))[:12]
-                    d.text(f"{t_cnt} tracks / {owner}", rx + 24, ry + 20, COL_SPOTIFY if is_sel else COL_MUTED)
+                    d.text(
+                        f"{t_cnt} tracks / {owner}",
+                        rx + 24,
+                        ry + 20,
+                        COL_SPOTIFY if is_sel else COL_MUTED,
+                    )
 
                 # Scrollbar
-                widgets.draw_scrollbar(d, card_x + card_w - 6, card_y + 6, 2, card_h - 12,
-                                       len(pls), self._tree_scroll, visible=vis_count,
-                                       fg=COL_SPOTIFY, bg=COL_BAR_BG)
+                widgets.draw_scrollbar(
+                    d,
+                    card_x + card_w - 6,
+                    card_y + 6,
+                    2,
+                    card_h - 12,
+                    len(pls),
+                    self._tree_scroll,
+                    visible=vis_count,
+                    fg=COL_SPOTIFY,
+                    bg=COL_BAR_BG,
+                )
 
             widgets.draw_hint(d, "A:Play  >:Tracks  ^v:Select  B:Back")
             return
@@ -1071,15 +1157,16 @@ class App(oreoOS.App):
             visible_count = 5
             for i in range(visible_count):
                 item_idx = self._tree_scroll + i
-                if item_idx >= len(tracks): break
+                if item_idx >= len(tracks):
+                    break
                 t = tracks[item_idx]
                 ry = card_y + 4 + i * (row_h + 2)
                 rx = card_x + 4
                 rw = card_w - 14
 
-                is_selected = (item_idx == self._tree_idx)
+                is_selected = item_idx == self._tree_idx
                 clean_t_title = _clean_text(t.get("title", "Track"))
-                is_active_track = (clean_t_title.lower() == self._title.lower())
+                is_active_track = clean_t_title.lower() == self._title.lower()
 
                 if is_selected:
                     d.rect(rx, ry, rw, row_h, api.rgb(38, 44, 60), fill=True)
@@ -1107,9 +1194,18 @@ class App(oreoOS.App):
                 d.text(dur_str, rx + rw - len(dur_str) * 8 - 4, ry + 12, COL_MUTED)
 
             # Scrollbar
-            widgets.draw_scrollbar(d, card_x + card_w - 6, card_y + 6, 2, card_h - 12,
-                                   len(tracks), self._tree_scroll, visible=visible_count,
-                                   fg=COL_SPOTIFY, bg=COL_BAR_BG)
+            widgets.draw_scrollbar(
+                d,
+                card_x + card_w - 6,
+                card_y + 6,
+                2,
+                card_h - 12,
+                len(tracks),
+                self._tree_scroll,
+                visible=visible_count,
+                fg=COL_SPOTIFY,
+                bg=COL_BAR_BG,
+            )
 
         widgets.draw_hint(d, "A:Play  ^v:Select  B:Back  C:Unlink")
 
@@ -1142,7 +1238,9 @@ class App(oreoOS.App):
             for r in range(rows):
                 for c in range(cols):
                     if mat[r][c]:
-                        d.rect(qx + c * mod_sz, qy + r * mod_sz, mod_sz, mod_sz, api.BLACK, fill=True)
+                        d.rect(
+                            qx + c * mod_sz, qy + r * mod_sz, mod_sz, mod_sz, api.BLACK, fill=True
+                        )
 
             tx = qx + qr_w + 14
             d.text("SCAN QR CODE", tx, qy + 2, COL_SPOTIFY)

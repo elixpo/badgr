@@ -13,15 +13,14 @@ from machine import Pin
 from oreoOS import api
 from oreoWare import pins
 
-
 _BTN_TO_GPIO = {
-    api.BTN_HOME:  pins.BTN_HOME,
-    api.BTN_A:     pins.BTN_A,
-    api.BTN_B:     pins.BTN_B,
-    api.BTN_C:     pins.BTN_C,
-    api.BTN_UP:    pins.BTN_UP,
-    api.BTN_DOWN:  pins.BTN_DOWN,
-    api.BTN_LEFT:  pins.BTN_LEFT,
+    api.BTN_HOME: pins.BTN_HOME,
+    api.BTN_A: pins.BTN_A,
+    api.BTN_B: pins.BTN_B,
+    api.BTN_C: pins.BTN_C,
+    api.BTN_UP: pins.BTN_UP,
+    api.BTN_DOWN: pins.BTN_DOWN,
+    api.BTN_LEFT: pins.BTN_LEFT,
     api.BTN_RIGHT: pins.BTN_RIGHT,
 }
 
@@ -51,12 +50,13 @@ class Buttons(api.Buttons):
             idx = self._button_index[b]
             pending = self._irq_pending
             releases = self._irq_release_pending
-            def _edge(_pin, _idx=idx, _pending=pending,
-                      _releases=releases):
+
+            def _edge(_pin, _idx=idx, _pending=pending, _releases=releases):
                 if _pin.value() == 0:
                     _pending[_idx] = 1
                 else:
                     _releases[_idx] = 1
+
             self._irq_handlers.append(_edge)
             try:
                 p.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=_edge)
@@ -90,12 +90,14 @@ class Buttons(api.Buttons):
         return self._curr[btn] == 0
 
     def just_pressed(self, btn):
-        return (bool(self._pressed_edges[self._button_index[btn]]) or
-                (self._curr[btn] == 0 and self._prev[btn] == 1))
+        return bool(self._pressed_edges[self._button_index[btn]]) or (
+            self._curr[btn] == 0 and self._prev[btn] == 1
+        )
 
     def just_released(self, btn):
-        return (bool(self._released_edges[self._button_index[btn]]) or
-                (self._curr[btn] == 1 and self._prev[btn] == 0))
+        return bool(self._released_edges[self._button_index[btn]]) or (
+            self._curr[btn] == 1 and self._prev[btn] == 0
+        )
 
     def pressed_for_ms(self, btn):
         """Milliseconds the button has been held, or 0 if currently up.

@@ -25,10 +25,11 @@ except ImportError:
 
 import json
 import time
-import oreoOS
-from oreoOS import api, theme, widgets, storage
 
-from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
+import oreoOS
+from oreoOS import api, storage, theme, widgets
+from oreoOS.api import ticks_diff as _ticks_diff
+from oreoOS.api import ticks_ms as _ticks_ms
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -132,14 +133,14 @@ class App(oreoOS.App):
             except Exception:
                 pass
         self._os = os_obj
-        self._tab = 0       # 0 = Apps, 1 = Diagnostics & Storage
-        self._sel = 0       # Selected app index in list
-        self._top = 0       # Scroll offset for app list
+        self._tab = 0  # 0 = Apps, 1 = Diagnostics & Storage
+        self._sel = 0  # Selected app index in list
+        self._top = 0  # Scroll offset for app list
 
         # Modal State
-        self._mode = "LIST" # "LIST" | "DETAILS" | "CONFIRM_UNINSTALL"
+        self._mode = "LIST"  # "LIST" | "DETAILS" | "CONFIRM_UNINSTALL"
         self._detail_app = None
-        self._detail_sel = 0 # 0=Launch/Restore, 1=Clean Cache, 2=Uninstall, 3=Back
+        self._detail_sel = 0  # 0=Launch/Restore, 1=Clean Cache, 2=Uninstall, 3=Back
         self._detail_files = []
 
         # Toast notification
@@ -166,6 +167,7 @@ class App(oreoOS.App):
     def _scan_installed_apps(self):
         """Scan all apps in badge_data/apps/ dynamically."""
         from oreoOS import launcher
+
         raw_apps = launcher.list_apps()
 
         self._apps = []
@@ -220,6 +222,7 @@ class App(oreoOS.App):
             return self._icon_cache[app_dir]
 
         from oreoOS import icons
+
         res = icons.load(app_dir, icon_name)
         if res:
             data, w, h = res
@@ -318,6 +321,7 @@ class App(oreoOS.App):
     def _clean_app_cache(self, app_dir):
         """Remove __pycache__ inside the app directory."""
         from oreoOS.launcher import APPS_DIR
+
         cache_path = APPS_DIR + "/" + app_dir + "/__pycache__"
         _rm_tree_safe(cache_path)
         cache_path_src = APPS_DIR + "/" + app_dir + "/src/__pycache__"
@@ -337,7 +341,7 @@ class App(oreoOS.App):
             app_dir = self._detail_app["dir"]
             if app_dir:
                 app_dir = os.path.basename(app_dir.rstrip("/"))
-            if not app_dir or app_dir == '..':
+            if not app_dir or app_dir == "..":
                 self._mode = "LIST"
                 self._toast_msg = "Invalid app dir"
                 self._toast_until = _ticks_ms() + 2500
@@ -345,6 +349,7 @@ class App(oreoOS.App):
                 return
 
             from oreoOS.launcher import APPS_DIR, invalidate_apps_cache
+
             _rm_tree_safe(APPS_DIR + "/" + app_dir)
 
             try:
@@ -412,7 +417,7 @@ class App(oreoOS.App):
         w_half = SW // 2
 
         # Tab 0: APPS
-        t0_sel = (self._tab == 0)
+        t0_sel = self._tab == 0
         t0_bg = theme.PRIMARY if t0_sel else theme.CARD
         t0_fg = api.WHITE if t0_sel else theme.MUTED
         d.rect(2, y + 2, w_half - 4, TAB_H - 4, t0_bg, fill=True)
@@ -420,7 +425,7 @@ class App(oreoOS.App):
         d.text(t0_lbl, (w_half - len(t0_lbl) * 8) // 2, y + 5, t0_fg)
 
         # Tab 1: DIAGNOSTICS
-        t1_sel = (self._tab == 1)
+        t1_sel = self._tab == 1
         t1_bg = theme.PRIMARY if t1_sel else theme.CARD
         t1_fg = api.WHITE if t1_sel else theme.MUTED
         d.rect(w_half + 2, y + 2, w_half - 4, TAB_H - 4, t1_bg, fill=True)
@@ -443,9 +448,16 @@ class App(oreoOS.App):
             self._draw_app_card(d, card_y, app, idx == self._sel)
 
         # Scrollbar
-        widgets.draw_scrollbar(d, SW - 4, LIST_TOP_Y, 2,
-                               VISIBLE_CARDS * (CARD_H + CARD_GAP) - CARD_GAP,
-                               len(self._apps), self._top, visible=VISIBLE_CARDS)
+        widgets.draw_scrollbar(
+            d,
+            SW - 4,
+            LIST_TOP_Y,
+            2,
+            VISIBLE_CARDS * (CARD_H + CARD_GAP) - CARD_GAP,
+            len(self._apps),
+            self._top,
+            visible=VISIBLE_CARDS,
+        )
 
     def _draw_app_card(self, d, y, app, is_sel):
         card_w = SW - 12
@@ -593,11 +605,16 @@ class App(oreoOS.App):
         d.text(spec_ln[:34], 22, 107, theme.TEAL)
 
         # Action Options
-        opts = ["1. Launch App", "2. Clear Cache (__pycache__)", "3. Uninstall App", "4. Back to Apps"]
+        opts = [
+            "1. Launch App",
+            "2. Clear Cache (__pycache__)",
+            "3. Uninstall App",
+            "4. Back to Apps",
+        ]
 
         opt_y = 127
         for i, opt in enumerate(opts):
-            sel = (i == self._detail_sel)
+            sel = i == self._detail_sel
             bg = theme.PRIMARY if sel else theme.CARD
             fg = api.WHITE if sel else theme.TEXT_BRIGHT
             d.rect(16, opt_y, SW - 32, 18, bg, fill=True)

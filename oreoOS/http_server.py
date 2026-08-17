@@ -47,39 +47,39 @@ except ImportError:
     _os = None
 
 
-PORT          = 80
-MAX_BODY      = 8 * 1024 * 1024   # videos stream to flash; never buffered in RAM
-READ_CHUNK    = 2048
-RECV_TIMEOUT       = 4            # seconds — per-recv() during streaming
-HEADER_RECV_TIMEOUT = 2.0          # seconds — allow mobile Wi-Fi browsers to send headers
-HEAD_DEADLINE_MS   = 3500         # hard cap on header-read for requests
+PORT = 80
+MAX_BODY = 8 * 1024 * 1024  # videos stream to flash; never buffered in RAM
+READ_CHUNK = 2048
+RECV_TIMEOUT = 4  # seconds — per-recv() during streaming
+HEADER_RECV_TIMEOUT = 2.0  # seconds — allow mobile Wi-Fi browsers to send headers
+HEAD_DEADLINE_MS = 3500  # hard cap on header-read for requests
 
 # Session lifecycle
-SESSION_TTL_MS         = 60 * 1000   # beacon must refresh within this
-SESSION_HARD_TTL_MS    = 60 * 60 * 1000  # 60 min absolute cap from authed_at,
-                                         # even if the client keeps beaconing.
-                                         # Stops stale tabs left open from
-                                         # holding a slot forever.
-SESSION_MAX            = 8           # never track more than this many concurrent
-SESSION_CHARSET        = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I/l
+SESSION_TTL_MS = 60 * 1000  # beacon must refresh within this
+SESSION_HARD_TTL_MS = 60 * 60 * 1000  # 60 min absolute cap from authed_at,
+# even if the client keeps beaconing.
+# Stops stale tabs left open from
+# holding a slot forever.
+SESSION_MAX = 8  # never track more than this many concurrent
+SESSION_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I/l
 
 # Badge code — a 6-char alphanumeric value displayed on the badge's
 # Send Files page that senders must type into the upload page to
 # authenticate. Rotates every BADGE_CODE_TTL_MS (5 min) so a leaked
 # code self-expires, and the badge owner can also force a rotation
 # via `refresh_code()` from the UI.
-BADGE_CODE_TTL_MS      = 5 * 60 * 1000
+BADGE_CODE_TTL_MS = 5 * 60 * 1000
 
-_lsock     = None
-_bound_ip  = None
-_os_obj    = None     # captured from start(os_obj) so we can persist
-                      # `transfer_enabled` across reboots via settings_set
+_lsock = None
+_bound_ip = None
+_os_obj = None  # captured from start(os_obj) so we can persist
+# `transfer_enabled` across reboots via settings_set
 
 # Badge code state — rotated on demand or by TTL. We refresh lazily
 # (whenever someone asks for the current code or hits an endpoint) so
 # the rotation doesn't need its own background tick.
-_badge_code      = ""
-_badge_code_ts   = 0       # ticks_ms when current code was minted
+_badge_code = ""
+_badge_code_ts = 0  # ticks_ms when current code was minted
 
 # Master kill switch — when False, every HTTP endpoint returns 503
 # with a "transfer disabled" page. Persisted to OS settings so a
@@ -111,7 +111,7 @@ _progress = None
 # Bumped to ticks_ms() each time an upload completes successfully.
 # The WiFi/Transfer UI polls this to drive the bottom "Received" toast
 # without needing a callback hook into the app layer.
-_last_upload_ts   = 0
+_last_upload_ts = 0
 _last_upload_name = ""
 
 
@@ -140,19 +140,18 @@ def free_bytes():
         return 0
 
 
-
 # ── routing tables ──────────────────────────────────────────────────────
 
-_GALLERY_DIR  = "apps/gallery/assets/optimized"   # was /raw — Gallery
-                                                  # only reads optimized/
-                                                  # at runtime, so raw
-                                                  # uploads were invisible
-                                                  # until a laptop deploy
-                                                  # re-ran the optimiser.
-                                                  # We now upload pre-
-                                                  # converted .r565 binaries
-                                                  # straight into here.
-_DOCS_DIR     = "documents"
+_GALLERY_DIR = "apps/gallery/assets/optimized"  # was /raw — Gallery
+# only reads optimized/
+# at runtime, so raw
+# uploads were invisible
+# until a laptop deploy
+# re-ran the optimiser.
+# We now upload pre-
+# converted .r565 binaries
+# straight into here.
+_DOCS_DIR = "documents"
 
 # .r565 is our on-device-renderable image format: 6-byte header
 # (magic 'R5' + width LE16 + height LE16), then W*H 2-byte RGB565
@@ -204,17 +203,18 @@ def _safe_filename(raw):
     if not raw:
         return ""
     name = raw.replace("\\", "/").rsplit("/", 1)[-1]
-    out  = []
+    out = []
     for ch in name:
         c = ord(ch)
         # printable ASCII except path separators (already handled) and
         # null. Anything weirder gets dropped so the FS doesn't choke.
-        if 32 <= c < 127 and ch not in "/\\?*:|\"<>":
+        if 32 <= c < 127 and ch not in '/\\?*:|"<>':
             out.append(ch)
     return "".join(out)[:64] or "upload"
 
 
 # ── server lifecycle ────────────────────────────────────────────────────
+
 
 def start(os_obj=None):
     """Open the listening socket. Also captures `os_obj` for the
@@ -226,8 +226,7 @@ def start(os_obj=None):
         # True so a fresh badge has transfer working out of the box.
         try:
             global _transfer_enabled
-            _transfer_enabled = bool(
-                os_obj.settings_get("transfer_enabled", True))
+            _transfer_enabled = bool(os_obj.settings_get("transfer_enabled", True))
         except Exception:
             pass
     return _start_listener()
@@ -239,6 +238,7 @@ _bound_port = 80
 def _get_local_ip():
     try:
         from oreoWare import wifi
+
         ip = wifi.ip()
         if ip and ip != "0.0.0.0":
             return ip
@@ -246,6 +246,7 @@ def _get_local_ip():
         pass
     try:
         import socket
+
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             s.connect(("8.8.8.8", 80))
@@ -348,11 +349,13 @@ def is_running():
 
 # ── session state queries (UI hooks) ────────────────────────────────────
 
+
 def _prune_sessions():
     """Drop sessions that haven't beaconed in SESSION_TTL_MS. Called
     cheaply on every query so the UI never shows ghosts."""
     try:
         import time as _t
+
         now = _t.ticks_ms()
     except Exception:
         return
@@ -395,15 +398,17 @@ def list_sessions():
         state = s.get("state", "authed")
         if state == "denied":
             continue
-        items.append({
-            "id":         sid,
-            "device_id":  sid,                       # alias for the UI
-            "state":      state,
-            "addr":       s.get("addr", ""),
-            "uploads":    s.get("uploads", 0),
-            "last_ms":    s.get("last_ms", 0),
-            "authed_at":  s.get("authed_at", 0),
-        })
+        items.append(
+            {
+                "id": sid,
+                "device_id": sid,  # alias for the UI
+                "state": state,
+                "addr": s.get("addr", ""),
+                "uploads": s.get("uploads", 0),
+                "last_ms": s.get("last_ms", 0),
+                "authed_at": s.get("authed_at", 0),
+            }
+        )
     # Sort by authed_at (stable insertion order) — NOT last_ms.
     # last_ms ticks every ~2 s as each client beacons, which made the
     # rows shuffle visibly every refresh and broke cursor stability
@@ -445,10 +450,12 @@ def progress():
 # call it and get the live value. `refresh_code()` forces a rotation
 # now — wired to the "R = refresh code" button on the Send Files page.
 
+
 def _gen_code(n=6):
     """Six-char alphanumeric code excluding ambiguous shapes."""
     try:
         import time as _t
+
         seed = _t.ticks_ms() ^ id(_sessions)
     except Exception:
         seed = 1
@@ -466,6 +473,7 @@ def current_code():
     global _badge_code, _badge_code_ts
     try:
         import time as _t
+
         now = _t.ticks_ms()
     except Exception:
         now = 0
@@ -489,6 +497,7 @@ def refresh_code():
     _badge_code = _gen_code()
     try:
         import time as _t
+
         _badge_code_ts = _t.ticks_ms()
     except Exception:
         _badge_code_ts = 0
@@ -515,6 +524,7 @@ def code_hash():
         except ImportError:
             import uhashlib as _hl
         import binascii
+
         h = _hl.sha256(current_code().encode()).digest()
         return binascii.hexlify(h[:4]).decode()
     except Exception:
@@ -538,6 +548,7 @@ def code_remaining_ms():
         return 0
     try:
         import time as _t
+
         elapsed = _t.ticks_diff(_t.ticks_ms(), _badge_code_ts)
         return max(0, BADGE_CODE_TTL_MS - elapsed)
     except Exception:
@@ -545,6 +556,7 @@ def code_remaining_ms():
 
 
 # ── master transfer-enabled toggle ──────────────────────────────────────
+
 
 def is_transfer_enabled():
     return bool(_transfer_enabled)
@@ -569,15 +581,15 @@ def set_transfer_enabled(on):
     return _transfer_enabled
 
 
-
-
 def _new_session_id():
     """Generate a 6-char alphanumeric id excluding ambiguous chars
     (0/O, 1/I, l). os.urandom would be ideal but isn't always present
     on MicroPython; time-mixed prand works for our scale."""
     import time as _t
+
     try:
         import os as _o
+
         seed = int.from_bytes(_o.urandom(4), "big")
     except Exception:
         seed = _t.ticks_ms() ^ id(_sessions)
@@ -626,6 +638,7 @@ def tick():
 
 # ── request handling ────────────────────────────────────────────────────
 
+
 def _read_until(sock, sep, max_len, deadline_ms=None):
     """Buffered recv that returns once `sep` appears in the stream.
     Returns (head_bytes, tail_bytes_after_sep) or (None, None) on
@@ -638,6 +651,7 @@ def _read_until(sock, sep, max_len, deadline_ms=None):
     """
     try:
         import time as _t
+
         if deadline_ms is not None:
             deadline = _t.ticks_add(_t.ticks_ms(), int(deadline_ms))
         else:
@@ -671,7 +685,7 @@ def _read_until(sock, sep, max_len, deadline_ms=None):
         idx = buf.find(sep)
         if idx >= 0:
             head = bytes(buf[:idx])
-            tail = bytes(buf[idx + len(sep):])
+            tail = bytes(buf[idx + len(sep) :])
             return head, tail
 
 
@@ -686,7 +700,7 @@ def _parse_headers(head):
         return "", "", {}
     parts = lines[0].split(" ")
     method = parts[0] if len(parts) > 0 else ""
-    path   = parts[1] if len(parts) > 1 else "/"
+    path = parts[1] if len(parts) > 1 else "/"
     headers = {}
     for line in lines[1:]:
         if ":" not in line:
@@ -708,10 +722,9 @@ def _send_bytes(sock, data):
 
 
 def _send_status(sock, code, reason, body=b"", content_type="text/html; charset=utf-8"):
-    head = ("HTTP/1.1 %d %s\r\n"
-            "Content-Type: %s\r\n"
-            "Content-Length: %d\r\n"
-            "Connection: close\r\n\r\n") % (code, reason, content_type, len(body))
+    head = (
+        "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n"
+    ) % (code, reason, content_type, len(body))
     try:
         _send_bytes(sock, head.encode())
         if body:
@@ -943,7 +956,7 @@ _UPLOAD_FORM = (
     b"async function beacon(){"
     b"  if(!did||approved||beaconBusy)return;beaconBusy=true;"
     b"  try{const r=await fetch('/beacon?id='+did);"
-    b"      if(r.status===410){"           # session expired server-side
+    b"      if(r.status===410){"  # session expired server-side
     b"        clearInterval(beaconTimer);"
     b"        $('wait').innerHTML=\"<h2>Session expired</h2><p class='sub'>The "
     b"code rotated or the badge owner closed transfer. "
@@ -1227,7 +1240,7 @@ def _pct(s):
         c = s[i]
         if c == "%" and i + 2 < len(s):
             try:
-                out.append(chr(int(s[i + 1:i + 3], 16)))
+                out.append(chr(int(s[i + 1 : i + 3], 16)))
                 i += 3
                 continue
             except ValueError:
@@ -1248,8 +1261,7 @@ def _peer_addr(sock):
 
 def _handle(sock):
     """One request, one response. Closes on return."""
-    head, after_head = _read_until(sock, b"\r\n\r\n", 8 * 1024,
-                                   deadline_ms=HEAD_DEADLINE_MS)
+    head, after_head = _read_until(sock, b"\r\n\r\n", 8 * 1024, deadline_ms=HEAD_DEADLINE_MS)
     if head is None:
         _send_status(sock, 408, "Request Timeout", b"timeout")
         return
@@ -1268,8 +1280,7 @@ def _handle(sock):
 
     # ── master kill switch for file uploads ──
     if not _transfer_enabled:
-        _send_status(sock, 503, "Service Unavailable",
-                     _DISABLED_PAGE)
+        _send_status(sock, 503, "Service Unavailable", _DISABLED_PAGE)
         return
 
     if method == "GET" and path in ("/", "/index.html"):
@@ -1285,7 +1296,7 @@ def _handle(sock):
     _send_status(sock, 404, "Not Found", _NOT_FOUND_PAGE)
 
 
-_MASCOT_CACHE = None    # bytes lazily loaded on first request
+_MASCOT_CACHE = None  # bytes lazily loaded on first request
 
 
 def _handle_mascot(sock):
@@ -1308,11 +1319,13 @@ def _handle_mascot(sock):
     if not _MASCOT_CACHE:
         _send_status(sock, 404, "Not Found", b"missing mascot")
         return
-    head = ("HTTP/1.1 200 OK\r\n"
-            "Content-Type: image/png\r\n"
-            "Content-Length: %d\r\n"
-            "Cache-Control: public, max-age=86400\r\n"
-            "Connection: close\r\n\r\n") % len(_MASCOT_CACHE)
+    head = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: image/png\r\n"
+        "Content-Length: %d\r\n"
+        "Cache-Control: public, max-age=86400\r\n"
+        "Connection: close\r\n\r\n"
+    ) % len(_MASCOT_CACHE)
     try:
         _send_bytes(sock, head.encode())
         _send_bytes(sock, _MASCOT_CACHE)
@@ -1328,9 +1341,10 @@ def _handle_root(sock, qs, peer_addr):
     prefill = (qs.get("prefill", "") or "").lower()
     expected = code_hash().lower()
     code_raw = current_code().lower()
-    
+
     try:
         from oreoOS import config
+
         is_debug = getattr(config, "DEBUG", False)
     except Exception:
         is_debug = False
@@ -1347,14 +1361,15 @@ def _handle_root(sock, qs, peer_addr):
     device_id = _new_session_id()
     try:
         import time as _t
+
         now = _t.ticks_ms()
     except Exception:
         now = 0
     _sessions[device_id] = {
-        "state":     "authed",
-        "last_ms":   now,
-        "addr":      peer_addr,
-        "uploads":   0,
+        "state": "authed",
+        "last_ms": now,
+        "addr": peer_addr,
+        "uploads": 0,
         "authed_at": now,
     }
     try:
@@ -1376,9 +1391,9 @@ def _handle_beacon(sock, qs, peer_addr):
     that hasn't /auth'd is invisible and stays invisible."""
     sid = qs.get("id", "")
     if not sid or len(sid) != 6:
-        _send_status(sock, 400, "Bad Request",
-                     b'{"error":"missing id"}',
-                     content_type="application/json")
+        _send_status(
+            sock, 400, "Bad Request", b'{"error":"missing id"}', content_type="application/json"
+        )
         return
     _prune_sessions()
     s = _sessions.get(sid)
@@ -1386,12 +1401,17 @@ def _handle_beacon(sock, qs, peer_addr):
         # Session expired or was denied — tell the client so it can
         # re-prompt for the code. We deliberately do NOT auto-create
         # the session here (that's the inverted protocol).
-        _send_status(sock, 410, "Gone",
-                     b'{"error":"session expired","state":"gone"}',
-                     content_type="application/json")
+        _send_status(
+            sock,
+            410,
+            "Gone",
+            b'{"error":"session expired","state":"gone"}',
+            content_type="application/json",
+        )
         return
     try:
         import time as _t
+
         s["last_ms"] = _t.ticks_ms()
     except Exception:
         pass
@@ -1407,8 +1427,7 @@ def _handle_beacon(sock, qs, peer_addr):
     # user picks a file (cheap, no extra round-trip). statvfs is fast
     # enough to call per beacon (~ms on ESP32-S3 flash).
     fb = free_bytes()
-    body = ('{"device_id":"%s","state":"%s","free":%d}'
-            % (sid, s["state"], fb)).encode()
+    body = ('{"device_id":"%s","state":"%s","free":%d}' % (sid, s["state"], fb)).encode()
     _send_status(sock, 200, "OK", body, content_type="application/json")
 
 
@@ -1425,9 +1444,13 @@ def _handle_upload(sock, headers, body_prefix, qs):
     token = qs.get("token", "")
     s = _sessions.get(token) if token else None
     if s is None or s.get("state") != "approved":
-        _send_status(sock, 403, "Forbidden",
-                     b'{"error":"token not approved"}',
-                     content_type="application/json")
+        _send_status(
+            sock,
+            403,
+            "Forbidden",
+            b'{"error":"token not approved"}',
+            content_type="application/json",
+        )
         return
     ctype = headers.get("content-type", "")
     if "multipart/form-data" not in ctype:
@@ -1439,7 +1462,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
     if bidx < 0:
         _send_status(sock, 400, "Bad Request", b"missing boundary")
         return
-    boundary = ctype[bidx + len("boundary="):].split(";", 1)[0].strip().strip('"')
+    boundary = ctype[bidx + len("boundary=") :].split(";", 1)[0].strip().strip('"')
     if not boundary:
         _send_status(sock, 400, "Bad Request", b"empty boundary")
         return
@@ -1472,7 +1495,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
         bytes_read += len(chunk)
     hdr_end = head_buf.find(b"\r\n\r\n")
     part_head = bytes(head_buf[:hdr_end])
-    rest      = bytes(head_buf[hdr_end + 4:])
+    rest = bytes(head_buf[hdr_end + 4 :])
 
     # Extract filename from Content-Disposition.
     cd = ""
@@ -1484,7 +1507,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
     fkey = "filename="
     fi = cd.find(fkey)
     if fi >= 0:
-        rest_cd = cd[fi + len(fkey):]
+        rest_cd = cd[fi + len(fkey) :]
         if rest_cd.startswith('"'):
             end = rest_cd.find('"', 1)
             if end > 0:
@@ -1495,8 +1518,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
 
     dest_dir, kind = _route_for(fname)
     if dest_dir is None:
-        _send_status(sock, 415, "Unsupported Media Type",
-                     ("rejected: " + str(kind)).encode())
+        _send_status(sock, 415, "Unsupported Media Type", ("rejected: " + str(kind)).encode())
         return
 
     _ensure_dir(dest_dir)
@@ -1534,8 +1556,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
     try:
         f = open(tmp_path, "wb")
     except Exception:
-        _send_status(sock, 500, "Internal Error",
-                     b"write failed (out of space?)")
+        _send_status(sock, 500, "Internal Error", b"write failed (out of space?)")
         return
 
     # Publish a live progress slot the WiFi UI polls every frame to
@@ -1543,8 +1564,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
     # the file length (we don't know the file length until we hit the
     # closing boundary). Off by ~boundary-length bytes — good enough.
     global _progress
-    _progress = {"id": token, "filename": fname,
-                 "received": 0, "total": clen}
+    _progress = {"id": token, "filename": fname, "received": 0, "total": clen}
 
     try:
         buf = bytearray(rest)
@@ -1620,7 +1640,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
             pass
         _send_status(sock, 400, "Bad Request", b"empty upload")
         return
-        
+
     try:
         if _os is not None:
             _os.rename(tmp_path, dst_path)
@@ -1639,6 +1659,7 @@ def _handle_upload(sock, headers, body_prefix, qs):
     global _last_upload_ts, _last_upload_name
     try:
         import time as _t
+
         _last_upload_ts = _t.ticks_ms()
     except Exception:
         _last_upload_ts = 0
@@ -1661,10 +1682,13 @@ def _handle_upload(sock, headers, body_prefix, qs):
     target_app = "gallery" if kind in ("image", "video") else "reader"
     try:
         from oreoOS import notifications
-        notifications.push("wifi",
-                           "Received %s" % kind,
-                           "%s · %d KB" % (fname[:18], written // 1024),
-                           target=target_app)
+
+        notifications.push(
+            "wifi",
+            "Received %s" % kind,
+            "%s · %d KB" % (fname[:18], written // 1024),
+            target=target_app,
+        )
     except Exception:
         pass
 
@@ -1673,12 +1697,14 @@ def _handle_upload(sock, headers, body_prefix, qs):
     # next time the user opens those apps. The notification above is
     # the "your file arrived" cue.
 
-    body = (b"<!doctype html><html><head>"
-            b"<meta http-equiv='refresh' content='2; url=/'>"
-            b"<title>Sent</title>"
-            b"<style>body{font-family:-apple-system,system-ui,sans-serif;"
-            b"background:#0f0c1c;color:#f5e6dc;text-align:center;padding-top:80px}"
-            b"h1{color:#ff5d68}</style></head><body>"
-            b"<h1>Sent &#10003;</h1>"
-            b"<p>Returning to upload form...</p></body></html>")
+    body = (
+        b"<!doctype html><html><head>"
+        b"<meta http-equiv='refresh' content='2; url=/'>"
+        b"<title>Sent</title>"
+        b"<style>body{font-family:-apple-system,system-ui,sans-serif;"
+        b"background:#0f0c1c;color:#f5e6dc;text-align:center;padding-top:80px}"
+        b"h1{color:#ff5d68}</style></head><body>"
+        b"<h1>Sent &#10003;</h1>"
+        b"<p>Returning to upload form...</p></body></html>"
+    )
     _send_status(sock, 200, "OK", body)

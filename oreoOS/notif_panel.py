@@ -29,39 +29,39 @@ the new state next frame.
 """
 
 import time
-from oreoOS import api, theme, widgets
 
+from oreoOS import api, theme
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-_ANIM_DUR = 0.18      # slide-in duration (seconds)
+_ANIM_DUR = 0.18  # slide-in duration (seconds)
 
 # Quick-settings pill geometry.
-_PILL_W   = (SW - 4 * 12) // 3      # three pills with 12 px gaps
-_PILL_H   = 38
+_PILL_W = (SW - 4 * 12) // 3  # three pills with 12 px gaps
+_PILL_H = 38
 _PILL_PAD = 12
-_PILL_Y   = 26
+_PILL_Y = 26
 
-_BRIGHT_Y    = _PILL_Y + _PILL_H + 8
-_BRIGHT_H    = 22
-_BRIGHT_PAD  = 12
-_BRIGHT_STEP = 10               # ± per LEFT/RIGHT tap on the slider
-_BRIGHT_MIN  = 10               # don't let users blank the screen accidentally
-_BRIGHT_MAX  = 100
+_BRIGHT_Y = _PILL_Y + _PILL_H + 8
+_BRIGHT_H = 22
+_BRIGHT_PAD = 12
+_BRIGHT_STEP = 10  # ± per LEFT/RIGHT tap on the slider
+_BRIGHT_MIN = 10  # don't let users blank the screen accidentally
+_BRIGHT_MAX = 100
 
-_TIME_Y      = _BRIGHT_Y + _BRIGHT_H + 6
-_TIME_H      = 20
-_TIME_PAD    = 12
+_TIME_Y = _BRIGHT_Y + _BRIGHT_H + 6
+_TIME_H = 20
+_TIME_PAD = 12
 
-_CARD_H   = 34
+_CARD_H = 34
 _CARD_GAP = 4
-_LIST_Y   = _TIME_Y + _TIME_H + 8
+_LIST_Y = _TIME_Y + _TIME_H + 8
 
 
 def _draw_bell(d, x, y, color):
     """Tiny hand-bell beside the panel title."""
-    d.rect(x + 4, y,     4, 1, color, fill=True)
+    d.rect(x + 4, y, 4, 1, color, fill=True)
     d.rect(x + 3, y + 1, 6, 1, color, fill=True)
     d.rect(x + 2, y + 2, 8, 1, color, fill=True)
     d.rect(x + 2, y + 3, 8, 1, color, fill=True)
@@ -73,9 +73,9 @@ def _draw_bell(d, x, y, color):
 def _draw_gear(d, x, y, color):
     """12×12 gear glyph for the Settings quick-action pill."""
     # outer teeth — four nubs at N/S/E/W
-    d.rect(x + 5, y,      2, 2, color, fill=True)
+    d.rect(x + 5, y, 2, 2, color, fill=True)
     d.rect(x + 5, y + 10, 2, 2, color, fill=True)
-    d.rect(x,     y + 5,  2, 2, color, fill=True)
+    d.rect(x, y + 5, 2, 2, color, fill=True)
     d.rect(x + 10, y + 5, 2, 2, color, fill=True)
     # body
     d.rect(x + 3, y + 2, 6, 8, color, fill=True)
@@ -86,9 +86,9 @@ def _draw_gear(d, x, y, color):
 
 def _draw_clock(d, x, y, color):
     """12×12 clock-face glyph for the time-sync row."""
-    d.rect(x + 2, y,     8, 1, color, fill=True)
+    d.rect(x + 2, y, 8, 1, color, fill=True)
     d.rect(x + 2, y + 11, 8, 1, color, fill=True)
-    d.rect(x,     y + 2, 1, 8, color, fill=True)
+    d.rect(x, y + 2, 1, 8, color, fill=True)
     d.rect(x + 11, y + 2, 1, 8, color, fill=True)
     d.rect(x + 1, y + 1, 1, 1, color, fill=True)
     d.rect(x + 10, y + 1, 1, 1, color, fill=True)
@@ -101,9 +101,9 @@ def _draw_clock(d, x, y, color):
 
 def _draw_sun(d, x, y, color):
     """12×12 sun glyph for the brightness slider label."""
-    d.rect(x + 5, y,      2, 2, color, fill=True)
+    d.rect(x + 5, y, 2, 2, color, fill=True)
     d.rect(x + 5, y + 10, 2, 2, color, fill=True)
-    d.rect(x,     y + 5,  2, 2, color, fill=True)
+    d.rect(x, y + 5, 2, 2, color, fill=True)
     d.rect(x + 10, y + 5, 2, 2, color, fill=True)
     d.rect(x + 1, y + 1, 2, 2, color, fill=True)
     d.rect(x + 9, y + 1, 2, 2, color, fill=True)
@@ -120,9 +120,9 @@ def _draw_kind_glyph(d, x, y, kind, ink):
         # Used for BT-rejected transfers (wrong file type, oversize image)
         # so the user can tell at a glance the notif is bad-news, not
         # a fresh delivery.
-        d.rect(x + 3, y,     6, 1, ink, fill=True)
+        d.rect(x + 3, y, 6, 1, ink, fill=True)
         d.rect(x + 3, y + 11, 6, 1, ink, fill=True)
-        d.rect(x,     y + 3, 1, 6, ink, fill=True)
+        d.rect(x, y + 3, 1, 6, ink, fill=True)
         d.rect(x + 11, y + 3, 1, 6, ink, fill=True)
         d.rect(x + 1, y + 1, 2, 2, ink, fill=True)
         d.rect(x + 9, y + 1, 2, 2, ink, fill=True)
@@ -133,18 +133,18 @@ def _draw_kind_glyph(d, x, y, kind, ink):
             d.rect(x + 2 + i, y + 9 - i, 1, 1, ink, fill=True)
         return
     if kind == "file":
-        d.rect(x + 1, y,     8, 12, ink, fill=False)
-        d.rect(x + 1, y,     8, 1,  ink, fill=True)
+        d.rect(x + 1, y, 8, 12, ink, fill=False)
+        d.rect(x + 1, y, 8, 1, ink, fill=True)
         d.rect(x + 1, y + 11, 8, 1, ink, fill=True)
         d.rect(x + 1, y, 1, 12, ink, fill=True)
         d.rect(x + 8, y, 1, 12, ink, fill=True)
-        d.rect(x + 6, y,     3, 1, ink, fill=True)
+        d.rect(x + 6, y, 3, 1, ink, fill=True)
         d.rect(x + 7, y + 1, 2, 1, ink, fill=True)
         d.rect(x + 8, y + 2, 1, 1, ink, fill=True)
         d.rect(x + 3, y + 4, 4, 1, ink, fill=True)
         d.rect(x + 3, y + 7, 4, 1, ink, fill=True)
     elif kind == "ota":
-        d.rect(x + 4, y,     2, 7, ink, fill=True)
+        d.rect(x + 4, y, 2, 7, ink, fill=True)
         d.rect(x + 2, y + 6, 6, 1, ink, fill=True)
         d.rect(x + 3, y + 7, 4, 1, ink, fill=True)
         d.rect(x + 4, y + 8, 2, 1, ink, fill=True)
@@ -164,18 +164,18 @@ class NotifPanel:
     `draw(d)` from inside its frame loop."""
 
     def __init__(self, os_obj):
-        self._os    = os_obj
-        self.open   = False        # logical state (independent of anim)
-        self._t     = 0.0          # animation progress 0..1
-        self._dir   = 0            # +1 opening, -1 closing
-        self._focus = "quick"      # "quick" | "bright" | "time" | "list"
+        self._os = os_obj
+        self.open = False  # logical state (independent of anim)
+        self._t = 0.0  # animation progress 0..1
+        self._dir = 0  # +1 opening, -1 closing
+        self._focus = "quick"  # "quick" | "bright" | "time" | "list"
         self._quick_sel = 0
-        self._list_sel  = 0
+        self._list_sel = 0
         # Transient toast shown in the time-sync row while a manual sync
         # is in flight, then for ~1.5 s after it finishes. None = display
         # the live clock instead. (start_ms, text, color_key)
         self._time_toast = None
-        self._toast_ms   = 1500
+        self._toast_ms = 1500
 
     # ── visibility ──────────────────────────────────────────────────────
     def is_active(self):
@@ -191,7 +191,7 @@ class NotifPanel:
             self._dir = 1
             self._focus = "quick"
             self._quick_sel = 0
-            self._list_sel  = 0
+            self._list_sel = 0
             self._mark_read()
 
     def close(self):
@@ -201,6 +201,7 @@ class NotifPanel:
     def _mark_read(self):
         try:
             from oreoOS import notifications
+
             notifications.mark_read()
         except Exception:
             pass
@@ -211,12 +212,12 @@ class NotifPanel:
             return
         self._t += self._dir * (dt / _ANIM_DUR)
         if self._t >= 1.0:
-            self._t   = 1.0
+            self._t = 1.0
             self._dir = 0
         elif self._t <= 0.0:
-            self._t    = 0.0
-            self._dir  = 0
-            self.open  = False
+            self._t = 0.0
+            self._dir = 0
+            self.open = False
 
     # ── input ───────────────────────────────────────────────────────────
     def handle_button(self, btn):
@@ -291,22 +292,24 @@ class NotifPanel:
             target = items[self._list_sel].get("target")
             try:
                 from oreoOS import notifications
+
                 notifications.remove_at(self._list_sel)
             except Exception:
                 pass
             self.open = False
-            self._t   = 0.0
+            self._t = 0.0
             self._dir = 0
             if target:
                 self._os.launch(target)
         elif btn == api.BTN_B:
             try:
                 from oreoOS import notifications
+
                 notifications.clear()
             except Exception:
                 pass
             self._list_sel = 0
-            self._focus    = "quick"
+            self._focus = "quick"
         return True
 
     # ── quick-setting actions ───────────────────────────────────────────
@@ -324,6 +327,7 @@ class NotifPanel:
         """
         try:
             from oreoWare import wifi
+
             on_now = False
             try:
                 on_now = bool(wifi.is_radio_on())
@@ -364,6 +368,7 @@ class NotifPanel:
     def _toggle_bt(self):
         try:
             from oreoWare import bt
+
             bt.set_active(not bt.is_active())
         except Exception:
             pass
@@ -386,6 +391,7 @@ class NotifPanel:
         self._time_toast = (time.ticks_ms(), "syncing…", "muted")
         try:
             from oreoOS import timeutil
+
             ok, msg = timeutil.sync_from_ntp()
         except Exception:
             ok, msg = False, "failed"
@@ -397,7 +403,7 @@ class NotifPanel:
         # one-tap shortcut so users can dive deeper without leaving the
         # current app, scrolling for the Settings tile, then coming back.
         self.open = False
-        self._t   = 0.0
+        self._t = 0.0
         self._dir = 0
         try:
             self._os.launch("settings")
@@ -408,6 +414,7 @@ class NotifPanel:
     def _items(self):
         try:
             from oreoOS import notifications
+
             return notifications.items()
         except Exception:
             return []
@@ -416,14 +423,14 @@ class NotifPanel:
     def draw(self, d):
         if self._t <= 0:
             return
-        items   = self._items()
-        full_h  = SH
+        items = self._items()
+        full_h = SH
         # Smooth cubic ease-out when opening, ease-in when closing
         if self._dir >= 0:
             ease = 1.0 - (1.0 - self._t) ** 3
         else:
-            ease = self._t ** 3
-        offset  = int(full_h * (1.0 - ease))
+            ease = self._t**3
+        offset = int(full_h * (1.0 - ease))
         panel_y = -offset
 
         # Backdrop
@@ -431,9 +438,9 @@ class NotifPanel:
         d.rect(0, panel_y + full_h - 2, SW, 2, theme.PRIMARY, fill=True)
 
         # Header
-        title    = "NOTIFICATIONS"
-        title_w  = len(title) * 8
-        title_x  = (SW - title_w) // 2
+        title = "NOTIFICATIONS"
+        title_w = len(title) * 8
+        title_x = (SW - title_w) // 2
         d.rect(0, panel_y, SW, 22, theme.PRIMARY, fill=True)
         d.text(title, title_x, panel_y + 7, theme.BG, scale=1)
         _draw_bell(d, title_x - 16, panel_y + 4, theme.BG)
@@ -452,14 +459,14 @@ class NotifPanel:
             x = _PILL_PAD + i * (_PILL_W + _PILL_PAD)
             y = panel_y + _PILL_Y
             on = states[i]["on"]
-            sel = (self._focus == "quick" and self._quick_sel == i)
+            sel = self._focus == "quick" and self._quick_sel == i
             fill = theme.PRIMARY if on else theme.CARD
             d.rect(x, y, _PILL_W, _PILL_H, fill, fill=True)
             if sel:
-                d.rect(x,         y,             _PILL_W, 1,        theme.SEL_BORDER, fill=True)
-                d.rect(x,         y + _PILL_H-1, _PILL_W, 1,        theme.SEL_BORDER, fill=True)
-                d.rect(x,         y,             1,       _PILL_H,  theme.SEL_BORDER, fill=True)
-                d.rect(x+_PILL_W-1, y,           1,       _PILL_H,  theme.SEL_BORDER, fill=True)
+                d.rect(x, y, _PILL_W, 1, theme.SEL_BORDER, fill=True)
+                d.rect(x, y + _PILL_H - 1, _PILL_W, 1, theme.SEL_BORDER, fill=True)
+                d.rect(x, y, 1, _PILL_H, theme.SEL_BORDER, fill=True)
+                d.rect(x + _PILL_W - 1, y, 1, _PILL_H, theme.SEL_BORDER, fill=True)
             txt_color = theme.BG if on else theme.TEXT_BRIGHT
             label = labels[i]
 
@@ -468,23 +475,21 @@ class NotifPanel:
                 _draw_gear(d, x + 8, y + 6, txt_color)
                 d.text(label, x + 22, y + 6, txt_color, scale=1)
                 sub = "open ›"
-                d.text(sub, x + (_PILL_W - len(sub) * 8) // 2,
-                       y + 22, txt_color, scale=1)
+                d.text(sub, x + (_PILL_W - len(sub) * 8) // 2, y + 22, txt_color, scale=1)
             else:
-                d.text(label, x + (_PILL_W - len(label) * 8) // 2,
-                       y + 6, txt_color, scale=1)
+                d.text(label, x + (_PILL_W - len(label) * 8) // 2, y + 6, txt_color, scale=1)
                 sub = states[i]["sub"]
-                d.text(sub, x + (_PILL_W - len(sub) * 8) // 2,
-                       y + 22, txt_color, scale=1)
+                d.text(sub, x + (_PILL_W - len(sub) * 8) // 2, y + 22, txt_color, scale=1)
 
     def _quick_states(self):
         out = [
             {"on": False, "sub": "off"},
             {"on": False, "sub": "off"},
-            {"on": False, "sub": ""},      # Settings shortcut — stateless
+            {"on": False, "sub": ""},  # Settings shortcut — stateless
         ]
         try:
             from oreoWare import wifi
+
             # Two-state chip: connected → ON (with SSID in the sub),
             # everything else → OFF. We deliberately don't surface
             # a "searching" tier — the credentials are known up-front
@@ -498,17 +503,20 @@ class NotifPanel:
             out[0]["on"] = connected
             if connected:
                 cur = ""
-                try: cur = wifi.ssid() or ""
-                except Exception: pass
-                out[0]["sub"] = (cur[:10] if cur else "on")
+                try:
+                    cur = wifi.ssid() or ""
+                except Exception:
+                    pass
+                out[0]["sub"] = cur[:10] if cur else "on"
             else:
                 out[0]["sub"] = "off"
         except Exception:
             pass
         try:
             from oreoWare import bt
+
             active = bt.is_active()
-            out[1]["on"]  = bool(active)
+            out[1]["on"] = bool(active)
             # Blink "transferring" while a peer is connected. The panel
             # samples this dict every frame the panel is open, so just
             # alternating the sublabel is enough to make the BT chip
@@ -521,6 +529,7 @@ class NotifPanel:
             if busy:
                 try:
                     import time as _t
+
                     phase = (_t.ticks_ms() // 500) & 1
                 except Exception:
                     phase = 0
@@ -538,13 +547,13 @@ class NotifPanel:
         w = SW - 2 * _BRIGHT_PAD
         h = _BRIGHT_H
 
-        sel = (self._focus == "bright")
+        sel = self._focus == "bright"
         d.rect(x, y, w, h, theme.CARD, fill=True)
         if sel:
-            d.rect(x,         y,         w, 1, theme.SEL_BORDER, fill=True)
-            d.rect(x,         y + h - 1, w, 1, theme.SEL_BORDER, fill=True)
-            d.rect(x,         y,         1, h, theme.SEL_BORDER, fill=True)
-            d.rect(x + w - 1, y,         1, h, theme.SEL_BORDER, fill=True)
+            d.rect(x, y, w, 1, theme.SEL_BORDER, fill=True)
+            d.rect(x, y + h - 1, w, 1, theme.SEL_BORDER, fill=True)
+            d.rect(x, y, 1, h, theme.SEL_BORDER, fill=True)
+            d.rect(x + w - 1, y, 1, h, theme.SEL_BORDER, fill=True)
 
         _draw_sun(d, x + 6, y + (h - 12) // 2, theme.PRIMARY)
 
@@ -569,41 +578,44 @@ class NotifPanel:
 
         # Value tag on the right edge.
         val = "%d%%" % bright
-        d.text(val, x + w - len(val) * 8 - 8,
-               y + (h - 8) // 2, theme.TEXT_BRIGHT, scale=1)
+        d.text(val, x + w - len(val) * 8 - 8, y + (h - 8) // 2, theme.TEXT_BRIGHT, scale=1)
 
     def _draw_list(self, d, panel_y, items, full_h):
         list_top = panel_y + _LIST_Y
-        list_h   = full_h - _LIST_Y - 18    # leave room for hint
+        list_h = full_h - _LIST_Y - 18  # leave room for hint
 
         if not items:
             msg = "no notifications"
-            d.text(msg, (SW - len(msg) * 8) // 2,
-                   list_top + list_h // 2 - 4, theme.MUTED, scale=1)
+            d.text(msg, (SW - len(msg) * 8) // 2, list_top + list_h // 2 - 4, theme.MUTED, scale=1)
             return
 
         max_cards = max(1, list_h // (_CARD_H + _CARD_GAP))
         top = max(0, self._list_sel - max_cards + 1) if self._focus == "list" else 0
         for i in range(top, min(len(items), top + max_cards)):
             it = items[i]
-            y  = list_top + (i - top) * (_CARD_H + _CARD_GAP)
-            sel = (self._focus == "list" and i == self._list_sel)
-            bg  = theme.DOCK_SEL if sel else theme.CARD
+            y = list_top + (i - top) * (_CARD_H + _CARD_GAP)
+            sel = self._focus == "list" and i == self._list_sel
+            bg = theme.DOCK_SEL if sel else theme.CARD
             d.rect(8, y, SW - 16, _CARD_H, bg, fill=True)
             if sel:
                 # Simple 1-px outline; rounded version lives in launcher.
-                d.rect(8,           y,            SW - 16, 1,       theme.SEL_BORDER, fill=True)
-                d.rect(8,           y + _CARD_H-1, SW - 16, 1,      theme.SEL_BORDER, fill=True)
-                d.rect(8,           y,            1,       _CARD_H, theme.SEL_BORDER, fill=True)
-                d.rect(SW - 9,      y,            1,       _CARD_H, theme.SEL_BORDER, fill=True)
+                d.rect(8, y, SW - 16, 1, theme.SEL_BORDER, fill=True)
+                d.rect(8, y + _CARD_H - 1, SW - 16, 1, theme.SEL_BORDER, fill=True)
+                d.rect(8, y, 1, _CARD_H, theme.SEL_BORDER, fill=True)
+                d.rect(SW - 9, y, 1, _CARD_H, theme.SEL_BORDER, fill=True)
             kind = it.get("kind", "")
-            ink  = (theme.GOLD if kind == "file"
-                    else theme.PRIMARY if kind == "ota"
-                    else theme.PRIMARY if kind == "reject"
-                    else theme.TEAL)
+            ink = (
+                theme.GOLD
+                if kind == "file"
+                else theme.PRIMARY
+                if kind == "ota"
+                else theme.PRIMARY
+                if kind == "reject"
+                else theme.TEAL
+            )
             _draw_kind_glyph(d, 14, y + 9, kind, ink)
             title = it.get("title", "")[:24]
-            body  = it.get("body",  "")[:28]
+            body = it.get("body", "")[:28]
             d.text(title, 34, y + 6, theme.TEXT_BRIGHT, scale=1)
             if body:
                 d.text(body, 34, y + 18, theme.TEXT_DIM, scale=1)
@@ -617,29 +629,26 @@ class NotifPanel:
         w = SW - 2 * _TIME_PAD
         h = _TIME_H
 
-        sel = (self._focus == "time")
+        sel = self._focus == "time"
         d.rect(x, y, w, h, theme.CARD, fill=True)
         if sel:
-            d.rect(x,         y,         w, 1, theme.SEL_BORDER, fill=True)
-            d.rect(x,         y + h - 1, w, 1, theme.SEL_BORDER, fill=True)
-            d.rect(x,         y,         1, h, theme.SEL_BORDER, fill=True)
-            d.rect(x + w - 1, y,         1, h, theme.SEL_BORDER, fill=True)
+            d.rect(x, y, w, 1, theme.SEL_BORDER, fill=True)
+            d.rect(x, y + h - 1, w, 1, theme.SEL_BORDER, fill=True)
+            d.rect(x, y, 1, h, theme.SEL_BORDER, fill=True)
+            d.rect(x + w - 1, y, 1, h, theme.SEL_BORDER, fill=True)
 
         _draw_clock(d, x + 6, y + (h - 12) // 2, theme.PRIMARY)
 
         toast = self._time_toast
         if toast is not None:
             start_ms, msg, key = toast
-            if time.ticks_diff(time.ticks_ms(), start_ms) > self._toast_ms \
-                    and msg != "syncing…":
+            if time.ticks_diff(time.ticks_ms(), start_ms) > self._toast_ms and msg != "syncing…":
                 self._time_toast = None
                 toast = None
 
         if toast is not None:
             _, msg, key = toast
-            color = (theme.PRIMARY if key == "ok"
-                     else theme.GOLD if key == "err"
-                     else theme.MUTED)
+            color = theme.PRIMARY if key == "ok" else theme.GOLD if key == "err" else theme.MUTED
             d.text(msg[:28], x + 24, y + (h - 8) // 2, color, scale=1)
         else:
             # Live clock readout — HH:MM in the local timezone, plus a
@@ -647,16 +656,20 @@ class NotifPanel:
             # triggers a manual sync.
             try:
                 from oreoOS import timeutil as _tu
+
                 hour, minute, _s, _wd, _d, _m, _y = _tu.now()
                 clock = "%02d:%02d" % (hour, minute)
             except Exception:
                 clock = "--:--"
-            d.text(clock, x + 24, y + (h - 8) // 2,
-                   theme.TEXT_BRIGHT, scale=1)
+            d.text(clock, x + 24, y + (h - 8) // 2, theme.TEXT_BRIGHT, scale=1)
             action = "A=sync ↻" if sel else "Sync time"
-            d.text(action, x + w - len(action) * 8 - 8,
-                   y + (h - 8) // 2,
-                   theme.PRIMARY if sel else theme.MUTED, scale=1)
+            d.text(
+                action,
+                x + w - len(action) * 8 - 8,
+                y + (h - 8) // 2,
+                theme.PRIMARY if sel else theme.MUTED,
+                scale=1,
+            )
 
     def _draw_hint(self, d, panel_y, full_h):
         if self._focus == "quick":
@@ -667,8 +680,7 @@ class NotifPanel:
             hint = "A=sync  UP/DOWN=move  C=close"
         else:
             hint = "A=open  B=clear  C=close"
-        d.text(hint, (SW - len(hint) * 8) // 2,
-               panel_y + full_h - 14, theme.TEXT_DIM, scale=1)
+        d.text(hint, (SW - len(hint) * 8) // 2, panel_y + full_h - 14, theme.TEXT_DIM, scale=1)
 
 
 def get(os_obj):

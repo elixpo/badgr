@@ -14,13 +14,13 @@ Controls:
   HOME   apps drawer (OS default)
 """
 
-import time
 import gc
-import oreoOS
-from oreoOS import api
-from oreoOS import theme, widgets
+import time
 
-from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
+import oreoOS
+from oreoOS import api, theme, widgets
+from oreoOS.api import ticks_diff as _ticks_diff
+from oreoOS.api import ticks_ms as _ticks_ms
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -34,11 +34,12 @@ STATE_PATH = "state_pet.txt"
 # with the badge being off most of the day and real-world feed frequency
 # is about every 2–3 days.
 DECAY_HUNGER = 0.00045
-DECAY_HAPPY  = 0.00030
-EAT_FACE_MS  = 1200      # show 'eat' expression for this long after feeding
+DECAY_HAPPY = 0.00030
+EAT_FACE_MS = 1200  # show 'eat' expression for this long after feeding
 
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
+
 
 def _load_state():
     """Read persisted (hunger, happy, health) from disk.
@@ -59,6 +60,7 @@ def _load_state():
     except Exception:
         return (100, 100, 100)
 
+
 def _save_state(h, hp, hl):
     try:
         with open(STATE_PATH, "w") as f:
@@ -66,8 +68,10 @@ def _save_state(h, hp, hl):
     except Exception:
         pass
 
+
 def _clamp(v):
     return max(0, min(100, int(v)))
+
 
 def _upscale_sprite_2x(data, w, h):
     """Nearest-neighbour 2x of an RGB565 big-endian bytearray sprite.
@@ -81,18 +85,22 @@ def _upscale_sprite_2x(data, w, h):
     out = bytearray(dw * dh * 2)
     for y in range(h):
         src_row = y * w * 2
-        dst_y0  = (y * 2) * dw * 2
-        dst_y1  = dst_y0 + dw * 2
+        dst_y0 = (y * 2) * dw * 2
+        dst_y1 = dst_y0 + dw * 2
         for x in range(w):
             si = src_row + x * 2
             b0 = data[si]
             b1 = data[si + 1]
             di0 = dst_y0 + (x * 2) * 2
             di1 = dst_y1 + (x * 2) * 2
-            out[di0]     = b0; out[di0 + 1] = b1
-            out[di0 + 2] = b0; out[di0 + 3] = b1
-            out[di1]     = b0; out[di1 + 1] = b1
-            out[di1 + 2] = b0; out[di1 + 3] = b1
+            out[di0] = b0
+            out[di0 + 1] = b1
+            out[di0 + 2] = b0
+            out[di0 + 3] = b1
+            out[di1] = b0
+            out[di1 + 1] = b1
+            out[di1 + 2] = b0
+            out[di1 + 3] = b1
     return out, dw, dh
 
 
@@ -118,8 +126,10 @@ def _try_sprite(name):
 
 # ─── heart particle (rises from panda when feeding/playing) ─────────────────
 
+
 class _HeartParticle:
-    __slots__ = ("x", "y0", "t", "max_t", "vx")
+    __slots__ = ("max_t", "t", "vx", "x", "y0")
+
     def __init__(self, x, y, vx):
         self.x, self.y0, self.vx = x, y, vx
         self.t, self.max_t = 0.0, 0.9
@@ -132,18 +142,20 @@ class _HeartParticle:
         if self.t >= self.max_t:
             return
         prog = self.t / self.max_t
-        x    = int(self.x + self.vx * prog)
-        y    = int(self.y0 - prog * 50)
+        x = int(self.x + self.vx * prog)
+        y = int(self.y0 - prog * 50)
         if heart_sprite:
             data, w, h = heart_sprite
             d.blit(data, x - w // 2, y - h // 2, w, h)
         else:
             # 5×5 pixel-heart fallback
-            for dy, cols in [(0, (-2, -1, 1, 2)),
-                              (1, range(-3, 4)),
-                              (2, range(-3, 4)),
-                              (3, range(-2, 3)),
-                              (4, (-1, 0, 1))]:
+            for dy, cols in [
+                (0, (-2, -1, 1, 2)),
+                (1, range(-3, 4)),
+                (2, range(-3, 4)),
+                (3, range(-2, 3)),
+                (4, (-1, 0, 1)),
+            ]:
                 for dx in cols:
                     d.rect(x + dx, y + dy, 1, 1, theme.PRIMARY, fill=True)
 
@@ -151,12 +163,14 @@ class _HeartParticle:
 def _draw_heart(d, x, y, filled=True):
     """Tiny 7×7 pixel heart — used for the stat rows."""
     col = theme.PRIMARY if filled else theme.MUTED2
-    for dy, cols in [(0, (1, 2, 4, 5)),
-                      (1, (0, 1, 2, 3, 4, 5, 6)),
-                      (2, (0, 1, 2, 3, 4, 5, 6)),
-                      (3, (1, 2, 3, 4, 5)),
-                      (4, (2, 3, 4)),
-                      (5, (3,))]:
+    for dy, cols in [
+        (0, (1, 2, 4, 5)),
+        (1, (0, 1, 2, 3, 4, 5, 6)),
+        (2, (0, 1, 2, 3, 4, 5, 6)),
+        (3, (1, 2, 3, 4, 5)),
+        (4, (2, 3, 4)),
+        (5, (3,)),
+    ]:
         for dx in cols:
             d.rect(x + dx, y + dy, 1, 1, col, fill=True)
 
@@ -166,8 +180,8 @@ def _draw_speech_bubble(d, x, y, w, h, text, color):
     d.rect(x, y, w, h, theme.CARD, fill=True)
     d.rect(x, y, w, 2, theme.PRIMARY, fill=True)
     # Bottom-left "tail" — three short rows pointing at the panda
-    d.rect(x + 12, y + h,     6, 2, theme.CARD,    fill=True)
-    d.rect(x + 14, y + h + 2, 4, 2, theme.CARD,    fill=True)
+    d.rect(x + 12, y + h, 6, 2, theme.CARD, fill=True)
+    d.rect(x + 14, y + h + 2, 4, 2, theme.CARD, fill=True)
     # Centred text
     tw = len(text) * 8
     d.text(text, x + (w - tw) // 2, y + (h - 8) // 2, color)
@@ -175,10 +189,11 @@ def _draw_speech_bubble(d, x, y, w, h, text, color):
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 
+
 class App(oreoOS.App):
-    name         = "Oreo Pet"
+    name = "Oreo Pet"
     SHOW_LOADING = False
-    CONSUMES_C   = True
+    CONSUMES_C = True
 
     def on_enter(self, os):
         self._os = os
@@ -191,17 +206,17 @@ class App(oreoOS.App):
             src = _try_sprite("panda_" + k)
             if src:
                 self._sprites[k] = _upscale_sprite_2x(*src)
-        self._fallback  = _try_sprite("mascot")
+        self._fallback = _try_sprite("mascot")
         self._heart_spr = _try_sprite("heart")
 
         self._hunger, self._happy, self._health = _load_state()
-        self._last_tick   = _ticks_ms()
+        self._last_tick = _ticks_ms()
         self._last_save_t = _ticks_ms()
-        self._anim_t      = 0.0
-        self._eat_left    = 0.0
-        self._sleeping    = False
-        self._hearts      = []
-        self._dirty       = True
+        self._anim_t = 0.0
+        self._eat_left = 0.0
+        self._sleeping = False
+        self._hearts = []
+        self._dirty = True
         gc.collect()
 
     def on_exit(self):
@@ -216,12 +231,12 @@ class App(oreoOS.App):
             if self._hunger >= 95:
                 self._happy = _clamp(self._happy - 3)
             else:
-                self._hunger    = _clamp(self._hunger + 30)
-                self._eat_left  = EAT_FACE_MS / 1000.0
+                self._hunger = _clamp(self._hunger + 30)
+                self._eat_left = EAT_FACE_MS / 1000.0
                 self._spawn_hearts(3)
         elif btn == api.BTN_B:
             if self._hunger > 15:
-                self._happy  = _clamp(self._happy  + 15)
+                self._happy = _clamp(self._happy + 15)
                 self._hunger = _clamp(self._hunger - 10)
                 self._spawn_hearts(2)
         elif btn in (api.BTN_C, api.BTN_DOWN, api.BTN_UP):
@@ -240,25 +255,25 @@ class App(oreoOS.App):
             self._hearts.append(_HeartParticle(SW // 2, spawn_y, vx))
 
     def update(self, dt):
-        now      = _ticks_ms()
-        wall_dt  = _ticks_diff(now, self._last_tick) / 1000.0
+        now = _ticks_ms()
+        wall_dt = _ticks_diff(now, self._last_tick) / 1000.0
         self._last_tick = now
-        self._anim_t   += dt
-        self._eat_left  = max(0.0, self._eat_left - dt)
+        self._anim_t += dt
+        self._eat_left = max(0.0, self._eat_left - dt)
 
         # Decay (much slower when asleep)
         rate = 0.3 if self._sleeping else 1.0
         self._hunger = _clamp(self._hunger - DECAY_HUNGER * wall_dt * 100 * rate)
-        self._happy  = _clamp(self._happy  - DECAY_HAPPY  * wall_dt * 100 * rate)
+        self._happy = _clamp(self._happy - DECAY_HAPPY * wall_dt * 100 * rate)
         if self._sleeping:
             self._health = _clamp(self._health + 0.05 * wall_dt)
         else:
-            worst        = min(self._hunger, self._happy)
-            target       = (self._health + worst) // 2
+            worst = min(self._hunger, self._happy)
+            target = (self._health + worst) // 2
             self._health = _clamp(target)
 
         self._hearts = [p for p in self._hearts if p.update(dt)]
-        self._dirty  = True
+        self._dirty = True
 
         # Persist every ~10 s so an unexpected power-cycle doesn't lose
         # progress (on_exit also saves, but only when the user HOMEs out
@@ -269,12 +284,18 @@ class App(oreoOS.App):
 
     # ── sprite + thought picker ─────────────────────────────────────────
     def _pick_state(self):
-        if self._sleeping:        return "sleep", "zZz..."
-        if self._eat_left > 0:    return "eat",   "Yum!"
-        if self._hunger < 35:     return "hungry","I'm hungry!"
-        if self._happy < 35:      return "sad",   "Play with me?"
-        if self._hunger > 90:     return "happy", "So full!"
-        if self._happy  > 90:     return "happy", "Heehee!"
+        if self._sleeping:
+            return "sleep", "zZz..."
+        if self._eat_left > 0:
+            return "eat", "Yum!"
+        if self._hunger < 35:
+            return "hungry", "I'm hungry!"
+        if self._happy < 35:
+            return "sad", "Play with me?"
+        if self._hunger > 90:
+            return "happy", "So full!"
+        if self._happy > 90:
+            return "happy", "Heehee!"
         return "happy", "I'm doing great"
 
     # ── render ──────────────────────────────────────────────────────────
@@ -283,27 +304,30 @@ class App(oreoOS.App):
             return
         d.clear(theme.BG)
         widgets.draw_header(d, "OREO PET")
-        widgets.draw_hint  (d, "A=feed  B=play  C=sleep")
+        widgets.draw_hint(d, "A=feed  B=play  C=sleep")
 
         key, thought = self._pick_state()
 
         # ── compact stat strip across the top ─────────────────────────
         # Three columns: label + segmented bar + % readout. Reads at a
         # glance without dominating the screen — the pet is the hero.
-        strip_y    = widgets.HEADER_H + 4
-        strip_h    = 28
-        col_w      = SW // 3
-        for i, (label, val, color) in enumerate([
-                ("Hunger",    self._hunger, theme.PRIMARY),
-                ("Happiness", self._happy,  theme.TEAL),
-                ("Health",    self._health, theme.GOLD)]):
+        strip_y = widgets.HEADER_H + 4
+        strip_h = 28
+        col_w = SW // 3
+        for i, (label, val, color) in enumerate(
+            [
+                ("Hunger", self._hunger, theme.PRIMARY),
+                ("Happiness", self._happy, theme.TEAL),
+                ("Health", self._health, theme.GOLD),
+            ]
+        ):
             cx = col_w * i
             d.text(label, cx + 6, strip_y, theme.MUTED)
             # Segmented bar — 10 cells, filled proportionally to val/100.
             bar_y = strip_y + 12
             bar_x = cx + 6
             bar_w = col_w - 12
-            cell  = (bar_w - 9) // 10
+            cell = (bar_w - 9) // 10
             filled = val // 10
             for k in range(10):
                 fx = bar_x + k * (cell + 1)
@@ -317,18 +341,23 @@ class App(oreoOS.App):
         # 128x128 upscaled sprite — fills the middle band of the screen
         # so the pet itself is the focal point.
         stage_top = strip_y + strip_h + 4
-        stage_bot = SH - widgets.HINT_H - 32     # leave room for thought
-        sprite    = self._sprites.get(key) or self._fallback
-        bob       = int(3 * (abs((self._anim_t * 2) % 2 - 1)))
+        stage_bot = SH - widgets.HINT_H - 32  # leave room for thought
+        sprite = self._sprites.get(key) or self._fallback
+        bob = int(3 * (abs((self._anim_t * 2) % 2 - 1)))
         if sprite:
             data, mw, mh = sprite
             px = (SW - mw) // 2
             py = stage_top + (stage_bot - stage_top - mh) // 2 + bob
             d.blit(data, px, py, mw, mh)
         else:
-            d.rect((SW - 128) // 2,
-                   stage_top + (stage_bot - stage_top - 128) // 2 + bob,
-                   128, 128, theme.PRIMARY, fill=True)
+            d.rect(
+                (SW - 128) // 2,
+                stage_top + (stage_bot - stage_top - 128) // 2 + bob,
+                128,
+                128,
+                theme.PRIMARY,
+                fill=True,
+            )
 
         # ── heart particles in front of the panda ─────────────────────
         for p in self._hearts:

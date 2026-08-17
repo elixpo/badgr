@@ -48,7 +48,6 @@ export default function Header() {
                           border border-primary/40 bg-bg-raised
                           shadow-[0_0_24px_rgba(255,93,104,0.25)]
                           transition-transform group-hover:scale-105">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/mascot.png"
               alt="Oreo mascot"

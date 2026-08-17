@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "next build && wrangler pages deploy out --project-name=oreo"
+    "deploy": "next build && wrangler pages deploy out --project-name=oreo",
+    "lint:strict": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint:strict"
   },
   "dependencies": {
     "framer-motion": "^11.11.17",
@@ -18,13 +21,16 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",
+    "eslint": "^10.8.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.67.0",
     "wrangler": "^3.95.0"
   }
 }

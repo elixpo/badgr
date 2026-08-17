@@ -8,8 +8,11 @@ Provides high-performance desktop emulation for:
   • Robust coordinate bounds protection
 """
 
-import pygame
 import sys
+import time
+
+import pygame
+
 from oreoOS import api
 
 # Default scale factor
@@ -21,8 +24,10 @@ pygame.display.set_caption("OreoOS Native Simulator (oreoSim)")
 
 # --- Font decoding for _draw_char ---
 import base64
+
 _font_b64 = "AAAAAAAAAAAYPDwYGAAYAGZmJAAAAAAAbGz+bP5sbAAYPmA8BnwYAADGzBgwZsYAOGxodtzMdgAYGDAAAAAAAAwYMDAwGAwAMBgMDAwYMAAAZjz/PGYAAAAYGH4YGAAAAAAAAAAYGDAAAAB+AAAAAAAAAAAAGBgABgwYMGDAgAA8Zm52ZmY8ABg4GBgYGH4APGYGHDBg/gA8ZgYcBmY8AAwcPGz+DAwA/mB8BgZmPAA8ZmB8ZmY8AP4GDBgwMDAAPGZmPGZmPAA8ZmY+BmY8AAAYGAAAGBgAABgYAAAYGDAGDBgwGAwGAAAAfgB+AAAAYDAYDBgwYAA8ZgYcGAAYADxmbm5gZjwAGDxmZn5mZgB8ZmZ8ZmZ8ADxmYGBgZjwAeGxmZmZseAD+YGB8YGD+AP5gYHxgYGAAPGZgbmZmPABmZmZ+ZmZmADwYGBgYGDwABgYGBgZmPABmbHhweGxmAGBgYGBgYP4AY3d/a2NjYwBmdn5+bmZmADxmZmZmZjwAfGZmfGBgYAA8ZmZmbjwCAHxmZnx4bGYAPGZgPAZmPAB+GBgYGBgYAGZmZmZmZjwAZmZmZmY8GABjY2Nrf3djAGZmPBg8ZmYAZmZmPBgYGAD+BgwYMGD+ADwwMDAwMDwAgMBgMBgMBgA8DAwMDAw8ABg8ZgAAAAAAAAAAAAAAAP8wGAwAAAAAAAAAPAY+Zj4AYGB8ZmZmfAAAADxmYGY8AAYGPmZmZj4AAAA8Zn5gPAAcMDB8MDAwAAAAPmZmPgY8YGB8ZmZmZgAYADgYGBg8AAYABgYGZjwAYGBmbHhsZgA4GBgYGBg8AAAA7P7W1tYAAAB8ZmZmZgAAADxmZmY8AAAAfGZmfGBgAAA+ZmY+BgYAAHxmYGBgAAAAPGA8BjwAMDB8MDAwHAAAAGZmZmY+AAAAZmZmPBgAAABja393YwAAAGY8GDxmAAAAZmZmPgY8AAD+DBgw/gAOGBhwGBgOABgYGAAYGBgAcBgYDhgYcAB23AAAAAAAAAAAAAAAAAAA"
 _font_data = base64.b64decode(_font_b64)
+
 
 def _rgb565_to_rgb(c):
     try:
@@ -34,22 +39,24 @@ def _rgb565_to_rgb(c):
     except Exception:
         return (0, 0, 0)
 
+
 _LUT_565_TO_RGB = bytearray(65536 * 3)
 for c in range(65536):
     r = ((c >> 11) & 0x1F) * 255 // 31
     g = ((c >> 5) & 0x3F) * 255 // 63
     b = (c & 0x1F) * 255 // 31
-    _LUT_565_TO_RGB[c * 3]     = r
+    _LUT_565_TO_RGB[c * 3] = r
     _LUT_565_TO_RGB[c * 3 + 1] = g
     _LUT_565_TO_RGB[c * 3 + 2] = b
 
 _clock = pygame.time.Clock()
 
+
 def _sprite_to_surface(sprite, w, h):
     if isinstance(sprite, (tuple, list)):
         sprite = sprite[0]
 
-    if hasattr(sprite, 'tobytes'):
+    if hasattr(sprite, "tobytes"):
         sprite_bytes = sprite.tobytes()
     elif isinstance(sprite, (bytearray, memoryview)):
         sprite_bytes = bytes(sprite)
@@ -57,6 +64,7 @@ def _sprite_to_surface(sprite, w, h):
         sprite_bytes = sprite
 
     import struct
+
     total_words = min(len(sprite_bytes) // 2, w * h)
     words = struct.unpack_from(">%dH" % total_words, sprite_bytes)
     rgb_bytes = bytearray(w * h * 3)
@@ -65,13 +73,13 @@ def _sprite_to_surface(sprite, w, h):
 
     for i, c in enumerate(words):
         if c == 0xF81F:
-            rgb_bytes[i * 3]     = 255
+            rgb_bytes[i * 3] = 255
             rgb_bytes[i * 3 + 1] = 0
             rgb_bytes[i * 3 + 2] = 255
             has_transparent = True
         else:
             p = (c & 0xFFFF) * 3
-            rgb_bytes[i * 3]     = lut[p]
+            rgb_bytes[i * 3] = lut[p]
             rgb_bytes[i * 3 + 1] = lut[p + 1]
             rgb_bytes[i * 3 + 2] = lut[p + 2]
 
@@ -79,6 +87,7 @@ def _sprite_to_surface(sprite, w, h):
     if has_transparent:
         surf.set_colorkey((255, 0, 255))
     return surf
+
 
 class Display(api.Display):
     def __init__(self):
@@ -97,7 +106,9 @@ class Display(api.Display):
 
     def line(self, x0, y0, x1, y1, color):
         try:
-            pygame.draw.line(self._surface, _rgb565_to_rgb(color), (int(x0), int(y0)), (int(x1), int(y1)))
+            pygame.draw.line(
+                self._surface, _rgb565_to_rgb(color), (int(x0), int(y0)), (int(x1), int(y1))
+            )
             self._dirty = True
         except Exception:
             pass
@@ -105,7 +116,8 @@ class Display(api.Display):
     def rect(self, x, y, w, h, color, fill=False):
         try:
             x, y, w, h = int(x), int(y), int(w), int(h)
-            if w <= 0 or h <= 0: return
+            if w <= 0 or h <= 0:
+                return
             width = 0 if fill else 1
             pygame.draw.rect(self._surface, _rgb565_to_rgb(color), (x, y, w, h), width)
             self._dirty = True
@@ -118,14 +130,19 @@ class Display(api.Display):
             scale = max(1, int(scale))
             x, y = int(x), int(y)
             import unicodedata
-            s_norm = "".join(c for c in unicodedata.normalize("NFKD", str(s)) if unicodedata.category(c) != "Mn")
+
+            s_norm = "".join(
+                c for c in unicodedata.normalize("NFKD", str(s)) if unicodedata.category(c) != "Mn"
+            )
             for i, ch in enumerate(s_norm):
                 idx = ord(ch) - 32
-                if idx < 0 or idx >= 96: idx = 63  # '?' fallback for unrenderable
+                if idx < 0 or idx >= 96:
+                    idx = 63  # '?' fallback for unrenderable
                 offset = idx * 8
                 for py in range(8):
                     row = _font_data[offset + py]
-                    if not row: continue
+                    if not row:
+                        continue
                     for px in range(8):
                         if row & (1 << (7 - px)):
                             px_x = x + (i * 8 + px) * scale
@@ -164,11 +181,15 @@ class Display(api.Display):
     def present(self):
         global ZOOM, _screen
         _clock.tick(30)
-        if not self._dirty: return
+        if not self._dirty:
+            return
         self._dirty = False
-        scaled_surf = pygame.transform.scale(self._surface, (api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM))
+        scaled_surf = pygame.transform.scale(
+            self._surface, (api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM)
+        )
         _screen.blit(scaled_surf, (0, 0))
         pygame.display.flip()
+
 
 def toggle_zoom():
     global ZOOM, _screen
@@ -176,28 +197,30 @@ def toggle_zoom():
     _screen = pygame.display.set_mode((api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM))
     pygame.display.set_caption(f"OreoOS Native Simulator (oreoSim - {ZOOM}x)")
 
+
 _KEYMAP = [
     # Primary controls
-    (pygame.K_ESCAPE,    api.BTN_HOME),
-    (pygame.K_SPACE,     api.BTN_HOME),
-    (pygame.K_h,         api.BTN_HOME),
-    (pygame.K_RETURN,    api.BTN_A),
-    (pygame.K_z,         api.BTN_A),
-    (pygame.K_j,         api.BTN_A),
+    (pygame.K_ESCAPE, api.BTN_HOME),
+    (pygame.K_SPACE, api.BTN_HOME),
+    (pygame.K_h, api.BTN_HOME),
+    (pygame.K_RETURN, api.BTN_A),
+    (pygame.K_z, api.BTN_A),
+    (pygame.K_j, api.BTN_A),
     (pygame.K_BACKSPACE, api.BTN_B),
-    (pygame.K_x,         api.BTN_B),
-    (pygame.K_k,         api.BTN_B),
-    (pygame.K_c,         api.BTN_C),
-    (pygame.K_l,         api.BTN_C),
-    (pygame.K_UP,        api.BTN_UP),
-    (pygame.K_w,         api.BTN_UP),
-    (pygame.K_DOWN,      api.BTN_DOWN),
-    (pygame.K_s,         api.BTN_DOWN),
-    (pygame.K_LEFT,      api.BTN_LEFT),
-    (pygame.K_a,         api.BTN_LEFT),
-    (pygame.K_RIGHT,     api.BTN_RIGHT),
-    (pygame.K_d,         api.BTN_RIGHT),
+    (pygame.K_x, api.BTN_B),
+    (pygame.K_k, api.BTN_B),
+    (pygame.K_c, api.BTN_C),
+    (pygame.K_l, api.BTN_C),
+    (pygame.K_UP, api.BTN_UP),
+    (pygame.K_w, api.BTN_UP),
+    (pygame.K_DOWN, api.BTN_DOWN),
+    (pygame.K_s, api.BTN_DOWN),
+    (pygame.K_LEFT, api.BTN_LEFT),
+    (pygame.K_a, api.BTN_LEFT),
+    (pygame.K_RIGHT, api.BTN_RIGHT),
+    (pygame.K_d, api.BTN_RIGHT),
 ]
+
 
 class Buttons:
     def __init__(self):
@@ -243,24 +266,41 @@ class Buttons:
             return 0
         return int((self._time.time() * 1000) - self._press_time.get(btn, 0))
 
+
 def reboot():
     print("[oreoSim] Reboot requested!")
     pygame.quit()
     sys.exit(0)
 
+
 class Pin:
     OUT = 1
-    def __init__(self, *a, **k): pass
-    def value(self, v=None): return 0
+
+    def __init__(self, *a, **k):
+        pass
+
+    def value(self, v=None):
+        return 0
+
 
 class PWM:
-    def __init__(self, *a, **k): pass
-    def freq(self, f=None): return 1000
-    def duty_u16(self, d=None): pass
+    def __init__(self, *a, **k):
+        pass
+
+    def freq(self, f=None):
+        return 1000
+
+    def duty_u16(self, d=None):
+        pass
+
 
 class Battery:
-    def percent(self): return 100
-    def is_charging(self): return True
+    def percent(self):
+        return 100
+
+    def is_charging(self):
+        return True
+
 
 class OS(api.OS):
     def __init__(self):

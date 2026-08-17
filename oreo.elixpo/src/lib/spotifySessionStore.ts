@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 /**
  * Temporary PIN Session Store for Oreo Badge Spotify Auth.
- * 
+ *
  * Supports in-memory storage with automatic TTL expiry (10 minutes)
  * for bridging the OAuth handshake between web browsers and hardware badges.
  */
@@ -21,7 +21,7 @@ const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 // Maintain a global singleton map to survive Next.js module reloads in development/serverless
 declare global {
-  // eslint-disable-next-line no-var
+
   var __spotifySessions: Map<string, SpotifySession> | undefined;
 }
 

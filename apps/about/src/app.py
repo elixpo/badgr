@@ -13,9 +13,7 @@ import sys
 import time
 
 import oreoOS
-from oreoOS import api, pixelfont
-from oreoOS import theme, widgets
-
+from oreoOS import api, pixelfont, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -37,6 +35,7 @@ def _os_version():
     """Single source of truth for the OS version string lives in launcher.VERSION."""
     try:
         from oreoOS.launcher import VERSION
+
         return VERSION
     except Exception:
         return "v?.?.?"
@@ -47,31 +46,32 @@ class App(oreoOS.App):
 
     def on_enter(self, os):
         super().on_enter(os)
-        self._os      = os
-        self._dirty   = True
-        self._mascot  = _load_mascot()
+        self._os = os
+        self._dirty = True
+        self._mascot = _load_mascot()
         self._boot_ms = time.ticks_ms()
-        self._last_s  = -1
-        self._scroll  = 0
+        self._last_s = -1
+        self._scroll = 0
         self._max_scroll = 0
         try:
             from oreoWare import wifi
+
             self._ip = wifi.ip() or "—"
         except Exception:
             self._ip = "—"
         # Pixelify font cache
         try:
             self._pf_title = pixelfont.load("pixelify_24")
-            self._pf_body  = pixelfont.load("pixelify_12")
+            self._pf_body = pixelfont.load("pixelify_12")
         except (ImportError, AttributeError):
             self._pf_title = None
-            self._pf_body  = None
+            self._pf_body = None
 
     def update(self, dt):
         s = time.ticks_diff(time.ticks_ms(), self._boot_ms) // 1000
         if s != self._last_s:
             self._last_s = s
-            self._dirty  = True
+            self._dirty = True
 
     def on_button_press(self, btn):
         if btn == api.BTN_UP:
@@ -98,25 +98,27 @@ class App(oreoOS.App):
             ota_status = self._os.settings_get("ota_status", None)
         except Exception:
             pass
-        ota_label = {
-            "up-to-date":       "up to date",
-            "downloading":      "downloading...",
-            "ready":            "ready to install",
-            "download-failed":  "fetch failed",
-        }.get(ota_status, "—") if ota_status else "—"
+        ota_label = (
+            {
+                "up-to-date": "up to date",
+                "downloading": "downloading...",
+                "ready": "ready to install",
+                "download-failed": "fetch failed",
+            }.get(ota_status, "—")
+            if ota_status
+            else "—"
+        )
         return [
-            ("OS",       "Oreo OS"),
-            ("Version",  _os_version()),
-            ("Update",   ota_label),
+            ("OS", "Oreo OS"),
+            ("Version", _os_version()),
+            ("Update", ota_label),
             ("Codename", "Sweet Sandwich"),
-            ("Board",    "ESP32-S3"),
-            ("Memory",   _kb(gc.mem_free()) + " free"),
-            ("Display",  "ST7789  320x240"),
-            ("Runtime",  "MicroPython %d.%d.%d" % tuple(sys.implementation.version[:3])),
-            ("IP",       self._ip[:18]),
-            ("Uptime",   "%02d:%02d:%02d" % (secs // 3600,
-                                            (secs % 3600) // 60,
-                                             secs % 60)),
+            ("Board", "ESP32-S3"),
+            ("Memory", _kb(gc.mem_free()) + " free"),
+            ("Display", "ST7789  320x240"),
+            ("Runtime", "MicroPython %d.%d.%d" % tuple(sys.implementation.version[:3])),
+            ("IP", self._ip[:18]),
+            ("Uptime", "%02d:%02d:%02d" % (secs // 3600, (secs % 3600) // 60, secs % 60)),
         ]
 
     def draw(self, d):
@@ -124,7 +126,7 @@ class App(oreoOS.App):
             return
         d.clear(theme.BG)
         widgets.draw_header(d, "ABOUT")
-        widgets.draw_hint  (d, "UP/DOWN=scroll  HOME=back")
+        widgets.draw_hint(d, "UP/DOWN=scroll  HOME=back")
 
         # Scrollable content panel
         panel_x = 8
@@ -147,8 +149,8 @@ class App(oreoOS.App):
             return yy >= content_top and yy + h <= content_bot
 
         # ── content layout (drawn into "virtual" Y, then translated by scroll)
-        cy_logical = 0    # logical y inside the padded content region
-        draw_y     = lambda y: content_top + y - self._scroll
+        cy_logical = 0  # logical y inside the padded content region
+        draw_y = lambda y: content_top + y - self._scroll
 
         # mascot + "OREO OS" — stacked, both horizontally centred in the panel.
         # Mascot on top, single-line title beneath. Replaces the old
@@ -166,20 +168,16 @@ class App(oreoOS.App):
             tw = self._pf_title.measure(title)
             ty = draw_y(cy_logical)
             if _visible(ty, 24):
-                self._pf_title.text(d, title,
-                                    panel_x + (panel_w - tw) // 2,
-                                    ty, theme.PRIMARY)
+                self._pf_title.text(d, title, panel_x + (panel_w - tw) // 2, ty, theme.PRIMARY)
             cy_logical += 28
         else:
-            tw = len(title) * 24             # scale=3 → 8*3 px per glyph
+            tw = len(title) * 24  # scale=3 → 8*3 px per glyph
             ty = draw_y(cy_logical)
             if _visible(ty, 24):
-                d.text(title,
-                       panel_x + (panel_w - tw) // 2,
-                       ty, theme.PRIMARY, scale=3)
+                d.text(title, panel_x + (panel_w - tw) // 2, ty, theme.PRIMARY, scale=3)
             cy_logical += 32
 
-        cy_logical += 6     # gap before info rows
+        cy_logical += 6  # gap before info rows
 
         # ── info rows
         for label, value in self._info_rows():
@@ -198,10 +196,10 @@ class App(oreoOS.App):
         cy_logical += 8
 
         for line, col, scale in [
-                ("Crafted by",                          theme.MUTED,       1),
-                ("@Circuit-Overtime",                   theme.PRIMARY,     2),
-                ("Source on GitHub at",                 theme.TEXT_DIM,    1),
-                ("https://github.com/elixpo/oreo",             theme.TEAL,        1)
+            ("Crafted by", theme.MUTED, 1),
+            ("@Circuit-Overtime", theme.PRIMARY, 2),
+            ("Source on GitHub at", theme.TEXT_DIM, 1),
+            ("https://github.com/elixpo/oreo", theme.TEAL, 1),
         ]:
             yy = draw_y(cy_logical)
             row_h = 10 * scale
@@ -210,13 +208,20 @@ class App(oreoOS.App):
                 d.text(line, panel_x + (panel_w - lw) // 2, yy, col, scale=scale)
             cy_logical += row_h + 4
 
-
-        inner_h    = panel_h - PAD_TOP - PAD_BOT
+        inner_h = panel_h - PAD_TOP - PAD_BOT
         total_need = cy_logical
         if total_need > inner_h:
             self._max_scroll = total_need - inner_h + PAD_BOT
-            widgets.draw_scrollbar(d, panel_x + panel_w - 4, panel_y + 4, 2, panel_h - 8,
-                                   total_need, self._scroll, visible=inner_h)
+            widgets.draw_scrollbar(
+                d,
+                panel_x + panel_w - 4,
+                panel_y + 4,
+                2,
+                panel_h - 8,
+                total_need,
+                self._scroll,
+                visible=inner_h,
+            )
         else:
             self._max_scroll = 0
 
@@ -227,6 +232,7 @@ class App(oreoOS.App):
         self._mascot = None
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass

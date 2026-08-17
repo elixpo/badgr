@@ -1,8 +1,7 @@
 """Time + NTP helpers shared by the home clock, Settings, and notif panel."""
 
-_DAYS  = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-_MONTHS = ("", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+_DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_MONTHS = ("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 try:
     from datetime import datetime as _DT
@@ -14,9 +13,9 @@ try:
         except Exception:
             _TZ = 0
         from datetime import timedelta
+
         n = _DT.utcnow() + timedelta(hours=_TZ)
-        return (n.hour, n.minute, n.second,
-                _DAYS[n.weekday()], n.day, _MONTHS[n.month], n.year)
+        return (n.hour, n.minute, n.second, _DAYS[n.weekday()], n.day, _MONTHS[n.month], n.year)
 
 except ImportError:
     import time as _t
@@ -36,8 +35,8 @@ except ImportError:
 # status is the source of truth for both surfaces so they agree on what
 # the last sync attempt did.
 
-_last_sync_status = "never"     # "never" | "ok" | "no-wifi" | "failed"
-_last_sync_ts     = 0           # epoch seconds of the last successful sync
+_last_sync_status = "never"  # "never" | "ok" | "no-wifi" | "failed"
+_last_sync_ts = 0  # epoch seconds of the last successful sync
 
 
 def last_sync_status():
@@ -80,8 +79,7 @@ def _ntp_raw(host="pool.ntp.org", port=123, timeout_s=2.5):
         if len(data) < 48:
             return None
         # Transmit timestamp seconds — big-endian uint32 at offset 40.
-        secs = ((data[40] << 24) | (data[41] << 16)
-                | (data[42] << 8) |  data[43])
+        secs = (data[40] << 24) | (data[41] << 16) | (data[42] << 8) | data[43]
         return secs - _NTP_DELTA
     except Exception:
         return None
@@ -105,6 +103,7 @@ def sync_from_ntp(timezone_offset_h=None):
 
     try:
         from oreoWare import wifi
+
         if not wifi.is_connected():
             _last_sync_status = "no-wifi"
             return False, "no wifi"
@@ -117,16 +116,15 @@ def sync_from_ntp(timezone_offset_h=None):
         return False, "ntp timeout"
 
     try:
-        import machine
         import time as _t
+
+        import machine
 
         # Write the RTC in UTC
         utc = _t.localtime(epoch_2000)
-        machine.RTC().datetime(
-            (utc[0], utc[1], utc[2], utc[6] + 1,
-             utc[3], utc[4], utc[5], 0))
+        machine.RTC().datetime((utc[0], utc[1], utc[2], utc[6] + 1, utc[3], utc[4], utc[5], 0))
 
-        _last_sync_ts     = _t.time()
+        _last_sync_ts = _t.time()
         _last_sync_status = "ok"
         return True, "synced"
     except Exception as e:

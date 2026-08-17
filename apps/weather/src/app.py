@@ -26,32 +26,38 @@ Controls:
 """
 
 import time
+
 import oreoOS
-from oreoOS import api
-from oreoOS import theme, widgets
+from oreoOS import api, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
 REFRESH_SEC = 600
-DIM_FACTOR  = 0.22
+DIM_FACTOR = 0.22
 
 
 def _bucket(code):
-    if code is None:        return ("cloud", "Unknown")
-    if 200 <= code < 300:   return ("storm", "Thunder")
-    if 300 <= code < 600:   return ("rain",  "Rain")
-    if 600 <= code < 700:   return ("snow",  "Snow")
-    if 700 <= code < 800:   return ("cloud", "Misty")
-    if code == 800:         return ("sun",   "Clear")
-    if 801 <= code < 900:   return ("cloud", "Cloudy")
+    if code is None:
+        return ("cloud", "Unknown")
+    if 200 <= code < 300:
+        return ("storm", "Thunder")
+    if 300 <= code < 600:
+        return ("rain", "Rain")
+    if 600 <= code < 700:
+        return ("snow", "Snow")
+    if 700 <= code < 800:
+        return ("cloud", "Misty")
+    if code == 800:
+        return ("sun", "Clear")
+    if 801 <= code < 900:
+        return ("cloud", "Cloudy")
     return ("cloud", "Unknown")
 
 
 def _try_sprite(name):
     try:
-        m = __import__("apps.weather.assets.optimized." + name, None, None,
-                       ["DATA", "W", "H"])
+        m = __import__("apps.weather.assets.optimized." + name, None, None, ["DATA", "W", "H"])
         return (bytearray(m.DATA), m.W, m.H)
     except (ImportError, AttributeError):
         return None
@@ -66,25 +72,25 @@ def _upscale_dim_bg(data, w, h, sw, sh, factor):
     # Pre-dim the source once so the upscale inner loop is a 2-byte copy.
     dim = bytearray(w * h * 2)
     for i in range(w * h):
-        v = (data[i*2] << 8) | data[i*2 + 1]
+        v = (data[i * 2] << 8) | data[i * 2 + 1]
         r = ((v >> 11) & 0x1F) * fac >> 8
-        g = ((v >>  5) & 0x3F) * fac >> 8
-        b = ( v        & 0x1F) * fac >> 8
+        g = ((v >> 5) & 0x3F) * fac >> 8
+        b = (v & 0x1F) * fac >> 8
         v2 = (r << 11) | (g << 5) | b
-        dim[i*2]     = v2 >> 8
-        dim[i*2 + 1] = v2 & 0xFF
+        dim[i * 2] = v2 >> 8
+        dim[i * 2 + 1] = v2 & 0xFF
 
-    out      = bytearray(sw * sh * 2)
-    sx_step  = (w << 16) // sw
-    sy_step  = (h << 16) // sh
-    sy       = 0
+    out = bytearray(sw * sh * 2)
+    sx_step = (w << 16) // sw
+    sy_step = (h << 16) // sh
+    sy = 0
     for dy in range(sh):
         src_row = (sy >> 16) * w * 2
-        sx      = 0
+        sx = 0
         row_off = dy * sw * 2
         for dx in range(sw):
             src = src_row + (sx >> 16) * 2
-            out[row_off + dx * 2]     = dim[src]
+            out[row_off + dx * 2] = dim[src]
             out[row_off + dx * 2 + 1] = dim[src + 1]
             sx += sx_step
         sy += sy_step
@@ -96,20 +102,65 @@ def _clean_ascii(text):
         return ""
     try:
         import unicodedata
-        text = "".join(c for c in unicodedata.normalize("NFKD", str(text)) if unicodedata.category(c) != "Mn")
+
+        text = "".join(
+            c for c in unicodedata.normalize("NFKD", str(text)) if unicodedata.category(c) != "Mn"
+        )
     except Exception:
         replacements = {
-            "ā": "a", "á": "a", "à": "a", "ä": "a", "â": "a", "ã": "a", "å": "a",
-            "Ā": "A", "Á": "A", "À": "A", "Ä": "A", "Â": "A",
-            "ē": "e", "é": "e", "è": "e", "ë": "e", "ê": "e",
-            "Ē": "E", "É": "E", "È": "E", "Ë": "E",
-            "ī": "i", "í": "i", "ì": "i", "ï": "i", "î": "i",
-            "Ī": "I", "Í": "I", "Ì": "I", "Ï": "I",
-            "ō": "o", "ó": "o", "ò": "o", "ö": "o", "ô": "o", "õ": "o",
-            "Ō": "O", "Ó": "O", "Ò": "O", "Ö": "O",
-            "ū": "u", "ú": "u", "ù": "u", "ü": "u", "û": "u",
-            "Ū": "U", "Ú": "U", "Ù": "U", "Ü": "U",
-            "ñ": "n", "Ñ": "N", "ç": "c", "Ç": "C"
+            "ā": "a",
+            "á": "a",
+            "à": "a",
+            "ä": "a",
+            "â": "a",
+            "ã": "a",
+            "å": "a",
+            "Ā": "A",
+            "Á": "A",
+            "À": "A",
+            "Ä": "A",
+            "Â": "A",
+            "ē": "e",
+            "é": "e",
+            "è": "e",
+            "ë": "e",
+            "ê": "e",
+            "Ē": "E",
+            "É": "E",
+            "È": "E",
+            "Ë": "E",
+            "ī": "i",
+            "í": "i",
+            "ì": "i",
+            "ï": "i",
+            "î": "i",
+            "Ī": "I",
+            "Í": "I",
+            "Ì": "I",
+            "Ï": "I",
+            "ō": "o",
+            "ó": "o",
+            "ò": "o",
+            "ö": "o",
+            "ô": "o",
+            "õ": "o",
+            "Ō": "O",
+            "Ó": "O",
+            "Ò": "O",
+            "Ö": "O",
+            "ū": "u",
+            "ú": "u",
+            "ù": "u",
+            "ü": "u",
+            "û": "u",
+            "Ū": "U",
+            "Ú": "U",
+            "Ù": "U",
+            "Ü": "U",
+            "ñ": "n",
+            "Ñ": "N",
+            "ç": "c",
+            "Ç": "C",
         }
         for k, v in replacements.items():
             text = text.replace(k, v)
@@ -122,8 +173,10 @@ def _fetch_owm(lat, lon, api_key, city_override=""):
             import urequests as _req
         except ImportError:
             import requests as _req
-        url = ("https://api.openweathermap.org/data/2.5/weather"
-               "?lat=%.3f&lon=%.3f&units=metric&appid=%s" % (lat, lon, api_key))
+        url = (
+            "https://api.openweathermap.org/data/2.5/weather"
+            "?lat=%.3f&lon=%.3f&units=metric&appid=%s" % (lat, lon, api_key)
+        )
         r = _req.get(url, headers={"User-Agent": "OreoBadge"})
         try:
             if r.status_code != 200:
@@ -133,12 +186,12 @@ def _fetch_owm(lat, lon, api_key, city_override=""):
             j = r.json()
             city_name = city_override or _clean_ascii(j.get("name") or "—")
             return {
-                "temp":  round(float(j.get("main", {}).get("temp", 0))),
+                "temp": round(float(j.get("main", {}).get("temp", 0))),
                 "feels": round(float(j.get("main", {}).get("feels_like", 0))),
-                "hum":   int(j.get("main", {}).get("humidity", 0)),
-                "wind":  float(j.get("wind", {}).get("speed", 0)),
-                "code":  int((j.get("weather") or [{"id": 0}])[0].get("id", 0)),
-                "city":  city_name,
+                "hum": int(j.get("main", {}).get("humidity", 0)),
+                "wind": float(j.get("wind", {}).get("speed", 0)),
+                "code": int((j.get("weather") or [{"id": 0}])[0].get("id", 0)),
+                "city": city_name,
             }
         finally:
             r.close()
@@ -149,12 +202,13 @@ def _fetch_owm(lat, lon, api_key, city_override=""):
 
 
 class App(oreoOS.App):
-    name         = "Weather"
+    name = "Weather"
     SHOW_LOADING = True
 
     def on_enter(self, os):
         self._os = os
         from oreoOS import config
+
         self._lat = float(config.get("WEATHER_LAT", 22.57) or 22.57)
         self._lon = float(config.get("WEATHER_LON", 88.36) or 88.36)
         self._key = config.get("OWM_API_KEY", "")
@@ -165,21 +219,23 @@ class App(oreoOS.App):
         bg = _try_sprite("background")
         if bg:
             data, bw, bh = bg
-            self._bg = (_upscale_dim_bg(data, bw, bh, SW, play_h, DIM_FACTOR),
-                        SW, play_h)
+            self._bg = (_upscale_dim_bg(data, bw, bh, SW, play_h, DIM_FACTOR), SW, play_h)
         else:
             self._bg = None
 
-        self._pandas = {k: _try_sprite("panda_" + k)
-                        for k in ("sun", "cloud", "rain", "snow", "storm")}
+        self._pandas = {
+            k: _try_sprite("panda_" + k) for k in ("sun", "cloud", "rain", "snow", "storm")
+        }
 
-        self._data  = None
-        self._last  = 0
+        self._data = None
+        self._last = 0
         self._refresh()
         self._dirty = True
 
     def _refresh(self):
-        self._data = _fetch_owm(self._lat, self._lon, self._key, self._city_name) if self._key else None
+        self._data = (
+            _fetch_owm(self._lat, self._lon, self._key, self._city_name) if self._key else None
+        )
         self._last = time.ticks_ms()
         self._dirty = True
 
@@ -197,7 +253,7 @@ class App(oreoOS.App):
             return
 
         play_top = widgets.HEADER_H
-        play_h   = SH - widgets.HEADER_H - widgets.HINT_H
+        play_h = SH - widgets.HEADER_H - widgets.HINT_H
 
         # Full-play-area dimmed bg, single blit.
         if self._bg:
@@ -207,7 +263,7 @@ class App(oreoOS.App):
             d.rect(0, play_top, SW, play_h, api.rgb(20, 30, 45), fill=True)
 
         widgets.draw_header(d, "WEATHER")
-        widgets.draw_hint  (d, "A=refresh  HOME=back")
+        widgets.draw_hint(d, "A=refresh  HOME=back")
 
         if not self._key:
             self._draw_setup_card(d)
@@ -218,36 +274,35 @@ class App(oreoOS.App):
             self._dirty = False
             return
 
-        p             = self._data
+        p = self._data
         cond_key, lbl = _bucket(p["code"])
-        sprite        = self._pandas.get(cond_key)
+        sprite = self._pandas.get(cond_key)
 
         # Vertical stack centred in the play area:
         #   temp+condition row (40px) / city (16px) / panda (80px) / metric row (14px)
         # Plus 10px gaps between each block. Total ~190 — fits play_h=196.
-        gap     = 10
+        gap = 10
         block_h = 40 + 16 + gap + 80 + gap + 14
         block_y = play_top + max(4, (play_h - block_h) // 2)
 
         # Big temperature centred, with hollow degree mark + condition tag.
-        t_str  = "%d" % p["temp"]
-        temp_w = len(t_str) * 40           # scale=5 → 8*5 px per glyph
-        deg_w  = 14
-        cond_w = len(lbl) * 16             # scale=2 → 8*2 px per glyph
+        t_str = "%d" % p["temp"]
+        temp_w = len(t_str) * 40  # scale=5 → 8*5 px per glyph
+        deg_w = 14
+        cond_w = len(lbl) * 16  # scale=2 → 8*2 px per glyph
         spacer = 8
         total_w = temp_w + deg_w + spacer + cond_w
-        tx      = (SW - total_w) // 2
+        tx = (SW - total_w) // 2
         d.text(t_str, tx, block_y, api.WHITE, scale=5)
-        deg_x   = tx + temp_w + 2
-        d.rect(deg_x,     block_y + 4, 8, 8, api.WHITE, fill=False)
+        deg_x = tx + temp_w + 2
+        d.rect(deg_x, block_y + 4, 8, 8, api.WHITE, fill=False)
         d.rect(deg_x + 2, block_y + 6, 4, 4, api.rgb(20, 30, 45), fill=True)
-        d.text(lbl, tx + temp_w + deg_w + spacer,
-               block_y + (40 - 16) // 2 + 2, theme.GOLD, scale=2)
+        d.text(lbl, tx + temp_w + deg_w + spacer, block_y + (40 - 16) // 2 + 2, theme.GOLD, scale=2)
 
         # City — white scale=2 centred under temp.
         city = p["city"][:18]
-        cw   = len(city) * 16
-        cy   = block_y + 40
+        cw = len(city) * 16
+        cy = block_y + 40
         d.text(city, (SW - cw) // 2, cy, api.WHITE, scale=2)
 
         # Mascot — centred horizontally.
@@ -261,13 +316,13 @@ class App(oreoOS.App):
         # Three centred metric pills.
         m_y = panda_y + 80 + gap
         pills = [
-            ("feels", "%d C"  % p["feels"]),
-            ("hum",   "%d%%"  % p["hum"]),
-            ("wind",  "%d m/s" % round(p["wind"])),
+            ("feels", "%d C" % p["feels"]),
+            ("hum", "%d%%" % p["hum"]),
+            ("wind", "%d m/s" % round(p["wind"])),
         ]
         pill_widths = [(len(l) + 1 + len(v)) * 8 + 18 for l, v in pills]
-        total_pw    = sum(pill_widths) + 8 * (len(pills) - 1)
-        px          = (SW - total_pw) // 2
+        total_pw = sum(pill_widths) + 8 * (len(pills) - 1)
+        px = (SW - total_pw) // 2
         for i, (label, val) in enumerate(pills):
             pw = pill_widths[i]
             d.rect(px, m_y, pw, 14, theme.PRIMARY, fill=True)
@@ -281,22 +336,25 @@ class App(oreoOS.App):
         cw, ch = SW - 32, SH - widgets.HEADER_H - widgets.HINT_H - 32
         cx, cy = 16, widgets.HEADER_H + 16
         d.rect(cx, cy, cw, ch, theme.CARD, fill=True)
-        d.rect(cx, cy, cw, 2,  theme.PRIMARY, fill=True)
+        d.rect(cx, cy, cw, 2, theme.PRIMARY, fill=True)
         d.text("setup needed", (SW - 12 * 16) // 2, cy + 14, theme.PRIMARY, scale=2)
-        for i, ln in enumerate([
+        for i, ln in enumerate(
+            [
                 "Set on your laptop:",
                 "",
                 "  OWM_API_KEY=...",
                 "  WEATHER_LAT=...",
                 "  WEATHER_LON=...",
                 "",
-                "edit .env then redeploy."]):
+                "edit .env then redeploy.",
+            ]
+        ):
             d.text(ln, cx + 16, cy + 38 + i * 14, theme.TEXT_BRIGHT)
 
     def _draw_offline(self, d):
         msg = "offline — press A to retry"
         d.rect(20, 110, SW - 40, 36, theme.CARD, fill=True)
-        d.rect(20, 110, SW - 40,  2, theme.PRIMARY, fill=True)
+        d.rect(20, 110, SW - 40, 2, theme.PRIMARY, fill=True)
         d.text("offline", (SW - 7 * 16) // 2, 118, theme.PRIMARY, scale=2)
         d.text(msg, (SW - len(msg) * 8) // 2, 138, theme.TEXT_BRIGHT)
 
@@ -306,6 +364,7 @@ class App(oreoOS.App):
         self._bg = None
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass

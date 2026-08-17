@@ -22,14 +22,16 @@ import math
 import os
 import random
 import time
+
 import oreoOS
+
 try:
     import pygame
 except ImportError:
     pygame = None
 from oreoOS import api, theme, widgets
-
-from oreoOS.api import ticks_ms as _ticks_ms, ticks_diff as _ticks_diff
+from oreoOS.api import ticks_diff as _ticks_diff
+from oreoOS.api import ticks_ms as _ticks_ms
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -39,14 +41,14 @@ PLAY_H = SH - widgets.HINT_H  # 224 px
 
 # DOOM Key Constants from doomkeys.h / m_controls.c
 KEY_RIGHTARROW = 0xAE  # 174
-KEY_LEFTARROW  = 0xAC  # 172
-KEY_UPARROW    = 0xAD  # 173
-KEY_DOWNARROW  = 0xAF  # 175
-KEY_FIRE       = 0xA3  # 163 (KEY_FIRE)
-KEY_USE        = 0xA2  # 162 (KEY_USE)
-KEY_ENTER      = 0x0D  # 13  (KEY_ENTER)
-KEY_ESCAPE     = 0x1B  # 27  (KEY_ESCAPE)
-KEY_TAB        = 0x09  # 9   (KEY_TAB)
+KEY_LEFTARROW = 0xAC  # 172
+KEY_UPARROW = 0xAD  # 173
+KEY_DOWNARROW = 0xAF  # 175
+KEY_FIRE = 0xA3  # 163 (KEY_FIRE)
+KEY_USE = 0xA2  # 162 (KEY_USE)
+KEY_ENTER = 0x0D  # 13  (KEY_ENTER)
+KEY_ESCAPE = 0x1B  # 27  (KEY_ESCAPE)
+KEY_TAB = 0x09  # 9   (KEY_TAB)
 
 
 class App(oreoOS.App):
@@ -61,7 +63,7 @@ class App(oreoOS.App):
 
     def on_enter(self, os_obj):
         self._os = os_obj
-        self._engine_type = "EMBEDDED" # "EMBEDDED" or "FALLBACK"
+        self._engine_type = "EMBEDDED"  # "EMBEDDED" or "FALLBACK"
         self._doom_lib = None
         self._weapon_cycle = [1, 2, 3, 4, 5, 6, 7]
         self._active_weapon_idx = 0  # Next press cycles to 1 (Fists)
@@ -109,7 +111,16 @@ class App(oreoOS.App):
             self._doom_lib.doom_get_width.restype = ctypes.c_int
             self._doom_lib.doom_get_height.restype = ctypes.c_int
 
-            args = [b"doom", b"-iwad", wad_path.encode("utf-8"), b"-warp", b"1", b"1", b"-nomusic", b"-nosound"]
+            args = [
+                b"doom",
+                b"-iwad",
+                wad_path.encode("utf-8"),
+                b"-warp",
+                b"1",
+                b"1",
+                b"-nomusic",
+                b"-nosound",
+            ]
             argc = len(args)
             argv = (ctypes.c_char_p * argc)(*args)
 
@@ -133,7 +144,7 @@ class App(oreoOS.App):
             elif btn == api.BTN_B:
                 # Pulse Action / Use / Open Door / Flip Switch
                 self._pulse_key(KEY_USE, 5)
-                self._pulse_key(ord(' '), 5)
+                self._pulse_key(ord(" "), 5)
                 self._pulse_key(KEY_ENTER, 5)
             return
 
@@ -164,12 +175,12 @@ class App(oreoOS.App):
 
         # Continuous movement & action mappings
         mappings = [
-            (api.BTN_UP,    KEY_UPARROW),
-            (api.BTN_DOWN,  KEY_DOWNARROW),
-            (api.BTN_LEFT,  KEY_LEFTARROW),
+            (api.BTN_UP, KEY_UPARROW),
+            (api.BTN_DOWN, KEY_DOWNARROW),
+            (api.BTN_LEFT, KEY_LEFTARROW),
             (api.BTN_RIGHT, KEY_RIGHTARROW),
-            (api.BTN_A,     KEY_FIRE),
-            (api.BTN_B,     KEY_USE),
+            (api.BTN_A, KEY_FIRE),
+            (api.BTN_B, KEY_USE),
         ]
 
         for btn_id, doom_key in mappings:
@@ -177,7 +188,7 @@ class App(oreoOS.App):
             if is_down != self._key_states.get(doom_key, 0):
                 self._send_key(is_down, doom_key)
                 if doom_key == KEY_USE:
-                    self._send_key(is_down, ord(' '))
+                    self._send_key(is_down, ord(" "))
                     self._send_key(is_down, KEY_ENTER)
                 self._key_states[doom_key] = is_down
 
@@ -199,7 +210,8 @@ class App(oreoOS.App):
     def draw(self, d):
         if self._engine_type == "EMBEDDED" and self._doom_lib:
             fb_ptr = self._doom_lib.doom_get_framebuffer()
-            if not fb_ptr: return
+            if not fb_ptr:
+                return
             w = self._doom_lib.doom_get_width()
             h = self._doom_lib.doom_get_height()
             if w > 0 and h > 0:

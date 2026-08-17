@@ -27,7 +27,6 @@ export default function DetailIcon({
                   shadow-[0_20px_60px_-15px_rgba(255,93,104,0.45)]`}
     >
       {app.pngIcon && pngOk ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={app.pngIcon}
           alt={app.name}

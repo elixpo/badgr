@@ -13,43 +13,43 @@ Controls:
 """
 
 import math
+
 import oreoOS
-from oreoOS import api
-from oreoOS import theme, widgets
+from oreoOS import api, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
 # ── grid geometry ─────────────────────────────────────────────────────────────
-COLS         = 4
+COLS = 4
 VISIBLE_ROWS = 2
 
-ICON_SZ      = 64        # display size — icons are pre-upscaled 32→64 at on_enter
-SEL_PAD      = 2         # smaller hugs the icon tightly
-LABEL_GAP    = 6         # margin between selection rect bottom and label top
+ICON_SZ = 64  # display size — icons are pre-upscaled 32→64 at on_enter
+SEL_PAD = 2  # smaller hugs the icon tightly
+LABEL_GAP = 6  # margin between selection rect bottom and label top
 LABEL_LINE_H = 9
-MAX_LBL_LNS  = 2
-MAX_LBL_CHARS = 9        # chars per label line (8-px font @ ~72 px cell width)
+MAX_LBL_LNS = 2
+MAX_LBL_CHARS = 9  # chars per label line (8-px font @ ~72 px cell width)
 
-PAD_X        = 14
-PAD_TOP      = widgets.HEADER_H + 4
+PAD_X = 14
+PAD_TOP = widgets.HEADER_H + 4
 # Bottom gap needs to clear the hint bar AND leave room for two label
 # lines under the second-row icons. With ICON_SZ=64 + SEL_PAD*2 +
 # LABEL_GAP + 2*LABEL_LINE_H ≈ 92 of vertical content per cell, the
 # previous PAD_BOT=HINT_H+52 squeezed cells to 71 px and the labels
 # disappeared off the bottom. Trim the slack so cells get ~94 px.
-PAD_BOT      = widgets.HINT_H   + 4
+PAD_BOT = widgets.HINT_H + 4
 
-CELL_W       = (SW - 2 * PAD_X) // COLS
-CELL_H       = (SH - PAD_TOP - PAD_BOT) // VISIBLE_ROWS
+CELL_W = (SW - 2 * PAD_X) // COLS
+CELL_H = (SH - PAD_TOP - PAD_BOT) // VISIBLE_ROWS
 
 # ── animation ────────────────────────────────────────────────────────────────
-ANIM_DUR     = 0.28
-SCROLL_TWEEN = 0.32      # fraction of remaining distance covered per frame
+ANIM_DUR = 0.28
+SCROLL_TWEEN = 0.32  # fraction of remaining distance covered per frame
 
-CORNER_R     = 4
+CORNER_R = 4
 
-ELLIPSIS     = "..."
+ELLIPSIS = "..."
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ def _wrap_label(text, max_chars=MAX_LBL_CHARS):
         return [""]
     words = text.split()
     lines = []
-    cur   = ""
+    cur = ""
 
     def _push(s):
         lines.append(s)
@@ -78,14 +78,14 @@ def _wrap_label(text, max_chars=MAX_LBL_CHARS):
             cur = ""
             if len(lines) == MAX_LBL_LNS:
                 # We've already filled all lines → indicate truncation
-                lines[-1] = lines[-1][:max_chars - len(ELLIPSIS)] + ELLIPSIS
+                lines[-1] = lines[-1][: max_chars - len(ELLIPSIS)] + ELLIPSIS
                 return lines
             continue
         # cur is empty and the word itself is too long → hard-truncate it
         if len(w) > max_chars:
             if len(lines) == MAX_LBL_LNS - 1:
                 # last available line: truncate + ellipsis
-                _push(w[:max_chars - len(ELLIPSIS)] + ELLIPSIS)
+                _push(w[: max_chars - len(ELLIPSIS)] + ELLIPSIS)
                 return lines
             else:
                 _push(w[:max_chars])
@@ -109,16 +109,16 @@ def _upscale_xy(data, w, h, sx, sy):
     loop the original used. Roughly 5-8× faster on the ESP32-S3 because
     each Python opcode now moves N bytes via C instead of one.
     """
-    sw    = w * sx
+    sw = w * sx
     out_h = h * sy
-    out   = bytearray(sw * out_h * 2)
+    out = bytearray(sw * out_h * 2)
 
     src_stride = w * 2
     dst_stride = sw * 2
-    src_mv = memoryview(data)
+    _src_mv = memoryview(data)
     out_mv = memoryview(out)
     row_buf = bytearray(dst_stride)
-    row_mv  = memoryview(row_buf)
+    row_mv = memoryview(row_buf)
 
     # Hot path: sx == 2. Build the expanded row by emitting a 4-byte
     # pixel (two RGB565 BE words, same value) per source pixel via a
@@ -133,14 +133,14 @@ def _upscale_xy(data, w, h, sx, sy):
                 di = col * 4
                 # 4-byte block at once — the runtime treats this as
                 # bytearray[a:b] = bytes(...) which is a memcpy.
-                row_mv[di    ] = b1
+                row_mv[di] = b1
                 row_mv[di + 1] = b0
                 row_mv[di + 2] = b1
                 row_mv[di + 3] = b0
             row_start = src_row * sy * dst_stride
             for dy in range(sy):
                 s = row_start + dy * dst_stride
-                out_mv[s:s + dst_stride] = row_mv
+                out_mv[s : s + dst_stride] = row_mv
         return out, sw, out_h
 
     # Generic fallback (sx != 2). Slower path used only for non-2× scales.
@@ -151,12 +151,12 @@ def _upscale_xy(data, w, h, sx, sy):
             b0 = data[base_src + 1]
             base = col * sx * 2
             for dx in range(sx):
-                row_buf[base + dx * 2]     = b1
+                row_buf[base + dx * 2] = b1
                 row_buf[base + dx * 2 + 1] = b0
         row_start = src_row * sy * dst_stride
         for dy in range(sy):
             s = row_start + dy * dst_stride
-            out_mv[s:s + dst_stride] = row_mv
+            out_mv[s : s + dst_stride] = row_mv
     return out, sw, out_h
 
 
@@ -182,7 +182,7 @@ def _compress_x(data, sw, sh, dst_w):
         for ox in range(dst_w):
             so = src_base + col_map[ox] * 2
             do = out_base + ox * 2
-            out[do]     = data[so]
+            out[do] = data[so]
             out[do + 1] = data[so + 1]
     return (out, dst_w, sh)
 
@@ -192,10 +192,11 @@ def _compress_x(data, sw, sh, dst_w):
 # modules mid-animation. Once `notifications_icon.png` is baked through
 # generate_assets → optimize_assets we can swap to a real sprite blit.
 
+
 def _draw_bell(d, x, y, color):
     """Tiny 12×8 hand-bell. Dome + clapper, sits next to the panel title."""
     # dome (rounded trapezoid)
-    d.rect(x + 4, y,     4, 1, color, fill=True)
+    d.rect(x + 4, y, 4, 1, color, fill=True)
     d.rect(x + 3, y + 1, 6, 1, color, fill=True)
     d.rect(x + 2, y + 2, 8, 1, color, fill=True)
     d.rect(x + 2, y + 3, 8, 1, color, fill=True)
@@ -209,19 +210,19 @@ def _draw_bell(d, x, y, color):
 def _draw_kind_glyph(d, x, y, kind, ink):
     """12×12 per-kind notification glyph.
 
-      file    page with corner fold (BT-arrived image / document)
-      ota     down-pointing arrow into a tray (incoming update)
-      other   small spark / pulse
+    file    page with corner fold (BT-arrived image / document)
+    ota     down-pointing arrow into a tray (incoming update)
+    other   small spark / pulse
     """
     if kind == "file":
         # page outline + corner fold
-        d.rect(x + 1, y,     8, 12, ink, fill=False)
-        d.rect(x + 1, y,     8, 1,  ink, fill=True)
+        d.rect(x + 1, y, 8, 12, ink, fill=False)
+        d.rect(x + 1, y, 8, 1, ink, fill=True)
         d.rect(x + 1, y + 11, 8, 1, ink, fill=True)
         d.rect(x + 1, y, 1, 12, ink, fill=True)
         d.rect(x + 8, y, 1, 12, ink, fill=True)
         # fold triangle
-        d.rect(x + 6, y,     3, 1, ink, fill=True)
+        d.rect(x + 6, y, 3, 1, ink, fill=True)
         d.rect(x + 7, y + 1, 2, 1, ink, fill=True)
         d.rect(x + 8, y + 2, 1, 1, ink, fill=True)
         # two text lines
@@ -229,7 +230,7 @@ def _draw_kind_glyph(d, x, y, kind, ink):
         d.rect(x + 3, y + 7, 4, 1, ink, fill=True)
     elif kind == "ota":
         # down arrow shaft
-        d.rect(x + 4, y,     2, 7, ink, fill=True)
+        d.rect(x + 4, y, 2, 7, ink, fill=True)
         # arrowhead
         d.rect(x + 2, y + 6, 6, 1, ink, fill=True)
         d.rect(x + 3, y + 7, 4, 1, ink, fill=True)
@@ -252,17 +253,17 @@ def _draw_kind_glyph(d, x, y, kind, ink):
 # Second+ launches re-use the cached bytearrays directly, so opening the
 # drawer feels instant. The first-launch cost is masked behind the
 # SHOW_LOADING splash slide.
-_ICON_CACHE       = {}    # dir → (data_64, 64, 64)
-_SMALL_ICON_CACHE = {}    # dir → (data_native, w, h)
-_LABEL_CACHE      = {}    # dir → list[str] (pre-wrapped lines)
-_ICON_CACHE_KEY   = None  # (apps_tuple, ICON_SZ) signature to invalidate
+_ICON_CACHE = {}  # dir → (data_64, 64, 64)
+_SMALL_ICON_CACHE = {}  # dir → (data_native, w, h)
+_LABEL_CACHE = {}  # dir → list[str] (pre-wrapped lines)
+_ICON_CACHE_KEY = None  # (apps_tuple, ICON_SZ) signature to invalidate
 
 # Apps-list cache. list_apps() opens 20+ manifest.json files from flash
 # every time the drawer opens (~1-2 s on a busy filesystem) — pointless
 # when the on-disk roster hasn't changed since the last open. We bust
 # this cache when the Store installs/uninstalls; the drawer's on_enter
 # just reads the snapshot. Set to None to force a re-scan on next open.
-_APPS_CACHE       = None
+_APPS_CACHE = None
 _CATEGORIES_CACHE = None  # (apps_tuple, mode) → [(name, icon, idxs)…]
 
 
@@ -271,7 +272,7 @@ def invalidate_apps_cache():
     after an install / uninstall lands. Without this the launcher would
     keep showing the pre-install roster until reboot."""
     global _APPS_CACHE, _CATEGORIES_CACHE
-    _APPS_CACHE       = None
+    _APPS_CACHE = None
     _CATEGORIES_CACHE = None
 
 
@@ -283,25 +284,25 @@ def _rounded_outline(d, x, y, w, h, color, r=CORNER_R):
         d.rect(x, y, 1, h, color, fill=True)
         d.rect(x + w - 1, y, 1, h, color, fill=True)
         return
-    d.rect(x + r,         y,             w - 2 * r, 1,         color, fill=True)
-    d.rect(x + r,         y + h - 1,     w - 2 * r, 1,         color, fill=True)
-    d.rect(x,             y + r,         1,         h - 2 * r, color, fill=True)
-    d.rect(x + w - 1,     y + r,         1,         h - 2 * r, color, fill=True)
+    d.rect(x + r, y, w - 2 * r, 1, color, fill=True)
+    d.rect(x + r, y + h - 1, w - 2 * r, 1, color, fill=True)
+    d.rect(x, y + r, 1, h - 2 * r, color, fill=True)
+    d.rect(x + w - 1, y + r, 1, h - 2 * r, color, fill=True)
     if r >= 3:
         stair = [(1, 0), (0, 1), (2, 0), (0, 2), (1, 1)]
         if r >= 4:
             stair += [(3, 0), (0, 3), (2, 1), (1, 2)]
         for dx, dy in stair:
-            d.rect(x + dx,         y + dy,         1, 1, color, fill=True)
-            d.rect(x + w - 1 - dx, y + dy,         1, 1, color, fill=True)
-            d.rect(x + dx,         y + h - 1 - dy, 1, 1, color, fill=True)
+            d.rect(x + dx, y + dy, 1, 1, color, fill=True)
+            d.rect(x + w - 1 - dx, y + dy, 1, 1, color, fill=True)
+            d.rect(x + dx, y + h - 1 - dy, 1, 1, color, fill=True)
             d.rect(x + w - 1 - dx, y + h - 1 - dy, 1, 1, color, fill=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 class App(oreoOS.App):
-    name         = "Apps"
-    SHOW_LOADING = True      # ~80 ms upscaling 12 icons from 32→64 at on_enter
+    name = "Apps"
+    SHOW_LOADING = True  # ~80 ms upscaling 12 icons from 32→64 at on_enter
 
     def on_enter(self, os):
         # Segment-timed on_enter — each `_lap()` call prints how many
@@ -311,19 +312,22 @@ class App(oreoOS.App):
         # guessing from a single "total" number.
         try:
             import time as _t
-            _t0  = _t.ticks_ms()
+
+            _t0 = _t.ticks_ms()
             _seg = _t0
+
             def _lap(label, last=[_seg]):
                 # MicroPython's str has no .ljust; manual pad instead.
                 pad = label if len(label) >= 18 else label + " " * (18 - len(label))
                 now = _t.ticks_ms()
-                print("[launcher]   %s  %d ms" %
-                      (pad, _t.ticks_diff(now, last[0])))
+                print("[launcher]   %s  %d ms" % (pad, _t.ticks_diff(now, last[0])))
                 last[0] = now
         except Exception:
             _t0 = None
+
             def _lap(label):
                 pass
+
         self._os = os
         DRAWER_HIDDEN = ("launcher", "bt", "wifi", "gestures", "updates")
 
@@ -334,6 +338,7 @@ class App(oreoOS.App):
         global _APPS_CACHE
         if _APPS_CACHE is None:
             from oreoOS.launcher import list_apps
+
             _APPS_CACHE = list_apps()
             _lap("list_apps (cold)")
         else:
@@ -345,8 +350,8 @@ class App(oreoOS.App):
         # an app rebuilds, but re-entering the launcher with the same
         # roster is instant.
         global _ICON_CACHE_KEY
-        cache_key  = (tuple(a["dir"] for a in self._apps), ICON_SZ)
-        icon_cache_hit = (_ICON_CACHE_KEY == cache_key)
+        cache_key = (tuple(a["dir"] for a in self._apps), ICON_SZ)
+        icon_cache_hit = cache_key == _ICON_CACHE_KEY
         if not icon_cache_hit:
             _ICON_CACHE.clear()
             _SMALL_ICON_CACHE.clear()
@@ -354,6 +359,7 @@ class App(oreoOS.App):
             _ICON_CACHE_KEY = cache_key
 
             from oreoOS import icons as _icons
+
             for a in self._apps:
                 res = _icons.load(a["dir"], a.get("icon"))
                 if not res:
@@ -376,16 +382,16 @@ class App(oreoOS.App):
 
         # Per-instance views into the module cache — keeps the rest of
         # the draw code untouched.
-        self._icons       = _ICON_CACHE
+        self._icons = _ICON_CACHE
         self._small_icons = _SMALL_ICON_CACHE
-        self._labels      = [_LABEL_CACHE.get(a["dir"], [a["name"]])
-                             for a in self._apps]
+        self._labels = [_LABEL_CACHE.get(a["dir"], [a["name"]]) for a in self._apps]
 
         # View mode — "grid" (one big 4-col grid of all apps) or
         # "categories" (5 vertical tiles → drill in → app grid).
         # Persisted on the OS settings dict via the Settings app.
-        self._mode = "categories" if (
-            os.settings_get("app_view", "grid") == "categories") else "grid"
+        self._mode = (
+            "categories" if (os.settings_get("app_view", "grid") == "categories") else "grid"
+        )
         _lap("settings_get")
 
         # Category-mode state machine:
@@ -405,20 +411,20 @@ class App(oreoOS.App):
         else:
             self._categories = []
         _lap("categories")
-        self._cat_level  = 0
-        self._cat_sel    = 0          # picker selection (in level 0)
-        self._cat_top    = 0          # top category visible in picker
+        self._cat_level = 0
+        self._cat_sel = 0  # picker selection (in level 0)
+        self._cat_top = 0  # top category visible in picker
 
         # _view_apps holds the indices of self._apps that the grid will
         # render. In grid mode this is "everything"; in category level 1
         # it's just the apps belonging to the chosen category.
         self._view_apps = list(range(len(self._apps)))
 
-        self._sel       = 0
-        self._top_row   = 0          # which grid row is at top of viewport
-        self._scroll_y  = 0.0        # tweened pixel offset
-        self._anim_t    = ANIM_DUR
-        self._dirty     = True
+        self._sel = 0
+        self._top_row = 0  # which grid row is at top of viewport
+        self._scroll_y = 0.0  # tweened pixel offset
+        self._anim_t = ANIM_DUR
+        self._dirty = True
 
         # Restore the previous (sel, scroll, cat_level) if HOME from an
         # app brought us back here. Done last so it overrides the
@@ -428,9 +434,10 @@ class App(oreoOS.App):
 
         try:
             if _t0 is not None:
-                print("[launcher] on_enter TOTAL %d ms (icons_cache_hit=%s)"
-                      % (_t.ticks_diff(_t.ticks_ms(), _t0),
-                         icon_cache_hit))
+                print(
+                    "[launcher] on_enter TOTAL %d ms (icons_cache_hit=%s)"
+                    % (_t.ticks_diff(_t.ticks_ms(), _t0), icon_cache_hit)
+                )
         except Exception:
             pass
 
@@ -466,7 +473,7 @@ class App(oreoOS.App):
             for d in dirs:
                 cat_for[d] = name
         by_cat = {}
-        misc   = []
+        misc = []
         for i, a in enumerate(self._apps):
             cat = cat_for.get(a["dir"])
             if cat:
@@ -491,16 +498,16 @@ class App(oreoOS.App):
             return
         self._view_apps = list(app_idxs)
         self._cat_level = 1
-        self._sel       = 0
-        self._top_row   = 0
-        self._scroll_y  = 0.0
-        self._anim_t    = 0.0
+        self._sel = 0
+        self._top_row = 0
+        self._scroll_y = 0.0
+        self._anim_t = 0.0
 
     def _leave_category(self):
         """Return from the apps grid back up to the category picker."""
         self._cat_level = 0
         self._view_apps = list(range(len(self._apps)))
-        self._anim_t    = 0.0
+        self._anim_t = 0.0
 
     # ── HOME-button resume context ───────────────────────────────────────
     # The launcher snapshots its scroll/selection before launching an
@@ -512,12 +519,12 @@ class App(oreoOS.App):
     def _save_resume_ctx(self):
         try:
             self._os._launcher_resume = {
-                "mode":      self._mode,
+                "mode": self._mode,
                 "cat_level": self._cat_level,
-                "cat_sel":   self._cat_sel,
-                "sel":       self._sel,
-                "top_row":   self._top_row,
-                "scroll_y":  self._scroll_y,
+                "cat_sel": self._cat_sel,
+                "sel": self._sel,
+                "top_row": self._top_row,
+                "scroll_y": self._scroll_y,
             }
         except Exception:
             pass
@@ -539,24 +546,23 @@ class App(oreoOS.App):
             pass
 
         if self._mode == "categories":
-            self._cat_sel = max(0, min(len(self._categories) - 1,
-                                       int(ctx.get("cat_sel", 0) or 0)))
+            self._cat_sel = max(0, min(len(self._categories) - 1, int(ctx.get("cat_sel", 0) or 0)))
             if ctx.get("cat_level", 0) == 1:
                 self._enter_category(self._cat_sel)
                 # _enter_category resets sel/top_row/scroll_y — re-apply.
                 n = len(self._view_apps)
                 if n:
-                    self._sel      = max(0, min(n - 1, int(ctx.get("sel", 0))))
-                    self._top_row  = max(0, int(ctx.get("top_row", 0)))
+                    self._sel = max(0, min(n - 1, int(ctx.get("sel", 0))))
+                    self._top_row = max(0, int(ctx.get("top_row", 0)))
                     self._scroll_y = float(ctx.get("scroll_y", 0.0))
         else:
             n = len(self._view_apps)
             if n:
-                self._sel      = max(0, min(n - 1, int(ctx.get("sel", 0))))
-                self._top_row  = max(0, int(ctx.get("top_row", 0)))
+                self._sel = max(0, min(n - 1, int(ctx.get("sel", 0))))
+                self._top_row = max(0, int(ctx.get("top_row", 0)))
                 self._scroll_y = float(ctx.get("scroll_y", 0.0))
         self._anim_t = ANIM_DUR
-        self._dirty  = True
+        self._dirty = True
 
     def on_home_press(self):
         """Override the OS-level HOME default so the categories mode
@@ -582,7 +588,8 @@ class App(oreoOS.App):
             return self._on_button_press_picker(btn)
 
         n = len(self._view_apps)
-        if not n: return
+        if not n:
+            return
         prev = self._sel
         if btn == api.BTN_LEFT:
             self._sel = (self._sel - 1) % n
@@ -616,8 +623,8 @@ class App(oreoOS.App):
             return
 
         # Auto-scroll: keep cursor inside the visible window.
-        sel_row     = self._sel // COLS
-        rows_total  = (n + COLS - 1) // COLS
+        sel_row = self._sel // COLS
+        rows_total = (n + COLS - 1) // COLS
         if sel_row < self._top_row:
             self._top_row = sel_row
         elif sel_row >= self._top_row + VISIBLE_ROWS:
@@ -632,7 +639,8 @@ class App(oreoOS.App):
     def _on_button_press_picker(self, btn):
         """Category picker (level 0). UP/DOWN walks the tiles, A drills in."""
         n = len(self._categories)
-        if not n: return
+        if not n:
+            return
         prev = self._cat_sel
         if btn in (api.BTN_UP, api.BTN_LEFT):
             self._cat_sel = (self._cat_sel - 1) % n
@@ -659,7 +667,7 @@ class App(oreoOS.App):
     def update(self, dt):
         # Frame-rate independent smooth exponential scroll tween
         target = self._top_row * CELL_H
-        diff   = target - self._scroll_y
+        diff = target - self._scroll_y
         if abs(diff) > 0.4:
             decay = 1.0 - math.exp(-16.0 * min(0.1, dt))
             self._scroll_y += diff * decay
@@ -680,8 +688,7 @@ class App(oreoOS.App):
 
         n = len(self._apps)
         if not n:
-            d.text("no apps found", (SW - 13 * 16) // 2, SH // 2,
-                   theme.MUTED, scale=2)
+            d.text("no apps found", (SW - 13 * 16) // 2, SH // 2, theme.MUTED, scale=2)
             self._dirty = False
             return
 
@@ -695,17 +702,17 @@ class App(oreoOS.App):
 
         # Grid rendering — iterates over self._view_apps which holds either
         # all apps (grid mode) or just one category's apps (level 1).
-        view_n     = len(self._view_apps)
+        view_n = len(self._view_apps)
         rows_total = (view_n + COLS - 1) // COLS
         scroll_int = int(self._scroll_y)
 
-        viewport_top    = PAD_TOP
+        viewport_top = PAD_TOP
         viewport_bottom = SH - widgets.HINT_H
 
         for vi in range(view_n):
             app_idx = self._view_apps[vi]
             row = vi // COLS
-            col = vi %  COLS
+            col = vi % COLS
             cell_y = PAD_TOP + row * CELL_H - scroll_int
             if cell_y + CELL_H < viewport_top or cell_y >= viewport_bottom:
                 continue
@@ -714,7 +721,7 @@ class App(oreoOS.App):
             ix = cx - ICON_SZ // 2
             iy = cell_y + 4
 
-            sel = (vi == self._sel)
+            sel = vi == self._sel
 
             # ── icon (selected one may be horizontally compressed for the Y-axis flip) ──
             icon = self._icons.get(self._apps[app_idx]["dir"])
@@ -733,9 +740,13 @@ class App(oreoOS.App):
                 else:
                     d.blit(idata, ix, iy, iw, ih)
             else:
-                d.text(self._apps[app_idx]["name"][0].upper(),
-                       cx - 16, iy + (ICON_SZ - 32) // 2,
-                       theme.PRIMARY, scale=4)
+                d.text(
+                    self._apps[app_idx]["name"][0].upper(),
+                    cx - 16,
+                    iy + (ICON_SZ - 32) // 2,
+                    theme.PRIMARY,
+                    scale=4,
+                )
 
             # ── OTA notification dot on the Settings tile ────────────────
             # If a system update is sitting waiting for the user's
@@ -750,11 +761,16 @@ class App(oreoOS.App):
                     dot_x = ix + ICON_SZ - 6
                     dot_y = iy - 2
                     # shadow + body + tiny inner highlight
-                    d.rect(dot_x - 5, dot_y - 5, 12, 12, theme.SHADOW
-                           if hasattr(theme, "SHADOW") else theme.MUTED2,
-                           fill=True)
+                    d.rect(
+                        dot_x - 5,
+                        dot_y - 5,
+                        12,
+                        12,
+                        theme.SHADOW if hasattr(theme, "SHADOW") else theme.MUTED2,
+                        fill=True,
+                    )
                     d.rect(dot_x - 6, dot_y - 6, 12, 12, theme.PRIMARY, fill=True)
-                    d.rect(dot_x - 4, dot_y - 5,  4,  3, api.WHITE,     fill=True)
+                    d.rect(dot_x - 4, dot_y - 5, 4, 3, api.WHITE, fill=True)
 
             # ── multi-line label (centred under the icon) ──
             label_top = iy + ICON_SZ + SEL_PAD + LABEL_GAP
@@ -773,17 +789,16 @@ class App(oreoOS.App):
                     rect_scale = 1.0
                 full_w = ICON_SZ + SEL_PAD * 2
                 full_h = ICON_SZ + SEL_PAD * 2
-                cur_w  = max(4, int(full_w * rect_scale))
+                cur_w = max(4, int(full_w * rect_scale))
                 rect_x = cx - cur_w // 2
                 rect_y = iy - SEL_PAD
                 r = min(CORNER_R, max(1, cur_w // 8))
-                _rounded_outline(d, rect_x, rect_y, cur_w, full_h,
-                                 theme.SEL_BORDER, r=r)
+                _rounded_outline(d, rect_x, rect_y, cur_w, full_h, theme.SEL_BORDER, r=r)
 
         # ── viewport top mask: hide rows scrolled above the top edge ─────────
         if scroll_int > 0:
             d.rect(0, 0, SW, PAD_TOP, theme.BG, fill=True)
-            widgets.draw_header(d, "APPS")   # re-stamp the header on top
+            widgets.draw_header(d, "APPS")  # re-stamp the header on top
 
         # ── viewport bottom mask & hint bar: clean stamp over bottom edge ─────
         hint_y = SH - widgets.HINT_H
@@ -794,20 +809,27 @@ class App(oreoOS.App):
             widgets.draw_hint(d, "A=launch  HOME=back  C=notif")
 
         # ── scrollbar on the right ───────────────────────────────────────
-        widgets.draw_scrollbar(d, SW - 4, PAD_TOP, 2, SH - PAD_TOP - PAD_BOT,
-                               rows_total, self._top_row, visible=VISIBLE_ROWS)
+        widgets.draw_scrollbar(
+            d,
+            SW - 4,
+            PAD_TOP,
+            2,
+            SH - PAD_TOP - PAD_BOT,
+            rows_total,
+            self._top_row,
+            visible=VISIBLE_ROWS,
+        )
 
         # keep dirty while scrolling / animating
-        if (abs(self._scroll_y - self._top_row * CELL_H) > 0.5 or
-            self._anim_t < ANIM_DUR):
-            return    # leave _dirty = True
+        if abs(self._scroll_y - self._top_row * CELL_H) > 0.5 or self._anim_t < ANIM_DUR:
+            return  # leave _dirty = True
         self._dirty = False
 
     # ── category picker (level 0) — vertical tile list ──────────────────
-    CAT_TILE_H    = 36           # each tile's height
-    CAT_TILE_PAD  = 12           # horizontal page padding
-    CAT_ICON_SZ   = 28           # blitted size of the category icon
-    CAT_NAME_PADX = 14           # gap between icon and name
+    CAT_TILE_H = 36  # each tile's height
+    CAT_TILE_PAD = 12  # horizontal page padding
+    CAT_ICON_SZ = 28  # blitted size of the category icon
+    CAT_NAME_PADX = 14  # gap between icon and name
 
     def _category_icon(self, cat_idx):
         """Return (data, w, h) for the FIRST app's icon in the category as
@@ -821,8 +843,9 @@ class App(oreoOS.App):
         # 1) try the explicit category icon
         if icon_stem:
             try:
-                m = __import__("assets.icons.optimized." + icon_stem,
-                               None, None, ["DATA", "W", "H"])
+                m = __import__(
+                    "assets.icons.optimized." + icon_stem, None, None, ["DATA", "W", "H"]
+                )
                 return (bytearray(m.DATA), m.W, m.H)
             except (ImportError, AttributeError):
                 pass
@@ -835,15 +858,14 @@ class App(oreoOS.App):
 
     def _draw_category_picker(self, d):
         cats = self._categories
-        n    = len(cats)
+        n = len(cats)
         if not n:
-            d.text("no categories", (SW - 13 * 16) // 2, SH // 2,
-                   theme.MUTED, scale=2)
+            d.text("no categories", (SW - 13 * 16) // 2, SH // 2, theme.MUTED, scale=2)
             return
 
         viewport_top = PAD_TOP + 4
-        tile_h       = self.CAT_TILE_H
-        gap          = 6
+        tile_h = self.CAT_TILE_H
+        gap = 6
         VISIBLE_CATS = 4
 
         tile_x = self.CAT_TILE_PAD
@@ -851,25 +873,26 @@ class App(oreoOS.App):
 
         for vi in range(min(VISIBLE_CATS, n)):
             i = self._cat_top + vi
-            if i >= n: break
+            if i >= n:
+                break
             cat_name, _icon, app_idxs = cats[i]
-            y   = viewport_top + vi * (tile_h + gap)
-            sel = (i == self._cat_sel)
+            y = viewport_top + vi * (tile_h + gap)
+            sel = i == self._cat_sel
 
             # Tile body — pink stripe + dock-sel fill when active,
             # cream card with thin border otherwise.
             if sel:
                 d.rect(tile_x + 1, y + 1, tile_w, tile_h, theme.MUTED2, fill=True)
-                d.rect(tile_x,     y,     tile_w, tile_h, theme.DOCK_SEL, fill=True)
-                d.rect(tile_x,     y,     4,      tile_h, theme.PRIMARY, fill=True)
+                d.rect(tile_x, y, tile_w, tile_h, theme.DOCK_SEL, fill=True)
+                d.rect(tile_x, y, 4, tile_h, theme.PRIMARY, fill=True)
             else:
-                d.rect(tile_x, y, tile_w, tile_h, theme.CARD,  fill=True)
-                d.rect(tile_x, y, tile_w, 1,      theme.MUTED2, fill=True)
+                d.rect(tile_x, y, tile_w, tile_h, theme.CARD, fill=True)
+                d.rect(tile_x, y, tile_w, 1, theme.MUTED2, fill=True)
                 d.rect(tile_x, y + tile_h - 1, tile_w, 1, theme.MUTED2, fill=True)
 
             # Icon — vertically centred. Uses the SMALL cached version
             # (32×32) which fits inside the 36-px tile cleanly.
-            icon  = self._category_icon(i)
+            icon = self._category_icon(i)
             icon_w = 0
             if icon:
                 idata, iw, ih = icon
@@ -882,24 +905,35 @@ class App(oreoOS.App):
             text_x = tile_x + 12 + icon_w + self.CAT_NAME_PADX
             d.text(cat_name, text_x, y + 6, theme.PRIMARY, scale=2)
             sub = "%d app%s" % (len(app_idxs), "" if len(app_idxs) == 1 else "s")
-            d.text(sub, text_x, y + tile_h - 12,
-                   theme.MUTED if not sel else theme.TEXT_BRIGHT)
+            d.text(sub, text_x, y + tile_h - 12, theme.MUTED if not sel else theme.TEXT_BRIGHT)
 
             # Chevron to hint "press A to drill in"
             chev = ">"
-            d.text(chev, tile_x + tile_w - 16,
-                   y + (tile_h - 16) // 2,
-                   theme.PRIMARY if sel else theme.MUTED, scale=2)
+            d.text(
+                chev,
+                tile_x + tile_w - 16,
+                y + (tile_h - 16) // 2,
+                theme.PRIMARY if sel else theme.MUTED,
+                scale=2,
+            )
 
         # Right-side scrollbar when categories exceed visible window
-        widgets.draw_scrollbar(d, SW - 6, viewport_top, 2,
-                               VISIBLE_CATS * (tile_h + gap) - gap,
-                               n, self._cat_top, visible=VISIBLE_CATS)
+        widgets.draw_scrollbar(
+            d,
+            SW - 6,
+            viewport_top,
+            2,
+            VISIBLE_CATS * (tile_h + gap) - gap,
+            n,
+            self._cat_top,
+            visible=VISIBLE_CATS,
+        )
 
     def on_exit(self):
         """Perform garbage collection sweep on leaving the launcher."""
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass

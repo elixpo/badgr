@@ -21,8 +21,7 @@ Controls:
 """
 
 import oreoOS
-from oreoOS import api
-from oreoOS import theme, widgets
+from oreoOS import api, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
@@ -34,20 +33,21 @@ def _fetch_profile(username):
             import urequests as _req
         except ImportError:
             import requests as _req
-        r = _req.get("https://api.github.com/users/" + username,
-                     headers={"User-Agent": "OreoBadge"})
+        r = _req.get(
+            "https://api.github.com/users/" + username, headers={"User-Agent": "OreoBadge"}
+        )
         try:
             if r.status_code != 200:
                 return None
             data = r.json()
             return {
-                "name":      data.get("name") or data.get("login") or username,
-                "login":     data.get("login", username),
-                "bio":       (data.get("bio") or "")[:60],
-                "location":  (data.get("location") or "")[:24],
+                "name": data.get("name") or data.get("login") or username,
+                "login": data.get("login", username),
+                "bio": (data.get("bio") or "")[:60],
+                "location": (data.get("location") or "")[:24],
                 "followers": data.get("followers", 0),
                 "following": data.get("following", 0),
-                "repos":     data.get("public_repos", 0),
+                "repos": data.get("public_repos", 0),
             }
         finally:
             r.close()
@@ -58,8 +58,7 @@ def _fetch_profile(username):
 def _try_avatar():
     """Load the pre-fetched avatar baked at deploy time, or None."""
     try:
-        m = __import__("apps.badge.assets.optimized.avatar", None, None,
-                       ["DATA", "W", "H"])
+        m = __import__("apps.badge.assets.optimized.avatar", None, None, ["DATA", "W", "H"])
         return (bytearray(m.DATA), m.W, m.H)
     except (ImportError, AttributeError):
         return None
@@ -96,31 +95,32 @@ def _wrap(text, max_chars):
 
 
 class App(oreoOS.App):
-    name         = "Badge"
+    name = "Badge"
     SHOW_LOADING = True
 
     # Cache the GitHub profile to flash for one hour. On entry we render
     # the cached profile instantly (no spinner) then attempt a background
     # refresh — if it succeeds we swap in the fresh data + re-save.
     CACHE_PATH = "apps/badge/cache.txt"
-    CACHE_TTL  = 3600        # seconds (1 hour)
+    CACHE_TTL = 3600  # seconds (1 hour)
 
     def on_enter(self, os):
         self._os = os
         from oreoOS import config
+
         self._user = config.get("GITHUB_USER")
         self._avatar = _try_avatar()
 
         # 1) Load whatever's on disk so the card renders immediately.
         cached, age = self._load_cache()
-        self._profile  = cached
-        self._fresh_ts = age          # age (sec) of what we're showing; None = miss
+        self._profile = cached
+        self._fresh_ts = age  # age (sec) of what we're showing; None = miss
 
         # 2) Hit the network ONLY if the cache is missing or stale.
         if cached is None or (age is not None and age > self.CACHE_TTL):
             fresh = _fetch_profile(self._user)
             if fresh:
-                self._profile  = fresh
+                self._profile = fresh
                 self._fresh_ts = 0
                 self._save_cache(fresh)
         self._dirty = True
@@ -130,7 +130,7 @@ class App(oreoOS.App):
             # Manual refresh: bypass TTL, always hit GitHub.
             new = _fetch_profile(self._user)
             if new:
-                self._profile  = new
+                self._profile = new
                 self._fresh_ts = 0
                 self._save_cache(new)
             self._dirty = True
@@ -139,6 +139,7 @@ class App(oreoOS.App):
     def _load_cache(self):
         try:
             from oreoOS import cache
+
             payload, age = cache.load(self.CACHE_PATH)
         except Exception:
             return None, None
@@ -147,13 +148,13 @@ class App(oreoOS.App):
         # Coerce types — cache stores everything as strings.
         try:
             return {
-                "name":      payload.get("name", ""),
-                "login":     payload.get("login", self._user),
-                "bio":       payload.get("bio", ""),
-                "location":  payload.get("location", ""),
+                "name": payload.get("name", ""),
+                "login": payload.get("login", self._user),
+                "bio": payload.get("bio", ""),
+                "location": payload.get("location", ""),
                 "followers": int(payload.get("followers", 0)),
                 "following": int(payload.get("following", 0)),
-                "repos":     int(payload.get("repos", 0)),
+                "repos": int(payload.get("repos", 0)),
             }, age
         except Exception:
             return None, None
@@ -161,6 +162,7 @@ class App(oreoOS.App):
     def _save_cache(self, profile):
         try:
             from oreoOS import cache
+
             cache.save(self.CACHE_PATH, profile)
         except Exception:
             pass
@@ -174,7 +176,7 @@ class App(oreoOS.App):
             return
         d.clear(theme.BG)
         widgets.draw_header(d, "BADGE")
-        widgets.draw_hint  (d, "A=refresh  HOME=back")
+        widgets.draw_hint(d, "A=refresh  HOME=back")
 
         if self._profile is None:
             self._draw_offline(d)
@@ -185,13 +187,13 @@ class App(oreoOS.App):
 
         # Card centred in the play area.
         play_top = widgets.HEADER_H
-        play_h   = SH - widgets.HEADER_H - widgets.HINT_H
-        cw, ch   = SW - 24, play_h - 16
-        cx, cy   = (SW - cw) // 2, play_top + 8
+        play_h = SH - widgets.HEADER_H - widgets.HINT_H
+        cw, ch = SW - 24, play_h - 16
+        cx, cy = (SW - cw) // 2, play_top + 8
         # Soft shadow + body + top accent
         d.rect(cx + 2, cy + 2, cw, ch, theme.MUTED2, fill=True)
-        d.rect(cx,     cy,     cw, ch, theme.CARD,   fill=True)
-        d.rect(cx,     cy,     cw,  3, theme.PRIMARY, fill=True)
+        d.rect(cx, cy, cw, ch, theme.CARD, fill=True)
+        d.rect(cx, cy, cw, 3, theme.PRIMARY, fill=True)
 
         # ── avatar (top-centred, sized to the baked asset, pink ring) ──
         if self._avatar:
@@ -212,7 +214,7 @@ class App(oreoOS.App):
 
         # ── name + @login centred under avatar, with breathing-room margin
         # so the text block doesn't crowd the pfp.
-        TEXT_MARGIN = 18                     # gap between avatar bottom and name
+        TEXT_MARGIN = 18  # gap between avatar bottom and name
         name_y = av_cy + av_sz // 2 + TEXT_MARGIN
         for line in _wrap(p["name"][:32], 18)[:1]:
             lw = len(line) * 16
@@ -227,11 +229,14 @@ class App(oreoOS.App):
 
         # ── stats row at the bottom of the card ──────────────────────
         stats_y = cy + ch - 30
-        col_w   = cw // 3
-        for i, (lbl, val) in enumerate([
-                ("repos",     p["repos"]),
+        col_w = cw // 3
+        for i, (lbl, val) in enumerate(
+            [
+                ("repos", p["repos"]),
                 ("followers", p["followers"]),
-                ("following", p.get("following", 0))]):
+                ("following", p.get("following", 0)),
+            ]
+        ):
             mx = cx + col_w * i + col_w // 2
             num = str(val)
             d.text(num, mx - len(num) * 8, stats_y, theme.PRIMARY, scale=2)
@@ -243,10 +248,11 @@ class App(oreoOS.App):
         cw, ch = SW - 32, SH - widgets.HEADER_H - widgets.HINT_H - 32
         cx, cy = 16, widgets.HEADER_H + 16
         d.rect(cx + 2, cy + 2, cw, ch, theme.MUTED2, fill=True)
-        d.rect(cx,     cy,     cw, ch, theme.CARD,   fill=True)
-        d.rect(cx,     cy,     cw,  2, theme.PRIMARY, fill=True)
+        d.rect(cx, cy, cw, ch, theme.CARD, fill=True)
+        d.rect(cx, cy, cw, 2, theme.PRIMARY, fill=True)
         d.text("offline", (SW - 7 * 16) // 2, cy + 14, theme.PRIMARY, scale=2)
-        for i, line in enumerate([
+        for i, line in enumerate(
+            [
                 "Couldn't reach GitHub.",
                 "",
                 "set on your laptop:",
@@ -255,7 +261,9 @@ class App(oreoOS.App):
                 "  WIFI_PASSWORD=...",
                 "  GITHUB_USER=" + self._user[:16],
                 "",
-                "redeploy + press A."]):
+                "redeploy + press A.",
+            ]
+        ):
             d.text(line, cx + 16, cy + 42 + i * 12, theme.TEXT_BRIGHT)
 
     def on_exit(self):
@@ -263,6 +271,7 @@ class App(oreoOS.App):
         self._profile = None
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass

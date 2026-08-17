@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Reveal, fadeUp, staggerContainer } from "@/components/MotionWrap";
-import { Download, Terminal, Usb, Github } from "lucide-react";
+import { Download, Terminal, Github } from "lucide-react";
 
 const STEPS = [
   { n: "01", t: "Flash MicroPython",      b: "Download the ESP32-S3 build, hold the BOOT button, flash via esptool. Two-minute job." },

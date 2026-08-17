@@ -71,3 +71,68 @@ exclude = ["tests*", "dist*", ".venv*", "**/__pycache__"]
 # pattern stays intact.
 [tool.setuptools.dynamic]
 version = { attr = "oreoOS.config.VERSION" }
+
+
+# ── Ruff: Python linting + formatting ────────────────────────────────────────
+# Targets CPython 3.9+ (the simulator / tooling env).
+# MicroPython source is excluded from strict type rules but still checked for
+# obvious bugs (redundant imports, unused variables, shadowing, etc.).
+[tool.ruff]
+line-length    = 100
+target-version = "py39"
+extend-exclude = [
+    ".venv", "dist", "build", "badge_data",
+    "**/__pycache__",
+]
+
+[tool.ruff.lint]
+# E/W = pycodestyle, F = pyflakes, I = isort, UP = pyupgrade,
+# B = bugbear, SIM = simplify, RUF = ruff-native rules.
+select = ["E", "W", "F", "I", "B", "SIM", "RUF"]
+ignore = [
+    "E501",   # line-too-long — handled by formatter
+    "E701",   # multiple-statements-on-one-line — compact draw code idiom
+    "E702",   # multiple-statements-semicolon — same
+    "E741",   # ambiguous var names (l/O/I) — common in display math
+    "B006",   # mutable-argument-default — intentional in some app configs
+    "B008",   # function-call-in-default — MicroPython compat
+    "SIM105", # suppressible-exception — bare try/except required on MicroPython
+    "SIM102", # collapsible-if — sometimes clearer as two ifs in draw code
+    "SIM108", # ternary rewrite — less readable in draw code
+    "SIM110", # reimplemented-builtin — MicroPython lacks some builtins
+    "SIM115", # open-file-with-context-handler — controlled in MicroPython env
+    "RUF001", # ambiguous-unicode-string — box-drawing chars in draw code
+    "RUF002", # ambiguous-unicode-docstring — box-drawing chars in module docs
+    "RUF003", # ambiguous-unicode-comment — box-drawing chars in comments
+    "RUF005", # concatenation vs unpacking — + is fine, sometimes better on uPy
+    "RUF012", # mutable class-var annotation — MicroPython has no ClassVar
+    "RUF015", # next(iter()) vs list()[0] — list()[0] is safer across uPy implementations
+    "RUF046", # unnecessary-cast-to-int — int() used for MicroPython type safety
+    "E731",   # lambda-assignment — idiomatic in small draw scopes
+    "SIM109", # compare-with-tuple — a == b or a == c is fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+# MicroPython app code: allow star imports and some patterns unavailable on device
+"apps/**"        = ["F401", "F403", "F811", "E402"]
+"apps_market/**" = ["F401", "F403", "F811", "E402"]
+"oreoSim/**"     = ["F401", "E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["oreoOS", "oreoWare", "apps", "apps_market", "oreoSim"]
+
+[tool.ruff.format]
+quote-style    = "double"
+indent-style   = "space"
+skip-magic-trailing-comma = false
+
+
+# ── Dev tooling dependencies (non-device) ────────────────────────────────────
+[dependency-groups]
+dev = [
+    "ruff>=0.5",
+    "pre-commit>=3.7",
+    "pygame>=2.6",
+    "qrcode>=7.4",
+    "pillow>=10.0",
+]

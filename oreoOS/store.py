@@ -8,9 +8,11 @@ except ImportError:
     _json = None
 
 from oreoOS import storage
+
 try:
     import socket as _socket
-    import ssl    as _ssl
+    import ssl as _ssl
+
     _RAW_OK = True
 except ImportError:
     _RAW_OK = False
@@ -37,7 +39,7 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     # Parse https://host[:port]/path
     if not url.startswith("https://"):
         return None
-    rest = url[len("https://"):]
+    rest = url[len("https://") :]
     slash = rest.find("/")
     if slash < 0:
         host, path = rest, "/"
@@ -46,12 +48,13 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     port = 443
     if ":" in host:
         host, p = host.split(":", 1)
-        try: port = int(p)
-        except ValueError: port = 443
+        try:
+            port = int(p)
+        except ValueError:
+            port = 443
 
     if "api.github.com" in host:
-        accept = ("application/vnd.github.raw" if accept_raw
-                  else "application/vnd.github+json")
+        accept = "application/vnd.github.raw" if accept_raw else "application/vnd.github+json"
     else:
         accept = "*/*"
 
@@ -60,6 +63,7 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     deadline = None
     try:
         import time as _t
+
         deadline = _t.ticks_add(_t.ticks_ms(), int(timeout_s * 1000) + 500)
     except Exception:
         pass
@@ -67,6 +71,7 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     auth_hdr = ""
     try:
         from oreoOS.config import GH_TOKEN as _TOK
+
         if _TOK and "api.github.com" in host:
             auth_hdr = "Authorization: Bearer " + _TOK + "\r\n"
     except Exception:
@@ -84,8 +89,10 @@ def _http_get(url, accept_raw=False, timeout_s=4):
                 break
             except Exception:
                 if raw is not None:
-                    try: raw.close()
-                    except Exception: pass
+                    try:
+                        raw.close()
+                    except Exception:
+                        pass
                 raw = None
 
         if raw is None:
@@ -125,8 +132,8 @@ def _http_get(url, accept_raw=False, timeout_s=4):
             # matter what settimeout says.
             try:
                 import time as _t2
-                if deadline is not None and \
-                   _t2.ticks_diff(deadline, _t2.ticks_ms()) <= 0:
+
+                if deadline is not None and _t2.ticks_diff(deadline, _t2.ticks_ms()) <= 0:
                     _bc("  read deadline blown after %d bytes" % len(buf))
                     break
             except Exception:
@@ -146,7 +153,7 @@ def _http_get(url, accept_raw=False, timeout_s=4):
                     head_lower = bytes(buf[:head_end]).lower()
                     cl_idx = head_lower.find(b"\r\ncontent-length: ")
                     if cl_idx >= 0:
-                        cl_val = head_lower[cl_idx + 18:].split(b"\r\n", 1)[0]
+                        cl_val = head_lower[cl_idx + 18 :].split(b"\r\n", 1)[0]
                         try:
                             expected_len = int(cl_val)
                         except ValueError:
@@ -174,15 +181,17 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     if head_end < 0:
         return None
     head = bytes(buf[:head_end])
-    body = bytes(buf[head_end + 4:])
+    body = bytes(buf[head_end + 4 :])
 
     # Parse the status line for breadcrumbs + 200-check.
     status = 0
-    line0  = head.split(b"\r\n", 1)[0]
-    parts  = line0.split(b" ", 2)
+    line0 = head.split(b"\r\n", 1)[0]
+    parts = line0.split(b" ", 2)
     if len(parts) >= 2:
-        try: status = int(parts[1])
-        except ValueError: status = 0
+        try:
+            status = int(parts[1])
+        except ValueError:
+            status = 0
     if status != 200:
         _bc("http_get %s -> HTTP %d" % (host, status))
         return None
@@ -197,7 +206,7 @@ def _http_get(url, accept_raw=False, timeout_s=4):
 
 def _dechunk(body):
     out = bytearray()
-    i   = 0
+    i = 0
     while i < len(body):
         nl = body.find(b"\r\n", i)
         if nl < 0:
@@ -209,45 +218,48 @@ def _dechunk(body):
         i = nl + 2
         if n == 0:
             break
-        out.extend(body[i:i + n])
+        out.extend(body[i : i + n])
         i += n + 2
     return bytes(out)
 
 
 # ── tunables ────────────────────────────────────────────────────────────
 
-STORE_REPO   = "elixpo/oreo"
+STORE_REPO = "elixpo/oreo"
 # Branch/tag/sha on the repo to pull the catalogue from. Defaults to
 # `main`; override via oreoOS/config.py `STORE_REF = "feat/app-market"`
 # while apps_market/ hasn't landed on main yet, otherwise the API
 # returns 404 and the page shows an empty catalogue.
 try:
     from oreoOS.config import STORE_REF as _CFG_REF
+
     STORE_REF = _CFG_REF
 except Exception:
     STORE_REF = "main"
-MARKET_PATH  = "apps_market"
-CACHE_PATH   = "badge_data/cache/store_cache.json"
+MARKET_PATH = "apps_market"
+CACHE_PATH = "badge_data/cache/store_cache.json"
 
-T_API        = 6        # seconds — GitHub Contents API call
-T_FILE       = 25       # seconds — raw-file download (per file)
+T_API = 6  # seconds — GitHub Contents API call
+T_FILE = 25  # seconds — raw-file download (per file)
 
-USER_AGENT   = "OreoBadge-Store"
-APPS_DIR     = "badge_data/apps"
+USER_AGENT = "OreoBadge-Store"
+APPS_DIR = "badge_data/apps"
 
 
 # In-memory mirror of the catalogue. Loaded lazily on first access.
-_catalogue       = None
-_cache_ms        = 0      # ticks_ms at last successful refresh
-_last_refresh_ok = None   # True / False / None — never-tried | succeeded | failed
-_last_error      = ""     # human-readable summary for the page
+_catalogue = None
+_cache_ms = 0  # ticks_ms at last successful refresh
+_last_refresh_ok = None  # True / False / None — never-tried | succeeded | failed
+_last_error = ""  # human-readable summary for the page
 
 
 # ── filesystem helpers ──────────────────────────────────────────────────
 
+
 def _exists(path):
     try:
-        _os.stat(path); return True
+        _os.stat(path)
+        return True
     except OSError:
         return False
 
@@ -277,8 +289,8 @@ def _rm_tree(path):
     return storage.rm_tree(path)
 
 
-
 # ── GitHub API wrappers ─────────────────────────────────────────────────
+
 
 def _api(path):
     """GET https://api.github.com/repos/<repo>/contents/<path>?ref=<ref>.
@@ -291,8 +303,7 @@ def _api(path):
     if not _RAW_OK or _json is None:
         _last_error = "no socket / json"
         return None
-    url = ("https://api.github.com/repos/%s/contents/%s?ref=%s"
-           % (STORE_REPO, _q(path), STORE_REF))
+    url = "https://api.github.com/repos/%s/contents/%s?ref=%s" % (STORE_REPO, _q(path), STORE_REF)
     _bc("API GET " + path + "@" + STORE_REF)
     body = _http_get(url, accept_raw=False, timeout_s=T_API)
     if body is None:
@@ -303,8 +314,7 @@ def _api(path):
     except Exception as e:
         _last_error = "api parse: " + str(e)[:32]
         return None
-    _bc("API OK %s (%d entries)" %
-        (path, len(data) if isinstance(data, list) else 1))
+    _bc("API OK %s (%d entries)" % (path, len(data) if isinstance(data, list) else 1))
     return data
 
 
@@ -319,11 +329,13 @@ def _walk(path):
         if it.get("type") == "dir":
             out.extend(_walk(it["path"]))
         elif it.get("type") == "file":
-            out.append({
-                "path":         it["path"],
-                "download_url": it.get("download_url") or "",
-                "size":         it.get("size", 0),
-            })
+            out.append(
+                {
+                    "path": it["path"],
+                    "download_url": it.get("download_url") or "",
+                    "size": it.get("size", 0),
+                }
+            )
     return out
 
 
@@ -345,10 +357,10 @@ def _fetch_store_icon(name_dir, app_path, icon_filename):
     if not icon_filename:
         return False
     stem = icon_filename.rsplit(".", 1)[0].replace("-", "_")
-    dst  = _STORE_ICONS_DIR + "/" + name_dir + ".py"
+    dst = _STORE_ICONS_DIR + "/" + name_dir + ".py"
     if _exists(dst):
         return True
-    
+
     # Check local apps_market first (e.g. apps_market/<name_dir>/assets/optimized/<stem>.py)
     local_icon = app_path + "/assets/optimized/" + stem + ".py"
     if _exists(local_icon):
@@ -360,8 +372,12 @@ def _fetch_store_icon(name_dir, app_path, icon_filename):
         except Exception:
             pass
 
-    url = ("https://raw.githubusercontent.com/%s/%s/%s/assets/optimized/%s.py"
-           % (STORE_REPO, STORE_REF, _q(app_path), stem))
+    url = "https://raw.githubusercontent.com/%s/%s/%s/assets/optimized/%s.py" % (
+        STORE_REPO,
+        STORE_REF,
+        _q(app_path),
+        stem,
+    )
     _bc("icon GET " + name_dir)
     body = _http_get(url, accept_raw=True, timeout_s=T_API)
     if body is None:
@@ -428,8 +444,11 @@ def _fetch_manifest(app_path):
             pass
     if _json is None:
         return {}
-    url = ("https://api.github.com/repos/%s/contents/%s/manifest.json?ref=%s"
-           % (STORE_REPO, _q(app_path), STORE_REF))
+    url = "https://api.github.com/repos/%s/contents/%s/manifest.json?ref=%s" % (
+        STORE_REPO,
+        _q(app_path),
+        STORE_REF,
+    )
     _bc("manifest GET " + app_path)
     body = _http_get(url, accept_raw=True, timeout_s=T_API)
     if body is None:
@@ -442,6 +461,7 @@ def _fetch_manifest(app_path):
 
 # ── catalogue lifecycle ─────────────────────────────────────────────────
 
+
 def _load_cache_from_disk():
     """Re-hydrate _catalogue from the on-flash JSON cache, if any."""
     global _catalogue, _cache_ms
@@ -451,7 +471,7 @@ def _load_cache_from_disk():
         with open(CACHE_PATH) as f:
             blob = _json.loads(f.read())
         _catalogue = blob.get("apps", []) or []
-        _cache_ms  = int(blob.get("fetched_ms", 0))
+        _cache_ms = int(blob.get("fetched_ms", 0))
         return True
     except Exception:
         return False
@@ -460,10 +480,15 @@ def _load_cache_from_disk():
 def _save_cache_to_disk():
     if _json is None:
         return
-    storage.atomic_write(CACHE_PATH, _json.dumps({
-        "fetched_ms": _cache_ms,
-        "apps":       _catalogue or [],
-    }))
+    storage.atomic_write(
+        CACHE_PATH,
+        _json.dumps(
+            {
+                "fetched_ms": _cache_ms,
+                "apps": _catalogue or [],
+            }
+        ),
+    )
 
 
 def refresh(force=False):
@@ -489,11 +514,12 @@ def refresh(force=False):
     # only thing we can show.
     try:
         from oreoWare import wifi
+
         if not wifi.is_connected():
             if _catalogue is None:
                 _load_cache_from_disk()
             _last_refresh_ok = False
-            _last_error      = "wifi down"
+            _last_error = "wifi down"
             return _catalogue or []
     except Exception:
         pass
@@ -508,12 +534,16 @@ def refresh(force=False):
         seen_dirs = {it.get("name") for it in listing if isinstance(it, dict)}
         try:
             for loc_dir in _os.listdir(MARKET_PATH):
-                if loc_dir not in seen_dirs and _exists(MARKET_PATH + "/" + loc_dir + "/manifest.json"):
-                    listing.append({
-                        "type": "dir",
-                        "name": loc_dir,
-                        "path": MARKET_PATH + "/" + loc_dir,
-                    })
+                if loc_dir not in seen_dirs and _exists(
+                    MARKET_PATH + "/" + loc_dir + "/manifest.json"
+                ):
+                    listing.append(
+                        {
+                            "type": "dir",
+                            "name": loc_dir,
+                            "path": MARKET_PATH + "/" + loc_dir,
+                        }
+                    )
         except Exception:
             pass
 
@@ -537,16 +567,18 @@ def refresh(force=False):
         # back to the letter glyph in _draw_card.
         if icon_file:
             _fetch_store_icon(name_dir, app_path, icon_file)
-        fresh.append({
-            "dir":          name_dir,
-            "name":         manifest.get("name", name_dir) or name_dir,
-            "icon":         icon_file or None,
-            "author":       manifest.get("author") or None,
-            "description":  manifest.get("description", "") or "",
-            "path":         app_path,
-        })
+        fresh.append(
+            {
+                "dir": name_dir,
+                "name": manifest.get("name", name_dir) or name_dir,
+                "icon": icon_file or None,
+                "author": manifest.get("author") or None,
+                "description": manifest.get("description", "") or "",
+                "path": app_path,
+            }
+        )
 
-    _catalogue       = fresh
+    _catalogue = fresh
     _last_refresh_ok = True
     for e in _catalogue:
         e["installed"] = is_installed(e["dir"])
@@ -555,8 +587,10 @@ def refresh(force=False):
         live = {e["dir"] + ".py" for e in _catalogue}
         for f in _os.listdir(_STORE_ICONS_DIR):
             if f.endswith(".py") and f not in live:
-                try: _os.remove(_STORE_ICONS_DIR + "/" + f)
-                except OSError: pass
+                try:
+                    _os.remove(_STORE_ICONS_DIR + "/" + f)
+                except OSError:
+                    pass
     except OSError:
         pass
     try:
@@ -622,13 +656,13 @@ def get_details(name_dir):
     # is deferred to install() so opening details is instant after the
     # first catalogue load.
     out = {
-        "name":         entry.get("name")        or name_dir,
-        "icon":         entry.get("icon")        or None,
-        "author":       entry.get("author")      or None,
-        "description":  entry.get("description") or "",
-        "files":        None,    # populated lazily by install()
-        "bytes":        None,
-        "ok":           True,
+        "name": entry.get("name") or name_dir,
+        "icon": entry.get("icon") or None,
+        "author": entry.get("author") or None,
+        "description": entry.get("description") or "",
+        "files": None,  # populated lazily by install()
+        "bytes": None,
+        "ok": True,
     }
     _details_cache[name_dir] = out
     _details_disk_save(name_dir, out)
@@ -665,8 +699,10 @@ def _details_disk_save(name_dir, payload):
 def _details_disk_clear():
     try:
         for f in _os.listdir(_DETAILS_DIR):
-            try: _os.remove(_DETAILS_DIR + "/" + f)
-            except OSError: pass
+            try:
+                _os.remove(_DETAILS_DIR + "/" + f)
+            except OSError:
+                pass
     except Exception:
         pass
 
@@ -704,6 +740,7 @@ def cache_age_ms():
 
 # ── install / uninstall ─────────────────────────────────────────────────
 
+
 def is_installed(name):
     """An app is 'installed' iff badge_data/apps/<name>/main.py exists."""
     return _exists(APPS_DIR + "/" + name + "/main.py")
@@ -712,10 +749,12 @@ def is_installed(name):
 def _invalidate_launcher_cache():
     try:
         from apps.launcher.main import invalidate_apps_cache
+
         invalidate_apps_cache()
     except Exception:
         try:
             from apps.launcher.src.app import invalidate_apps_cache
+
             invalidate_apps_cache()
         except Exception:
             pass
@@ -723,6 +762,7 @@ def _invalidate_launcher_cache():
 
 def install(name):
     import sys
+
     sys._store_installing = True
     try:
         return _install_internal(name)
@@ -745,7 +785,7 @@ def _install_internal(name):
         stack = [local_src]
         while stack:
             curr_dir = stack.pop()
-            rel_dir = curr_dir[len(local_src):].lstrip("/")
+            rel_dir = curr_dir[len(local_src) :].lstrip("/")
             dst_dir = tmp_root + ("/" + rel_dir if rel_dir else "")
             _ensure_dir(dst_dir)
             try:
@@ -792,7 +832,7 @@ def _install_internal(name):
         rel = f["path"]
         if not rel.startswith(root_prefix):
             continue
-        rel = rel[len(root_prefix):]
+        rel = rel[len(root_prefix) :]
         dst = tmp_root + "/" + rel
         parent = dst.rsplit("/", 1)[0] if "/" in dst else ""
         if parent:
@@ -806,8 +846,7 @@ def _install_internal(name):
             continue
 
         _bc("install GET " + rel)
-        body = _http_get(f["download_url"], accept_raw=False,
-                         timeout_s=T_FILE)
+        body = _http_get(f["download_url"], accept_raw=False, timeout_s=T_FILE)
         if body is None:
             _rm_tree(tmp_root)
             return False
@@ -831,8 +870,11 @@ def _install_internal(name):
             ok_mf = False
         if not ok_mf:
             _bc("install manifest invalid, retrying")
-            url = ("https://raw.githubusercontent.com/%s/%s/%s/manifest.json"
-                   % (STORE_REPO, STORE_REF, _q(entry["path"])))
+            url = "https://raw.githubusercontent.com/%s/%s/%s/manifest.json" % (
+                STORE_REPO,
+                STORE_REF,
+                _q(entry["path"]),
+            )
             body = _http_get(url, accept_raw=True, timeout_s=T_FILE)
             if body is not None:
                 try:
@@ -852,11 +894,12 @@ def _install_internal(name):
         except Exception as e:
             try:
                 from oreoOS import config
+
                 if getattr(config, "DEBUG", True):
                     print("[store] rename error:", e)
             except Exception:
                 pass
-        
+
     ok = is_installed(name)
     if ok:
         _invalidate_launcher_cache()

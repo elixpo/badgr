@@ -14,45 +14,43 @@ Two modes:
 HOME pops one mode level (details → list → quit-to-launcher)."""
 
 import oreoOS
-from oreoOS import api, theme, widgets
-from oreoOS import store
-
+from oreoOS import api, store, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-LIST_TOP_Y    = widgets.HEADER_H + 4
+LIST_TOP_Y = widgets.HEADER_H + 4
 HEADER_CARD_H = 36
-CARD_H        = 38
-CARD_GAP      = 3
-ROW_PAD_X     = 8
-ICON_BOX      = 32
-ACT_W         = 78
-ACT_H         = 18
+CARD_H = 38
+CARD_GAP = 3
+ROW_PAD_X = 8
+ICON_BOX = 32
+ACT_W = 78
+ACT_H = 18
 
-STALE_AFTER_MS = 12 * 60 * 60 * 1000   # 12 h
+STALE_AFTER_MS = 12 * 60 * 60 * 1000  # 12 h
 
 
 class App(oreoOS.App):
-    name         = "Store"
-    author       = "Circuit-Overtime"
+    name = "Store"
+    author = "Circuit-Overtime"
     SHOW_LOADING = True
 
     def on_enter(self, os_):
         super().on_enter(os_)
-        self._os    = os_
+        self._os = os_
         # ── list mode state
-        self._sel   = 0     # index into self._items (no virtual rows)
-        self._top   = 0     # first visible CARD index
+        self._sel = 0  # index into self._items (no virtual rows)
+        self._top = 0  # first visible CARD index
         self._state = "LOADING"
-        self._msg   = ""
+        self._msg = ""
         self._items = []
         # ── details mode state
-        self._mode       = "list"   # "list" | "details"
-        self._detail     = None     # cached details dict for the open app
-        self._detail_for = None     # name_dir the details belong to
-        self._busy       = None
-        self._dirty      = True
+        self._mode = "list"  # "list" | "details"
+        self._detail = None  # cached details dict for the open app
+        self._detail_for = None  # name_dir the details belong to
+        self._busy = None
+        self._dirty = True
         # Surface disk cache immediately, then force a fresh refresh on
         # entry — an empty cache from a previous failed refresh must
         # not block the API call.
@@ -65,6 +63,7 @@ class App(oreoOS.App):
         self._detail = None
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass
@@ -105,7 +104,7 @@ class App(oreoOS.App):
     def _on_btn_details(self, btn):
         if btn in (api.BTN_HOME, api.BTN_B):
             self._mode = "list"
-            self._msg  = ""
+            self._msg = ""
             self._busy = None
             for e in self._items:
                 e["installed"] = store.is_installed(e["dir"])
@@ -118,13 +117,14 @@ class App(oreoOS.App):
         """Switch to details mode + lazily fetch this app's manifest +
         file tree. Paint a 'loading details...' frame first so the
         synchronous GitHub round-trip doesn't look like a freeze."""
-        self._mode       = "details"
+        self._mode = "details"
         self._detail_for = name_dir
-        self._detail     = None
-        self._msg        = "loading details..."
-        self._dirty      = True
+        self._detail = None
+        self._msg = "loading details..."
+        self._dirty = True
         try:
-            self.draw(self._os.display); self._os.display.present()
+            self.draw(self._os.display)
+            self._os.display.present()
         except Exception:
             pass
         self._detail = store.get_details(name_dir)
@@ -138,10 +138,11 @@ class App(oreoOS.App):
         """Install or uninstall the app in focus on the details page."""
         installed = store.is_installed(name_dir)
         self._busy = name_dir
-        self._msg  = ""
+        self._msg = ""
         self._dirty = True
         try:
-            self.draw(self._os.display); self._os.display.present()
+            self.draw(self._os.display)
+            self._os.display.present()
         except Exception:
             pass
         if installed:
@@ -156,6 +157,7 @@ class App(oreoOS.App):
         if ok:
             try:
                 from apps.launcher.main import invalidate_apps_cache
+
                 invalidate_apps_cache()
             except Exception:
                 pass
@@ -180,7 +182,8 @@ class App(oreoOS.App):
         self._state = "LOADING"
         self._dirty = True
         try:
-            self.draw(self._os.display); self._os.display.present()
+            self.draw(self._os.display)
+            self._os.display.present()
         except Exception:
             pass
         try:
@@ -204,7 +207,7 @@ class App(oreoOS.App):
         We deliberately never show "NO WIFI" when WiFi is actually up
         and the catalogue just happens to be empty (that was the bug)."""
         age = store.cache_age_ms()
-        ok  = store.last_refresh_ok()
+        ok = store.last_refresh_ok()
         wifi_up = self._wifi_up()
         if ok is False and not wifi_up:
             return "OFFLINE"
@@ -227,6 +230,7 @@ class App(oreoOS.App):
     def _wifi_up():
         try:
             from oreoWare import wifi
+
             return bool(wifi.is_connected())
         except Exception:
             return False
@@ -249,8 +253,7 @@ class App(oreoOS.App):
             self._draw_catalogue(d)
             self._draw_state_chip(d)
         if self._msg:
-            d.text(self._msg[:36], ROW_PAD_X, SH - widgets.HINT_H - 12,
-                   theme.PRIMARY, scale=1)
+            d.text(self._msg[:36], ROW_PAD_X, SH - widgets.HINT_H - 12, theme.PRIMARY, scale=1)
 
     def _draw_state_chip(self, d):
         """State chip — centered above the hint bar, top-margin from
@@ -265,8 +268,9 @@ class App(oreoOS.App):
         py = SH - widgets.HINT_H - ph - 12
         px = (SW - pw) // 2
         d.rect(px, py, pw, ph, pill_color, fill=True)
-        d.text(pill_text, px + (pw - len(pill_text) * 8) // 2,
-               py + (ph - 8) // 2, api.WHITE, scale=1)
+        d.text(
+            pill_text, px + (pw - len(pill_text) * 8) // 2, py + (ph - 8) // 2, api.WHITE, scale=1
+        )
 
     def _state_pill(self):
         # OK is the implicit / quiet state — no pill at all, the
@@ -274,9 +278,9 @@ class App(oreoOS.App):
         # header on the common case.
         return {
             "LOADING": ("LOADING", theme.MUTED),
-            "STALE":   ("STALE",   theme.GOLD),
+            "STALE": ("STALE", theme.GOLD),
             "OFFLINE": ("OFFLINE", theme.MUTED),
-            "ERROR":   ("ERROR",   theme.PRIMARY),
+            "ERROR": ("ERROR", theme.PRIMARY),
         }.get(self._state, (None, None))
 
     def _draw_catalogue(self, d):
@@ -293,22 +297,29 @@ class App(oreoOS.App):
             self._draw_card(d, LIST_TOP_Y + vi * (CARD_H + CARD_GAP), i)
 
         # Scrollbar on right edge
-        widgets.draw_scrollbar(d, SW - 4, LIST_TOP_Y, 2,
-                               vis * (CARD_H + CARD_GAP) - CARD_GAP,
-                               len(self._items), self._top, visible=vis)
+        widgets.draw_scrollbar(
+            d,
+            SW - 4,
+            LIST_TOP_Y,
+            2,
+            vis * (CARD_H + CARD_GAP) - CARD_GAP,
+            len(self._items),
+            self._top,
+            visible=vis,
+        )
 
     def _draw_card(self, d, y, i):
         item = self._items[i]
         # _sel is a direct index into self._items now (no virtual
         # header row above the cards).
-        sel  = (self._sel == i)
-        bg   = theme.DOCK_SEL if sel else theme.CARD
+        sel = self._sel == i
+        bg = theme.DOCK_SEL if sel else theme.CARD
         d.rect(6, y, SW - 12, CARD_H, bg, fill=True)
         if sel:
-            d.rect(6,         y,              SW - 12, 1,       theme.SEL_BORDER, fill=True)
-            d.rect(6,         y + CARD_H - 1, SW - 12, 1,       theme.SEL_BORDER, fill=True)
-            d.rect(6,         y,              1, CARD_H,         theme.SEL_BORDER, fill=True)
-            d.rect(SW - 7,    y,              1, CARD_H,         theme.SEL_BORDER, fill=True)
+            d.rect(6, y, SW - 12, 1, theme.SEL_BORDER, fill=True)
+            d.rect(6, y + CARD_H - 1, SW - 12, 1, theme.SEL_BORDER, fill=True)
+            d.rect(6, y, 1, CARD_H, theme.SEL_BORDER, fill=True)
+            d.rect(SW - 7, y, 1, CARD_H, theme.SEL_BORDER, fill=True)
 
         # Icon. We try the global optimized icons first — the catalogue
         # entry's `icon` field is a filename like `pet_icon.png` which
@@ -333,20 +344,21 @@ class App(oreoOS.App):
         # apps are already on the badge, plus a chevron to hint the
         # row is interactive.
         right_x = SW - ROW_PAD_X
-        chev_x  = right_x - 14
+        chev_x = right_x - 14
         if item.get("installed"):
-            tag    = "✓"
-            tag_w  = 12
-            tag_x  = chev_x - tag_w - 6
-            tag_y  = y + (CARD_H - 16) // 2
+            tag = "✓"
+            tag_w = 12
+            tag_x = chev_x - tag_w - 6
+            tag_y = y + (CARD_H - 16) // 2
             d.rect(tag_x, tag_y, tag_w, 16, theme.CARD, fill=True)
-            d.rect(tag_x, tag_y,           tag_w, 1,  theme.PRIMARY, fill=True)
-            d.rect(tag_x, tag_y + 15,      tag_w, 1,  theme.PRIMARY, fill=True)
-            d.rect(tag_x, tag_y,           1, 16,     theme.PRIMARY, fill=True)
-            d.rect(tag_x + tag_w - 1, tag_y, 1, 16,   theme.PRIMARY, fill=True)
+            d.rect(tag_x, tag_y, tag_w, 1, theme.PRIMARY, fill=True)
+            d.rect(tag_x, tag_y + 15, tag_w, 1, theme.PRIMARY, fill=True)
+            d.rect(tag_x, tag_y, 1, 16, theme.PRIMARY, fill=True)
+            d.rect(tag_x + tag_w - 1, tag_y, 1, 16, theme.PRIMARY, fill=True)
             d.text(tag, tag_x + 2, tag_y + 4, theme.PRIMARY, scale=1)
-        d.text(">", chev_x, y + (CARD_H - 16) // 2 + 2,
-               theme.PRIMARY if sel else theme.MUTED, scale=2)
+        d.text(
+            ">", chev_x, y + (CARD_H - 16) // 2 + 2, theme.PRIMARY if sel else theme.MUTED, scale=2
+        )
 
     def _icon_for(self, item):
         """Resolve a market app's icon. Lookup order:
@@ -360,7 +372,7 @@ class App(oreoOS.App):
              (`assets.icons.optimized.<stem>`).
         Falls through to a letter glyph if nothing matches.
         """
-        name_dir  = item.get("dir") or ""
+        name_dir = item.get("dir") or ""
         icon_file = item.get("icon") or ""
         ico = store.load_store_icon(name_dir) if name_dir else None
         if ico:
@@ -368,8 +380,10 @@ class App(oreoOS.App):
         if not icon_file:
             return None
         stem = icon_file.rsplit(".", 1)[0].replace("-", "_")
-        for modpath in ("apps.%s.assets.optimized.%s" % (name_dir, stem),
-                        "assets.icons.optimized." + stem):
+        for modpath in (
+            "apps.%s.assets.optimized.%s" % (name_dir, stem),
+            "assets.icons.optimized." + stem,
+        ):
             try:
                 m = __import__(modpath, None, None, ["DATA", "W", "H"])
                 return (m.DATA, m.W, m.H)
@@ -384,14 +398,12 @@ class App(oreoOS.App):
         if not self._detail or not self._detail.get("ok"):
             # Loading / error case — header card placeholder. The
             # bottom status line (self._msg) carries the explanation.
-            self._draw_details_header(d, self._detail_for or "?",
-                                      "loading…", None)
+            self._draw_details_header(d, self._detail_for or "?", "loading…", None)
             return
 
-        det  = self._detail
+        det = self._detail
         name = det.get("name") or self._detail_for
-        self._draw_details_header(d, name, det.get("author"),
-                                  det.get("icon"))
+        self._draw_details_header(d, name, det.get("author"), det.get("icon"))
 
         # Description block — wrapped to ~36 chars / line, capped at
         # 5 lines, ellipsis on overflow. Most market manifests won't
@@ -400,8 +412,7 @@ class App(oreoOS.App):
         desc = det.get("description") or ""
         if desc:
             for i, line in enumerate(_wrap(desc, 36, 5)):
-                d.text(line, ROW_PAD_X, body_y + i * 12,
-                       theme.TEXT_DIM, scale=1)
+                d.text(line, ROW_PAD_X, body_y + i * 12, theme.TEXT_DIM, scale=1)
 
         # Stats line. If the app is already installed we walk
         # /apps/<dir>/ on disk and show its actual on-flash footprint;
@@ -409,7 +420,7 @@ class App(oreoOS.App):
         # disclosure. We deliberately don't probe GitHub for an
         # estimated remote size — that's an extra round-trip the
         # details page doesn't need to block on.
-        stats_y  = body_y + 5 * 12 + 4
+        stats_y = body_y + 5 * 12 + 4
         if store.is_installed(self._detail_for):
             sz = store.installed_size(self._detail_for)
             if sz >= 10 * 1024:
@@ -423,38 +434,33 @@ class App(oreoOS.App):
         # Install / Uninstall button — bottom of the play area, full
         # width, dim while busy.
         installed = store.is_installed(self._detail_for)
-        busy      = (self._busy == self._detail_for)
-        btn_h     = 28
-        btn_y     = SH - widgets.HINT_H - btn_h - 14
+        busy = self._busy == self._detail_for
+        btn_h = 28
+        btn_y = SH - widgets.HINT_H - btn_h - 14
         if busy:
             label, fill, ink = "Working...", theme.MUTED2, theme.TEXT_BRIGHT
         elif installed:
             label, fill, ink = "Uninstall", theme.CARD, theme.PRIMARY
         else:
             label, fill, ink = "Install on badge", theme.PRIMARY, api.WHITE
-        d.rect(ROW_PAD_X, btn_y, SW - 2 * ROW_PAD_X, btn_h, fill,
-               fill=True)
+        d.rect(ROW_PAD_X, btn_y, SW - 2 * ROW_PAD_X, btn_h, fill, fill=True)
         if installed and not busy:
-            d.rect(ROW_PAD_X, btn_y,                 SW - 2 * ROW_PAD_X, 1, theme.PRIMARY, fill=True)
-            d.rect(ROW_PAD_X, btn_y + btn_h - 1,     SW - 2 * ROW_PAD_X, 1, theme.PRIMARY, fill=True)
-            d.rect(ROW_PAD_X, btn_y,                 1, btn_h,             theme.PRIMARY, fill=True)
-            d.rect(SW - ROW_PAD_X - 1, btn_y,        1, btn_h,             theme.PRIMARY, fill=True)
-        d.text(label,
-               (SW - len(label) * 16) // 2,
-               btn_y + (btn_h - 16) // 2,
-               ink, scale=2)
+            d.rect(ROW_PAD_X, btn_y, SW - 2 * ROW_PAD_X, 1, theme.PRIMARY, fill=True)
+            d.rect(ROW_PAD_X, btn_y + btn_h - 1, SW - 2 * ROW_PAD_X, 1, theme.PRIMARY, fill=True)
+            d.rect(ROW_PAD_X, btn_y, 1, btn_h, theme.PRIMARY, fill=True)
+            d.rect(SW - ROW_PAD_X - 1, btn_y, 1, btn_h, theme.PRIMARY, fill=True)
+        d.text(label, (SW - len(label) * 16) // 2, btn_y + (btn_h - 16) // 2, ink, scale=2)
 
     def _draw_details_header(self, d, name, author, icon_filename):
         """Top section of the details page — icon, name, by-line."""
         y = widgets.HEADER_H + 6
         d.rect(6, y, SW - 12, 50, theme.CARD, fill=True)
-        d.rect(6, y, SW - 12, 3,  theme.PRIMARY, fill=True)
+        d.rect(6, y, SW - 12, 3, theme.PRIMARY, fill=True)
 
         # Icon — try the per-app store cache first (same lookup the
         # list view uses) so the details header shows a real icon
         # even for apps that aren't installed yet.
-        icon = store.load_store_icon(self._detail_for or "") \
-               or self._icon_for_name(icon_filename)
+        icon = store.load_store_icon(self._detail_for or "") or self._icon_for_name(icon_filename)
         if icon:
             data, iw, ih = icon
             d.blit(data, ROW_PAD_X, y + (50 - ih) // 2, iw, ih)
@@ -473,8 +479,7 @@ class App(oreoOS.App):
             return None
         stem = icon_filename.rsplit(".", 1)[0].replace("-", "_")
         try:
-            m = __import__("assets.icons.optimized." + stem,
-                           None, None, ["DATA", "W", "H"])
+            m = __import__("assets.icons.optimized." + stem, None, None, ["DATA", "W", "H"])
             return (m.DATA, m.W, m.H)
         except (ImportError, AttributeError):
             return None
@@ -482,9 +487,9 @@ class App(oreoOS.App):
 
 def _wrap(text, max_chars, max_lines):
     """Greedy word-wrap; ellipsis on overflow. Returns ≤ max_lines lines."""
-    out  = []
+    out = []
     rest = (text or "").split()
-    cur  = ""
+    cur = ""
     while rest and len(out) < max_lines:
         w = rest[0]
         cand = (cur + " " + w) if cur else w
@@ -502,6 +507,6 @@ def _wrap(text, max_chars, max_lines):
         out.append(cur)
     if rest and out:
         last = out[-1]
-        cut  = max_chars - 1
+        cut = max_chars - 1
         out[-1] = (last[:cut].rstrip() + "…") if len(last) > cut else last + "…"
     return out

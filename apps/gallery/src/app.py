@@ -17,9 +17,9 @@ Controls:
 
 import gc as _gc
 import os as _os
+
 import oreoOS
-from oreoOS import api
-from oreoOS import theme, widgets
+from oreoOS import api, theme, widgets
 
 try:
     # Architecture-matched dynamic C module. CPython/simulator builds simply
@@ -46,8 +46,7 @@ def _list_photos():
         for f in _os.listdir(_GALLERY_DIR):
             if f.startswith("_"):
                 continue
-            if (f.endswith(".py") or f.endswith(".r565") or
-                    f.endswith(".rv565")):
+            if f.endswith(".py") or f.endswith(".r565") or f.endswith(".rv565"):
                 out.append(f)
         out.sort()
         return out
@@ -63,8 +62,9 @@ def _load_photo(name):
     if name.endswith(".py"):
         stem = name[:-3]
         try:
-            mod = __import__("apps.gallery.assets.optimized." + stem,
-                             None, None, ["DATA", "W", "H"])
+            mod = __import__(
+                "apps.gallery.assets.optimized." + stem, None, None, ["DATA", "W", "H"]
+            )
             return (bytearray(mod.DATA), mod.W, mod.H)
         except (ImportError, AttributeError):
             return None
@@ -92,8 +92,7 @@ class _Video:
         self.frame_offset = 0
         self._f = open(path, "rb")
         head = self._f.read(_VIDEO_HEADER_SIZE)
-        if (len(head) != _VIDEO_HEADER_SIZE or head[:3] != b"RV5" or
-                head[3] not in (1, 2, 3, 4)):
+        if len(head) != _VIDEO_HEADER_SIZE or head[:3] != b"RV5" or head[3] not in (1, 2, 3, 4):
             self.close()
             raise ValueError("bad RV565 header")
         self.version = head[3]
@@ -101,8 +100,15 @@ class _Video:
         self.h = head[6] | (head[7] << 8)
         self.fps = head[8]
         self.frames = head[10] | (head[11] << 8)
-        if (self.w <= 0 or self.h <= 0 or self.w > 320 or self.h > 240 or
-                self.fps <= 0 or self.fps > 30 or self.frames <= 0):
+        if (
+            self.w <= 0
+            or self.h <= 0
+            or self.w > 320
+            or self.h > 240
+            or self.fps <= 0
+            or self.fps > 30
+            or self.frames <= 0
+        ):
             self.close()
             raise ValueError("bad RV565 dimensions")
         # V4 stores one 256-colour RGB565 palette plus one byte per source
@@ -130,9 +136,13 @@ class _Video:
         # read per command (hundreds per frame), which reduced real playback
         # to ~0.5 FPS and starved button polling. One readinto() per frame is
         # both allocation-free and dramatically faster.
-        packed_cap = (0 if self.version in (3, 4) else
-                      len(self.data) + 1024 if self.version == 2 else
-                      len(self.data) + (len(self.data) // 2) + 16)
+        packed_cap = (
+            0
+            if self.version in (3, 4)
+            else len(self.data) + 1024
+            if self.version == 2
+            else len(self.data) + (len(self.data) // 2) + 16
+        )
         self._packed = bytearray(packed_cap)
         self.index = 0
         if self.version == 3:
@@ -142,6 +152,7 @@ class _Video:
         """Open one persistent native inflater for an RV565 v3 stream."""
         try:
             import deflate
+
             self._inflate = deflate.DeflateIO(self._f)
         except Exception:
             self._inflate = None
@@ -159,8 +170,7 @@ class _Video:
 
     @property
     def ready(self):
-        return (self.version != 4 or
-                self._loaded == self._payload_size)
+        return self.version != 4 or self._loaded == self._payload_size
 
     @property
     def load_percent(self):
@@ -173,7 +183,7 @@ class _Video:
         if self.version != 4 or self.ready:
             return True
         end = min(self._loaded + amount, self._payload_size)
-        target = memoryview(self._blob)[self._loaded:end]
+        target = memoryview(self._blob)[self._loaded : end]
         total = 0
         try:
             while total < len(target):
@@ -216,7 +226,7 @@ class _Video:
         # second frame-sized object on the MicroPython heap.
         zero = b"\x00" * min(256, len(self.data))
         for off in range(0, len(self.data), len(zero)):
-            self.data[off:off + len(zero)] = zero[:len(self.data) - off]
+            self.data[off : off + len(zero)] = zero[: len(self.data) - off]
         self.index = 0
 
     def next_frame(self):
@@ -249,8 +259,7 @@ class _Video:
         size_b = self._f.read(4)
         if len(size_b) != 4:
             return False
-        left = (size_b[0] | (size_b[1] << 8) |
-                (size_b[2] << 16) | (size_b[3] << 24))
+        left = size_b[0] | (size_b[1] << 8) | (size_b[2] << 16) | (size_b[3] << 24)
         if left <= 0 or left > len(self._packed):
             return False
         packed_view = memoryview(self._packed)[:left]
@@ -268,8 +277,10 @@ class _Video:
             try:
                 packed = bytes(packed_view)
                 try:
-                    import deflate
                     import io
+
+                    import deflate
+
                     inflater = deflate.DeflateIO(io.BytesIO(packed))
                     readinto = getattr(inflater, "readinto", None)
                     if readinto is not None:
@@ -285,6 +296,7 @@ class _Video:
                         raw = inflater.read()
                 except ImportError:
                     import zlib
+
                     raw = zlib.decompress(packed)
             except Exception:
                 return False
@@ -302,20 +314,20 @@ class _Video:
             command = self._packed[src]
             src += 1
             op = command >> 6
-            count = (command & 0x3f) + 1
+            count = (command & 0x3F) + 1
             if pixel + count > pixels:
                 return False
-            if op == 0:                 # unchanged pixels
+            if op == 0:  # unchanged pixels
                 pixel += count
-            elif op == 1:               # literal RGB565 pixels
+            elif op == 1:  # literal RGB565 pixels
                 n = count * 2
                 if src + n > left:
                     return False
                 start = pixel * 2
-                self.data[start:start + n] = packed_view[src:src + n]
+                self.data[start : start + n] = packed_view[src : src + n]
                 pixel += count
                 src += n
-            elif op == 2:               # one RGB565 colour repeated
+            elif op == 2:  # one RGB565 colour repeated
                 if src + 2 > left:
                     return False
                 colour = bytes((self._packed[src], self._packed[src + 1]))
@@ -323,7 +335,7 @@ class _Video:
                 off = pixel * 2
                 # count is capped at 64, so this creates at most a 128-byte
                 # temporary and lets native slice assignment do the hot copy.
-                self.data[off:off + count * 2] = colour * count
+                self.data[off : off + count * 2] = colour * count
                 pixel += count
             else:
                 return False
@@ -358,27 +370,27 @@ def _load_r565(path):
 # (heading), "b" (bullet), or "code" (monospace command). Centralised
 # here so the panel renderer stays simple.
 _HELP = [
-    ("h",   "Add bundled photos"),
-    ("b",   "Drop a JPG or PNG into"),
-    ("code","apps/gallery/assets/raw/"),
-    ("b",   "Square images render best;"),
-    ("b",   "max ~240x240 to fit the LCD."),
-    ("h",   "Optimise it"),
-    ("b",   "From the repo root run:"),
-    ("code","python tools/optimize_assets.py"),
-    ("code","         --app gallery"),
-    ("b",   "This bakes each raw image into"),
-    ("b",   "a tiny RGB565 .py module."),
-    ("h",   "Flash the badge"),
-    ("b",   "Plug in the badge over USB then:"),
-    ("code","python tools/deploy.py"),
-    ("b",   "The deploy script auto-skips"),
-    ("b",   "unchanged files (use --force to"),
-    ("b",   "push everything)."),
-    ("h",   "On the badge"),
-    ("b",   "Open Gallery, press A to refresh"),
-    ("b",   "the listing. New media appears"),
-    ("b",   "in alphabetical order."),
+    ("h", "Add bundled photos"),
+    ("b", "Drop a JPG or PNG into"),
+    ("code", "apps/gallery/assets/raw/"),
+    ("b", "Square images render best;"),
+    ("b", "max ~240x240 to fit the LCD."),
+    ("h", "Optimise it"),
+    ("b", "From the repo root run:"),
+    ("code", "python tools/optimize_assets.py"),
+    ("code", "         --app gallery"),
+    ("b", "This bakes each raw image into"),
+    ("b", "a tiny RGB565 .py module."),
+    ("h", "Flash the badge"),
+    ("b", "Plug in the badge over USB then:"),
+    ("code", "python tools/deploy.py"),
+    ("b", "The deploy script auto-skips"),
+    ("b", "unchanged files (use --force to"),
+    ("b", "push everything)."),
+    ("h", "On the badge"),
+    ("b", "Open Gallery, press A to refresh"),
+    ("b", "the listing. New media appears"),
+    ("b", "in alphabetical order."),
 ]
 
 
@@ -394,11 +406,11 @@ def _wrap_help(text, max_chars):
     """
     if max_chars <= 0:
         return [text]
-    out  = []
+    out = []
     rest = text.split()
-    cur  = ""
+    cur = ""
     while rest:
-        w    = rest[0]
+        w = rest[0]
         cand = (cur + " " + w) if cur else w
         if len(cand) <= max_chars:
             cur = cand
@@ -416,8 +428,8 @@ def _wrap_help(text, max_chars):
 
 
 class App(oreoOS.App):
-    name         = "Gallery"
-    author       = "Circuit-Overtime"
+    name = "Gallery"
+    author = "Circuit-Overtime"
     # _list_photos() + first-photo decode walks assets/optimized/ and
     # imports each baked RGB565 module. Cold-launch on a populated
     # gallery is in the 400-800 ms range — without the splash, the user
@@ -426,9 +438,9 @@ class App(oreoOS.App):
     SHOW_LOADING = True
 
     def on_enter(self, os):
-        self._os    = os
+        self._os = os
         self._names = _list_photos()
-        self._idx   = 0
+        self._idx = 0
         self._scroll = 0
         self._cache = {}
         # Per-photo nearest-neighbour downscale cache. Keyed by
@@ -463,8 +475,11 @@ class App(oreoOS.App):
         _gc.collect()
 
     def _is_video(self):
-        return (not self._is_add_tile() and self._idx < len(self._names) and
-                self._names[self._idx].endswith(".rv565"))
+        return (
+            not self._is_add_tile()
+            and self._idx < len(self._names)
+            and self._names[self._idx].endswith(".rv565")
+        )
 
     def _open_video(self):
         if not self._is_video():
@@ -504,7 +519,7 @@ class App(oreoOS.App):
         return self._cache.get(name)
 
     def on_button_press(self, btn):
-        total = len(self._names) + 1     # photos + ADD tile
+        total = len(self._names) + 1  # photos + ADD tile
         if btn == api.BTN_LEFT:
             self._close_video()
             self._idx = (self._idx - 1) % total
@@ -532,7 +547,7 @@ class App(oreoOS.App):
             self._names = _list_photos()
             self._cache = {}
             self._scaled_cache = {}
-            self._idx   = 0
+            self._idx = 0
             self._scroll = 0
             self._dirty = True
         elif btn == api.BTN_B:
@@ -557,8 +572,7 @@ class App(oreoOS.App):
             self._cache.pop(name, None)
             # Drop any cached downscales that referenced this photo too
             # — the keys embed the filename so a single pass clears them.
-            self._scaled_cache = {k: v for k, v in self._scaled_cache.items()
-                                  if k[0] != name}
+            self._scaled_cache = {k: v for k, v in self._scaled_cache.items() if k[0] != name}
             self._names = _list_photos()
             # Clamp the cursor: prefer staying on the same index so
             # the next photo slides under the user's finger. If we
@@ -625,8 +639,7 @@ class App(oreoOS.App):
             # Only advertise B=delete for uploaded photos, since baked
             # .py photos refuse the delete and silently confusing the
             # user with a hint that doesn't fire is worse than no hint.
-            cur_name = (self._names[self._idx]
-                        if self._idx < len(self._names) else "")
+            cur_name = self._names[self._idx] if self._idx < len(self._names) else ""
             if cur_name.endswith(".rv565"):
                 state = "pause" if self._video_playing else "play"
                 widgets.draw_hint(d, "L/R=next  A=%s  B=delete" % state)
@@ -637,10 +650,9 @@ class App(oreoOS.App):
 
         # n/n counter inside the header bar (right-aligned). ADD tile counts
         # too so the user knows there's something after the last photo.
-        total   = len(self._names) + 1
+        total = len(self._names) + 1
         idx_str = "%d/%d" % (self._idx + 1, total)
-        d.text(idx_str, SW - len(idx_str) * 8 - 6,
-               (widgets.HEADER_H - 8) // 2, api.WHITE)
+        d.text(idx_str, SW - len(idx_str) * 8 - 6, (widgets.HEADER_H - 8) // 2, api.WHITE)
 
         if self._is_add_tile():
             self._draw_add_tile(d)
@@ -655,40 +667,41 @@ class App(oreoOS.App):
             d.clear(api.BLACK)
             self._video_needs_clear = False
         if video is None:
-            d.text("broken video", (SW - 12 * 16) // 2, SH // 2 - 8,
-                   theme.MUTED, scale=2)
+            d.text("broken video", (SW - 12 * 16) // 2, SH // 2 - 8, theme.MUTED, scale=2)
         else:
             if video.version == 4 and not video.ready:
                 d.clear(api.BLACK)
                 label = "LOADING VIDEO %d%%" % video.load_percent
-                d.text(label, (SW - len(label) * 8) // 2,
-                       SH // 2 - 18, api.WHITE)
+                d.text(label, (SW - len(label) * 8) // 2, SH // 2 - 18, api.WHITE)
                 bx, by, bw, bh = 30, SH // 2 + 4, SW - 60, 10
                 d.rect(bx, by, bw, bh, theme.MUTED, fill=False)
                 fill = (bw - 4) * video.load_percent // 100
                 if fill:
-                    d.rect(bx + 2, by + 2, fill, bh - 4,
-                           theme.PRIMARY, fill=True)
+                    d.rect(bx + 2, by + 2, fill, bh - 4, theme.PRIMARY, fill=True)
                 return
             # V4 is expanded and scaled straight into Display._buf by C. It
             # avoids a 153 KB intermediate frame and all Python pixel loops.
             native_buf = getattr(d, "_buf", None)
-            if (video.version == 4 and _gallery_native is not None and
-                    native_buf is not None):
+            if video.version == 4 and _gallery_native is not None and native_buf is not None:
                 _gallery_native.indexed_scale_at(
-                    video._blob, video.frame_offset, native_buf,
-                    video.w, video.h, SW, SH)
+                    video._blob, video.frame_offset, native_buf, video.w, video.h, SW, SH
+                )
                 # We intentionally use the hardware buffer directly to keep
                 # the accelerator Gallery-local. Tell Display to flush it.
                 d._dirty = True
             # V2 uploads are already native LCD frames: one C-level buffer copy
             # replaces the old Python scaling loop. V1 remains readable for
             # compatibility, but re-uploading upgrades it to this fast path.
-            elif (video.version == 2 and video.w == SW and video.h == SH and
-                    getattr(d, "blit_fullscreen", None) is not None):
+            elif (
+                video.version == 2
+                and video.w == SW
+                and video.h == SH
+                and getattr(d, "blit_fullscreen", None) is not None
+            ):
                 d.blit_fullscreen(video.data)
-            elif (getattr(d, "blit_2x", None) is not None and
-                    video.w * 2 <= SW and video.h * 2 <= SH):
+            elif (
+                getattr(d, "blit_2x", None) is not None and video.w * 2 <= SW and video.h * 2 <= SH
+            ):
                 px = (SW - video.w * 2) // 2
                 py = (SH - video.h * 2) // 2
                 d.blit_2x(video.data, px, py, video.w, video.h)
@@ -698,12 +711,9 @@ class App(oreoOS.App):
                 d.blit(video.data, px, py, video.w, video.h)
             if not self._video_playing:
                 # Small pause badge over the frame.
-                d.rect(SW // 2 - 15, SH // 2 - 15, 30, 30,
-                       theme.BG, fill=True)
-                d.rect(SW // 2 - 7, SH // 2 - 8, 4, 16,
-                       api.WHITE, fill=True)
-                d.rect(SW // 2 + 3, SH // 2 - 8, 4, 16,
-                       api.WHITE, fill=True)
+                d.rect(SW // 2 - 15, SH // 2 - 15, 30, 30, theme.BG, fill=True)
+                d.rect(SW // 2 - 7, SH // 2 - 8, 4, 16, api.WHITE, fill=True)
+                d.rect(SW // 2 + 3, SH // 2 - 8, 4, 16, api.WHITE, fill=True)
 
     # ── photo render ─────────────────────────────────────────────────────
     def _draw_photo(self, d):
@@ -738,16 +748,24 @@ class App(oreoOS.App):
                 native_buf = getattr(d, "_buf", None)
                 if _gallery_native is not None and native_buf is not None:
                     _gallery_native.rgb565_scale(
-                        data, native_buf, pw, phh,
-                        (SW - view_w) // 2, ay + (ah - view_h) // 2,
-                        view_w, view_h, SW)
+                        data,
+                        native_buf,
+                        pw,
+                        phh,
+                        (SW - view_w) // 2,
+                        ay + (ah - view_h) // 2,
+                        view_w,
+                        view_h,
+                        SW,
+                    )
                     d._dirty = True
                     blit_data = None
                 else:
                     key = (self._names[self._idx], view_w, view_h)
                     blit_data = self._scaled_cache.get(key)
                 if blit_data is None and not (
-                        _gallery_native is not None and native_buf is not None):
+                    _gallery_native is not None and native_buf is not None
+                ):
                     row_src = pw * 2
                     row_dst = view_w * 2
                     out = bytearray(row_dst * view_h)
@@ -761,7 +779,7 @@ class App(oreoOS.App):
                         for c in range(view_w):
                             sx = (c * pw // view_w) * 2
                             so = src_row_base + sx
-                            out[d_off]     = data[so]
+                            out[d_off] = data[so]
                             out[d_off + 1] = data[so + 1]
                             d_off += 2
                     blit_data = out
@@ -771,14 +789,13 @@ class App(oreoOS.App):
             if blit_data is not None:
                 d.blit(blit_data, px, py, view_w, view_h)
         else:
-            d.text("broken photo", (SW - 12 * 16) // 2, ay + 40,
-                   theme.MUTED, scale=2)
+            d.text("broken photo", (SW - 12 * 16) // 2, ay + 40, theme.MUTED, scale=2)
 
         # ◀ / ▶ chevrons on the edges so the user knows the carousel cycles.
         # The carousel always wraps (includes the ADD tile), so both sides
         # are always navigable — render both arrows unconditionally.
         ar_y = ay + ah // 2 - 8
-        d.text("<", 4,      ar_y, theme.PRIMARY, scale=2)
+        d.text("<", 4, ar_y, theme.PRIMARY, scale=2)
         d.text(">", SW - 18, ar_y, theme.PRIMARY, scale=2)
 
     # ── ADD tile: scrollable instructions ────────────────────────────────
@@ -789,35 +806,35 @@ class App(oreoOS.App):
         card_w = SW - 20
         card_h = SH - widgets.HEADER_H - widgets.HINT_H - 8
         d.rect(card_x + 2, card_y + 2, card_w, card_h, theme.MUTED2, fill=True)
-        d.rect(card_x,     card_y,     card_w, card_h, theme.CARD,   fill=True)
-        d.rect(card_x,     card_y,     card_w, 3,      theme.PRIMARY, fill=True)
+        d.rect(card_x, card_y, card_w, card_h, theme.CARD, fill=True)
+        d.rect(card_x, card_y, card_w, 3, theme.PRIMARY, fill=True)
 
         # Pink "+" badge + heading. Slightly smaller (32 vs 36) so it
         # leaves more room for the instruction body below.
         bx, by, bsz = card_x + 10, card_y + 10, 32
         d.rect(bx, by, bsz, bsz, theme.PRIMARY, fill=True)
-        d.rect(bx + bsz // 2 - 2, by + 5,            4, bsz - 10, api.WHITE, fill=True)
-        d.rect(bx + 5,            by + bsz // 2 - 2, bsz - 10, 4, api.WHITE, fill=True)
-        d.text("Add media",       bx + bsz + 10, by + 2,  theme.PRIMARY, scale=2)
+        d.rect(bx + bsz // 2 - 2, by + 5, 4, bsz - 10, api.WHITE, fill=True)
+        d.rect(bx + 5, by + bsz // 2 - 2, bsz - 10, 4, api.WHITE, fill=True)
+        d.text("Add media", bx + bsz + 10, by + 2, theme.PRIMARY, scale=2)
         d.text("scroll UP / DOWN", bx + bsz + 10, by + 22, theme.MUTED)
 
         # Scrollable instructions. Uniform scale=1 across headings,
         # bullets and code so all three feel like one body of text;
         # visual hierarchy comes from colour + a gold underline on
         # headings + tinted background on code, not from font size.
-        text_x   = card_x + 12
-        inner_w  = card_w - 24
-        list_y   = card_y + 10 + bsz + 12
+        text_x = card_x + 12
+        inner_w = card_w - 24
+        list_y = card_y + 10 + bsz + 12
         list_bot = card_y + card_h - 8
 
-        LINE_H  = 12
+        LINE_H = 12
         ROW_GAP = 6
 
         max_h_chars = inner_w // 8
         max_b_chars = (inner_w - 12) // 8
         max_c_chars = (inner_w - 12) // 8
 
-        rows = _HELP[self._scroll:]
+        rows = _HELP[self._scroll :]
         cur_y = list_y
         rendered = 0
         for kind, payload in rows:
@@ -840,17 +857,14 @@ class App(oreoOS.App):
                     break
                 d.rect(text_x + 2, cur_y + 3, 3, 3, theme.PRIMARY, fill=True)
                 for line in lines:
-                    d.text(line, text_x + 10, cur_y,
-                           theme.TEXT_BRIGHT, scale=1)
+                    d.text(line, text_x + 10, cur_y, theme.TEXT_BRIGHT, scale=1)
                     cur_y += LINE_H
             elif kind == "code":
                 truncated = payload[:max_c_chars]
                 if cur_y + LINE_H > list_bot:
                     break
-                d.rect(text_x + 4, cur_y - 1, inner_w - 8, LINE_H,
-                       theme.DOCK_SEL, fill=True)
-                d.text(truncated, text_x + 8, cur_y + 1,
-                       theme.TEAL, scale=1)
+                d.rect(text_x + 4, cur_y - 1, inner_w - 8, LINE_H, theme.DOCK_SEL, fill=True)
+                d.text(truncated, text_x + 8, cur_y + 1, theme.TEAL, scale=1)
                 cur_y += LINE_H + 1
             rendered += 1
 

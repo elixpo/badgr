@@ -57,11 +57,12 @@ except ImportError:
 
 try:
     from oreoOS.config import get_state_path
+
     _SAVED_PATH = get_state_path("wifi.json")
 except Exception:
     _SAVED_PATH = "badge_data/wifi.json"
 
-_PER_NET_TIMEOUT  = 10000   
+_PER_NET_TIMEOUT = 10000
 
 
 def _get_wlan():
@@ -79,6 +80,7 @@ def _apply_power_cap(wlan):
     keys don't kill WiFi entirely.
     """
     from oreoOS import config
+
     tx_dbm = config.get("WIFI_TX_DBM", "")
     if tx_dbm:
         try:
@@ -95,8 +97,8 @@ def _apply_power_cap(wlan):
 MDNS_HOSTNAME = "oreo"
 
 
-_hostname_applied        = False     # per-WLAN dhcp_hostname / hostname
-_global_hostname_applied = False     # network.hostname() (mDNS)
+_hostname_applied = False  # per-WLAN dhcp_hostname / hostname
+_global_hostname_applied = False  # network.hostname() (mDNS)
 
 
 def _apply_global_hostname():
@@ -119,6 +121,7 @@ def _apply_global_hostname():
         return
     try:
         import network as _net
+
         if hasattr(_net, "hostname"):
             _net.hostname(MDNS_HOSTNAME)
             _global_hostname_applied = True
@@ -126,8 +129,10 @@ def _apply_global_hostname():
         # Older build without network.hostname() — fall through; the
         # per-WLAN dhcp_hostname applied later still gets us into the
         # router's DHCP-snooping resolver on most home gateways.
-        try: print("[wifi] network.hostname() failed:", e)
-        except Exception: pass
+        try:
+            print("[wifi] network.hostname() failed:", e)
+        except Exception:
+            pass
 
 
 def _apply_hostname(wlan):
@@ -167,10 +172,14 @@ def radio_off():
     with `radio_on()` so a UI toggle has a real on/off semantic."""
     try:
         wlan = _get_wlan()
-        try: wlan.disconnect()
-        except Exception: pass
-        try: wlan.active(False)
-        except Exception: pass
+        try:
+            wlan.disconnect()
+        except Exception:
+            pass
+        try:
+            wlan.active(False)
+        except Exception:
+            pass
         return True
     except Exception:
         return False
@@ -323,7 +332,7 @@ def _secrets_networks():
         return [dict(n) for n in nets if isinstance(n, dict) and n.get("ssid")]
     # Legacy fallback: just the first pair.
     ssid = getattr(secrets, "WIFI_SSID", "")
-    pw   = getattr(secrets, "WIFI_PASSWORD", "")
+    pw = getattr(secrets, "WIFI_PASSWORD", "")
     if ssid:
         return [{"ssid": ssid, "password": pw, "priority": 1, "metered": False}]
     return []
@@ -350,8 +359,8 @@ def _sync_secrets_into_saved():
         return
     saved = _load_saved_raw() or []
     by_ssid = {n.get("ssid", ""): n for n in saved if n.get("ssid")}
-    changed   = False
-    added     = 0
+    changed = False
+    added = 0
     refreshed = 0
     for s in secret_nets:
         ssid = s.get("ssid", "")
@@ -359,19 +368,21 @@ def _sync_secrets_into_saved():
             continue
         existing = by_ssid.get(ssid)
         if existing is None:
-            saved.append({
-                "ssid":     ssid,
-                "password": s.get("password", ""),
-                "priority": int(s.get("priority", 10)),
-                "metered":  bool(s.get("metered", False)),
-            })
+            saved.append(
+                {
+                    "ssid": ssid,
+                    "password": s.get("password", ""),
+                    "priority": int(s.get("priority", 10)),
+                    "metered": bool(s.get("metered", False)),
+                }
+            )
             changed = True
-            added  += 1
+            added += 1
             continue
         # Existing entry — refresh priority unconditionally, password
         # only if the new value is non-empty.
         new_pri = int(s.get("priority", existing.get("priority", 10)))
-        new_pw  = s.get("password", "") or ""
+        new_pw = s.get("password", "") or ""
         local_changed = False
         if int(existing.get("priority", 99)) != new_pri:
             existing["priority"] = new_pri
@@ -380,12 +391,14 @@ def _sync_secrets_into_saved():
             existing["password"] = new_pw
             local_changed = True
         if local_changed:
-            changed    = True
+            changed = True
             refreshed += 1
     if changed:
         _save_raw(saved)
-        print("[wifi] secrets sync: +%d new, %d refreshed (of %d)" %
-              (added, refreshed, len(secret_nets)))
+        print(
+            "[wifi] secrets sync: +%d new, %d refreshed (of %d)"
+            % (added, refreshed, len(secret_nets))
+        )
 
 
 def _bootstrap_from_secrets():
@@ -400,6 +413,7 @@ def list_saved():
     Caller gets fresh dicts — mutating them doesn't affect on-disk state
     until save_saved() is called."""
     nets = _load_saved_raw() or _bootstrap_from_secrets()
+
     # Defensive copy + priority sort (None or missing → very high so
     # nameless entries sink to the bottom).
     def _key(n):
@@ -407,6 +421,7 @@ def list_saved():
             return int(n.get("priority", 999))
         except Exception:
             return 999
+
     return sorted([dict(n) for n in nets if n.get("ssid")], key=_key)
 
 
@@ -421,19 +436,21 @@ def add_saved(ssid, password, priority=10, metered=False):
     entries are overwritten so the user doesn't accumulate duplicates
     if they re-enter the same network."""
     nets = _load_saved_raw() or _bootstrap_from_secrets()
-    out  = [n for n in nets if n.get("ssid") != ssid]
-    out.append({
-        "ssid":     ssid,
-        "password": password or "",
-        "priority": int(priority),
-        "metered":  bool(metered),
-    })
+    out = [n for n in nets if n.get("ssid") != ssid]
+    out.append(
+        {
+            "ssid": ssid,
+            "password": password or "",
+            "priority": int(priority),
+            "metered": bool(metered),
+        }
+    )
     return _save_raw(out)
 
 
 def remove_saved(ssid):
     nets = _load_saved_raw()
-    out  = [n for n in nets if n.get("ssid") != ssid]
+    out = [n for n in nets if n.get("ssid") != ssid]
     if len(out) == len(nets):
         return False
     return _save_raw(out)
@@ -496,8 +513,9 @@ def connect_from_config(pump_cb=None):
         # ever bringing the radio up.
         try:
             import secrets
+
             ssid_ = getattr(secrets, "WIFI_SSID", "")
-            pw    = getattr(secrets, "WIFI_PASSWORD", "")
+            pw = getattr(secrets, "WIFI_PASSWORD", "")
             if ssid_:
                 print("[wifi] no saved nets, falling back to secrets bootstrap")
                 # Persist as the new "priority 1" entry so this branch
@@ -509,9 +527,7 @@ def connect_from_config(pump_cb=None):
                     pass
                 ok = False
                 try:
-                    ok = connect(ssid_, pw,
-                                 timeout_ms=_PER_NET_TIMEOUT,
-                                 pump_cb=pump_cb)
+                    ok = connect(ssid_, pw, timeout_ms=_PER_NET_TIMEOUT, pump_cb=pump_cb)
                 except Exception:
                     pass
                 return ok
@@ -525,11 +541,8 @@ def connect_from_config(pump_cb=None):
             continue
         pw = n.get("password") or ""
         try:
-            print("[wifi] try %s (p=%s)" %
-                  (ssid_, n.get("priority", "?")))
-            ok = connect(ssid_, pw,
-                         timeout_ms=_PER_NET_TIMEOUT,
-                         pump_cb=pump_cb)
+            print("[wifi] try %s (p=%s)" % (ssid_, n.get("priority", "?")))
+            ok = connect(ssid_, pw, timeout_ms=_PER_NET_TIMEOUT, pump_cb=pump_cb)
         except Exception as e:
             print("[wifi] connect raised:", e)
             ok = False
@@ -648,7 +661,7 @@ def speed_test(bytes_=200_000, timeout_s=10, pump_cb=None):
     """
     try:
         import socket as _s
-        import ssl    as _ssl
+        import ssl as _ssl
     except ImportError:
         return (False, 0, 0)
     if not is_connected():
@@ -661,7 +674,7 @@ def speed_test(bytes_=200_000, timeout_s=10, pump_cb=None):
         return (False, 0, 0)
 
     raw = None
-    s   = None
+    s = None
     deadline = time.ticks_add(time.ticks_ms(), int(timeout_s * 1000))
     t0 = time.ticks_ms()
     received = 0
@@ -686,20 +699,26 @@ def speed_test(bytes_=200_000, timeout_s=10, pump_cb=None):
 
     try:
         raw = _s.socket()
-        try: raw.settimeout(timeout_s)   # connect can take a while
-        except Exception: pass
+        try:
+            raw.settimeout(timeout_s)  # connect can take a while
+        except Exception:
+            pass
         raw.connect(addr)
         if hasattr(_ssl, "create_default_context"):
             ctx = _ssl.create_default_context()
             s = ctx.wrap_socket(raw, server_hostname=host)
         else:
             s = _ssl.wrap_socket(raw, server_hostname=host)
-        try: s.settimeout(PER_READ_S)
-        except Exception: pass
-        req = ("GET %s HTTP/1.1\r\nHost: %s\r\n"
-               "User-Agent: OreoBadge-Speed\r\n"
-               "Accept-Encoding: identity\r\n"
-               "Connection: close\r\n\r\n") % (path, host)
+        try:
+            s.settimeout(PER_READ_S)
+        except Exception:
+            pass
+        req = (
+            "GET %s HTTP/1.1\r\nHost: %s\r\n"
+            "User-Agent: OreoBadge-Speed\r\n"
+            "Accept-Encoding: identity\r\n"
+            "Connection: close\r\n\r\n"
+        ) % (path, host)
         s.write(req.encode())
         head = b""
         # Read headers. With the short PER_READ_S timeout each recv
@@ -760,7 +779,7 @@ def speed_test(bytes_=200_000, timeout_s=10, pump_cb=None):
         return (False, 0, elapsed)
     if received <= 0:
         return (False, 0, elapsed)
-    kbps = int((received * 8) // elapsed)   # bytes*8 / ms = kbps
+    kbps = int((received * 8) // elapsed)  # bytes*8 / ms = kbps
     return (True, kbps, elapsed)
 
 
@@ -770,10 +789,16 @@ def info():
     Returns a dict with `connected`, `ssid`, `ip`, `subnet`, `gateway`,
     `dns`, and `rssi`. Missing fields are None — the UI fills with '—'.
     """
-    out = {"connected": False, "radio_on": False,
-           "ssid": None,    "ip": None,
-           "subnet":   None,  "gateway": None, "dns": None,
-           "rssi":     None}
+    out = {
+        "connected": False,
+        "radio_on": False,
+        "ssid": None,
+        "ip": None,
+        "subnet": None,
+        "gateway": None,
+        "dns": None,
+        "rssi": None,
+    }
     try:
         wlan = _get_wlan()
         try:
@@ -782,11 +807,11 @@ def info():
             pass
         out["connected"] = bool(wlan.isconnected())
         if out["connected"]:
-            cfg = wlan.ifconfig()    # (ip, subnet, gateway, dns)
-            out["ip"]      = cfg[0]
-            out["subnet"]  = cfg[1]
+            cfg = wlan.ifconfig()  # (ip, subnet, gateway, dns)
+            out["ip"] = cfg[0]
+            out["subnet"] = cfg[1]
             out["gateway"] = cfg[2]
-            out["dns"]     = cfg[3]
+            out["dns"] = cfg[3]
             try:
                 out["ssid"] = wlan.config("essid")
             except Exception:

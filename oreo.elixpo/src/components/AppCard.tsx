@@ -42,7 +42,6 @@ function IconTile({
                      rounded-md bg-card-sub p-2 ring-2 ring-inset
                      ${tint.ring} ${tint.text}`}>
       {app.pngIcon && pngOk ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={app.pngIcon}
           alt=""

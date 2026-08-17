@@ -15,96 +15,120 @@ The first network from .env is auto-seeded into /wifi.json on first
 boot via the wifi module's bootstrap path.
 """
 
-import oreoOS
 import time
 
+import oreoOS
 from oreoOS import api, theme, widgets
-
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-ROW_H        = 22
-ROW_PAD_X    = 12
-ROW_TOP_Y    = widgets.HEADER_H + 6
-VALUE_X      = 138
-AUTOCON_GAP  = 8
+ROW_H = 22
+ROW_PAD_X = 12
+ROW_TOP_Y = widgets.HEADER_H + 6
+VALUE_X = 138
+AUTOCON_GAP = 8
 
 POWER_LABELS = {
-    "off":      "Off",
-    "eco":      "Eco",
+    "off": "Off",
+    "eco": "Eco",
     "balanced": "Balanced",
-    "max":      "Max",
+    "max": "Max",
 }
 
 POWER_HINTS = {
-    "off":      "radio off",
-    "eco":      "5 dBm  · PS",
+    "off": "radio off",
+    "eco": "5 dBm  · PS",
     "balanced": "11 dBm · PS",
-    "max":      "19 dBm · full",
+    "max": "19 dBm · full",
 }
 
 
 def _bars(rssi_dbm):
     if rssi_dbm is None:
         return "----"
-    if rssi_dbm >= -50:  return "####"
-    if rssi_dbm >= -65:  return "###-"
-    if rssi_dbm >= -75:  return "##--"
-    if rssi_dbm >= -85:  return "#---"
+    if rssi_dbm >= -50:
+        return "####"
+    if rssi_dbm >= -65:
+        return "###-"
+    if rssi_dbm >= -75:
+        return "##--"
+    if rssi_dbm >= -85:
+        return "#---"
     return "----"
 
 
 class App(oreoOS.App):
-    name         = "WiFi"
-    author       = "Circuit-Overtime"
+    name = "WiFi"
+    author = "Circuit-Overtime"
     SHOW_LOADING = True
 
     # Logical row indices — keeps cycle code readable when we re-order.
-    (ROW_STATUS, ROW_SSID, ROW_IP, ROW_RSSI, ROW_POWER,
-     ROW_NETS, ROW_SPEED, ROW_PING, ROW_TRANSFER,
-     ROW_AUTOCONNECT) = range(10)
-    ROWS = (ROW_STATUS, ROW_SSID, ROW_IP, ROW_RSSI, ROW_POWER,
-            ROW_NETS, ROW_SPEED, ROW_PING, ROW_TRANSFER,
-            ROW_AUTOCONNECT)
+    (
+        ROW_STATUS,
+        ROW_SSID,
+        ROW_IP,
+        ROW_RSSI,
+        ROW_POWER,
+        ROW_NETS,
+        ROW_SPEED,
+        ROW_PING,
+        ROW_TRANSFER,
+        ROW_AUTOCONNECT,
+    ) = range(10)
+    ROWS = (
+        ROW_STATUS,
+        ROW_SSID,
+        ROW_IP,
+        ROW_RSSI,
+        ROW_POWER,
+        ROW_NETS,
+        ROW_SPEED,
+        ROW_PING,
+        ROW_TRANSFER,
+        ROW_AUTOCONNECT,
+    )
 
     def on_enter(self, os_):
         super().on_enter(os_)
-        self._os    = os_
-        self._sel   = self.ROW_STATUS
+        self._os = os_
+        self._sel = self.ROW_STATUS
         self._dirty = True
 
         try:
             from oreoWare import wifi
+
             self._wifi = wifi
         except Exception as e:
             from oreoOS import config
-            if config.DEBUG: print("wifi init err:", e)
+
+            if config.DEBUG:
+                print("wifi init err:", e)
             self._wifi = None
 
         # 5 Hz info refresh so RSSI and IP track reality without the user
         # having to back out and reopen the app.
-        self._poll_t  = 0.0
+        self._poll_t = 0.0
         self._poll_dt = 0.2
-        self._snap    = self._read()
+        self._snap = self._read()
 
         # Sub-page state
-        self._mode    = "main"          # "main" | "nets" | "transfer"
+        self._mode = "main"  # "main" | "nets" | "transfer"
         # Cached cursor inside the transfer-page sender list.
         self._trans_sel = 0
         # LEFT press-timestamp on the Transfer page — used to
         # distinguish tap (deny) from hold (toggle master kill switch).
         # 0 means "not currently pressed."
         self._lp_left_press_ms = 0
-        self._nets    = []              # cached saved-networks list
+        self._nets = []  # cached saved-networks list
         self._nets_sel = 0
 
         # One-shot result strings shown under their respective rows.
         # `_speed_label` and `_ping_label` are set after a test runs;
         # they survive until the row's value re-renders normally.
         self._speed_label = ""
-        self._ping_label  = ""
-        self._busy        = ""          # "speed" | "ping" while a test runs
+        self._ping_label = ""
+        self._busy = ""  # "speed" | "ping" while a test runs
 
         # Transfer-page change-detection state. The previous version
         # marked the screen dirty every tick a session existed, which
@@ -116,13 +140,13 @@ class App(oreoOS.App):
         # a newly-arrived sender shows up on the next frame instead of
         # the next 200ms poll tick.
         self._last_sess_count = 0
-        self._last_sess_sig   = ""        # sids joined — detects swaps
-        self._last_prog_sig   = ""        # progress (id, received) snapshot
+        self._last_sess_sig = ""  # sids joined — detects swaps
+        self._last_prog_sig = ""  # progress (id, received) snapshot
         # Last 'Received' toast — we render a bottom pill for a couple
         # of seconds after the http_server bumps last_upload(). 0 means
         # "no toast active." Filename is what we show in the pill.
         self._toast_seen_ts = 0
-        self._toast_name    = ""
+        self._toast_name = ""
 
     # ── data ────────────────────────────────────────────────────────────
     def _read(self):
@@ -132,7 +156,9 @@ class App(oreoOS.App):
             return self._wifi.info()
         except OSError as e:
             from oreoOS import config
-            if config.DEBUG: print("wifi info err:", e)
+
+            if config.DEBUG:
+                print("wifi info err:", e)
             return {"connected": False}
 
     def _power_mode(self):
@@ -229,7 +255,9 @@ class App(oreoOS.App):
                         self._wifi.disconnect()
                 except OSError as e:
                     from oreoOS import config
-                    if config.DEBUG: print("wifi radio_off err:", e)
+
+                    if config.DEBUG:
+                        print("wifi radio_off err:", e)
             else:
                 # The credentials live in secrets.py / wifi.json — we
                 # don't need a "searching" UX. Bring the radio up
@@ -249,10 +277,14 @@ class App(oreoOS.App):
                         self._wifi.connect_from_config()
                     except OSError as e:
                         from oreoOS import config
-                        if config.DEBUG: print("wifi connect err:", e)
+
+                        if config.DEBUG:
+                            print("wifi connect err:", e)
                 except OSError as e:
                     from oreoOS import config
-                    if config.DEBUG: print("wifi connect err:", e)
+
+                    if config.DEBUG:
+                        print("wifi connect err:", e)
                 # NOTE: we deliberately do NOT drop the radio when
                 # connect_from_config returns False. The previous
                 # version did, which silently powered the MAC down on
@@ -266,7 +298,7 @@ class App(oreoOS.App):
             self._snap = self._read()
         elif r == self.ROW_POWER:
             modes = self._wifi.POWER_MODES
-            cur   = self._power_mode()
+            cur = self._power_mode()
             try:
                 nxt = modes[(modes.index(cur) + 1) % len(modes)]
             except ValueError:
@@ -279,17 +311,16 @@ class App(oreoOS.App):
             self._snap = self._read()
         elif r == self.ROW_AUTOCONNECT:
             try:
-                self._os.settings_set("wifi_autoconnect",
-                                      not self._autoconnect())
+                self._os.settings_set("wifi_autoconnect", not self._autoconnect())
             except Exception:
                 pass
         elif r == self.ROW_NETS:
             self._reload_nets()
             self._nets_sel = 0
-            self._mode     = "nets"
+            self._mode = "nets"
         elif r == self.ROW_TRANSFER:
             self._trans_sel = 0
-            self._mode      = "transfer"
+            self._mode = "transfer"
         elif r == self.ROW_SPEED:
             self._run_speed_test()
         elif r == self.ROW_PING:
@@ -321,6 +352,7 @@ class App(oreoOS.App):
         # actually SEES the "testing..." label instead of the last
         # pre-test frame.
         cancel = [False]
+
         def _pump():
             try:
                 self._os.buttons.update()
@@ -367,7 +399,7 @@ class App(oreoOS.App):
     # ── saved-network actions ───────────────────────────────────────────
     def _connect_saved(self, net):
         ssid = net.get("ssid") or ""
-        pw   = net.get("password") or ""
+        pw = net.get("password") or ""
         if not ssid:
             return
         # Promote to priority 1 so it auto-reconnects next boot.
@@ -382,7 +414,9 @@ class App(oreoOS.App):
             self._wifi.connect(ssid, pw)
         except OSError as e:
             from oreoOS import config
-            if config.DEBUG: print("wifi connect saved err:", e)
+
+            if config.DEBUG:
+                print("wifi connect saved err:", e)
         self._snap = self._read()
         self._reload_nets()
         self._mode = "main"
@@ -402,9 +436,12 @@ class App(oreoOS.App):
         if not ssid:
             return
         try:
-            self._wifi.add_saved(ssid, net.get("password") or "",
-                                 priority=int(net.get("priority", 10)),
-                                 metered=not bool(net.get("metered")))
+            self._wifi.add_saved(
+                ssid,
+                net.get("password") or "",
+                priority=int(net.get("priority", 10)),
+                metered=not bool(net.get("metered")),
+            )
         except Exception:
             pass
         self._reload_nets()
@@ -447,11 +484,9 @@ class App(oreoOS.App):
                     sessions = hs.list_sessions()
                 except Exception:
                     sessions = []
-                sig = ",".join("%s:%s" % (s.get("id", ""),
-                                          s.get("state", ""))
-                               for s in sessions)
+                sig = ",".join("%s:%s" % (s.get("id", ""), s.get("state", "")) for s in sessions)
                 if sig != self._last_sess_sig:
-                    self._last_sess_sig   = sig
+                    self._last_sess_sig = sig
                     self._last_sess_count = len(sessions)
                     self._dirty = True
                 # Keep the small approval loader animated until the sender's
@@ -461,8 +496,7 @@ class App(oreoOS.App):
 
                 prog = hs.progress()
                 if prog:
-                    psig = "%s:%d" % (prog.get("id", ""),
-                                       prog.get("received", 0))
+                    psig = "%s:%d" % (prog.get("id", ""), prog.get("received", 0))
                 else:
                     psig = ""
                 if psig != self._last_prog_sig:
@@ -479,12 +513,11 @@ class App(oreoOS.App):
                     ts, name = (0, "")
                 if ts and ts != self._toast_seen_ts:
                     self._toast_seen_ts = ts
-                    self._toast_name    = name
+                    self._toast_name = name
                     self._dirty = True
                 if self._toast_seen_ts and self._toast_name:
                     try:
-                        held = time.ticks_diff(time.ticks_ms(),
-                                               self._toast_seen_ts)
+                        held = time.ticks_diff(time.ticks_ms(), self._toast_seen_ts)
                     except Exception:
                         held = 0
                     if held < self.TOAST_MS:
@@ -516,33 +549,29 @@ class App(oreoOS.App):
         # in a couple of seconds or it doesn't, and exposing an
         # intermediate state to the user is more noise than signal.
         _stat_connected = bool(snap.get("connected"))
-        _stat_label = "ON"          if _stat_connected else "OFF"
+        _stat_label = "ON" if _stat_connected else "OFF"
         _stat_color = theme.PRIMARY if _stat_connected else theme.MUTED
         rows = [
-            ("Status",       _stat_label, _stat_color),
-            ("SSID",         snap.get("ssid") or "—",       theme.TEXT_BRIGHT),
-            ("IP",           snap.get("ip") or "—",         theme.TEXT_DIM),
-            ("RSSI",         self._rssi_value(snap),        theme.TEXT_DIM),
-            ("Power",        POWER_LABELS.get(self._power_mode(), "?"),
-                                                             theme.TEAL),
-            ("Networks",     self._nets_summary(),          theme.TEXT_BRIGHT),
-            ("Speed",        self._speed_label or "—",      theme.TEAL),
-            ("Ping",         self._ping_label  or "—",      theme.TEAL),
-            ("Send files",   self._transfer_summary(),      theme.PRIMARY),
-            ("Auto-connect", "ON" if self._autoconnect() else "OFF",
-                             theme.TEXT_BRIGHT),
+            ("Status", _stat_label, _stat_color),
+            ("SSID", snap.get("ssid") or "—", theme.TEXT_BRIGHT),
+            ("IP", snap.get("ip") or "—", theme.TEXT_DIM),
+            ("RSSI", self._rssi_value(snap), theme.TEXT_DIM),
+            ("Power", POWER_LABELS.get(self._power_mode(), "?"), theme.TEAL),
+            ("Networks", self._nets_summary(), theme.TEXT_BRIGHT),
+            ("Speed", self._speed_label or "—", theme.TEAL),
+            ("Ping", self._ping_label or "—", theme.TEAL),
+            ("Send files", self._transfer_summary(), theme.PRIMARY),
+            ("Auto-connect", "ON" if self._autoconnect() else "OFF", theme.TEXT_BRIGHT),
         ]
         for i, (label, value, color) in enumerate(rows):
             y = ROW_TOP_Y + i * ROW_H
             if i == self.ROW_AUTOCONNECT:
                 y += AUTOCON_GAP
-            sel = (i == self._sel)
+            sel = i == self._sel
             if sel:
-                d.rect(4, y - 2, SW - 8, ROW_H - 1,
-                       theme.DOCK_SEL, fill=True)
+                d.rect(4, y - 2, SW - 8, ROW_H - 1, theme.DOCK_SEL, fill=True)
                 d.rect(4, y - 2, SW - 8, 1, theme.SEL_BORDER, fill=True)
-                d.rect(4, y + ROW_H - 4, SW - 8, 1,
-                       theme.SEL_BORDER, fill=True)
+                d.rect(4, y + ROW_H - 4, SW - 8, 1, theme.SEL_BORDER, fill=True)
             d.text(label, ROW_PAD_X, y + 4, theme.TEXT_BRIGHT, scale=1)
             d.text(str(value)[:20], VALUE_X, y + 4, color, scale=1)
 
@@ -563,21 +592,19 @@ class App(oreoOS.App):
         if not self._nets:
             self._reload_nets()
         if not self._nets:
-            d.text("no saved networks", ROW_PAD_X, ROW_TOP_Y + 16,
-                   theme.MUTED, scale=1)
-            d.text("flash /wifi.json or add via .env",
-                   ROW_PAD_X, ROW_TOP_Y + 34, theme.MUTED2, scale=1)
+            d.text("no saved networks", ROW_PAD_X, ROW_TOP_Y + 16, theme.MUTED, scale=1)
+            d.text(
+                "flash /wifi.json or add via .env", ROW_PAD_X, ROW_TOP_Y + 34, theme.MUTED2, scale=1
+            )
             return
         cur_ssid = self._snap.get("ssid") or ""
         for i, n in enumerate(self._nets):
             y = ROW_TOP_Y + i * ROW_H
-            sel = (i == self._nets_sel)
+            sel = i == self._nets_sel
             if sel:
-                d.rect(4, y - 2, SW - 8, ROW_H - 1,
-                       theme.DOCK_SEL, fill=True)
+                d.rect(4, y - 2, SW - 8, ROW_H - 1, theme.DOCK_SEL, fill=True)
                 d.rect(4, y - 2, SW - 8, 1, theme.SEL_BORDER, fill=True)
-                d.rect(4, y + ROW_H - 4, SW - 8, 1,
-                       theme.SEL_BORDER, fill=True)
+                d.rect(4, y + ROW_H - 4, SW - 8, 1, theme.SEL_BORDER, fill=True)
             ssid = (n.get("ssid") or "?")[:18]
             d.text(ssid, ROW_PAD_X, y + 4, theme.TEXT_BRIGHT, scale=1)
             # Right side: priority number + active dot + metered $.
@@ -591,9 +618,16 @@ class App(oreoOS.App):
                 d.text("$", x, y + 4, theme.GOLD, scale=1)
 
         vis_nets = max(1, (SH - ROW_TOP_Y - widgets.HINT_H) // ROW_H)
-        widgets.draw_scrollbar(d, SW - 4, ROW_TOP_Y, 2,
-                               vis_nets * ROW_H,
-                               len(self._nets), self._nets_sel, visible=vis_nets)
+        widgets.draw_scrollbar(
+            d,
+            SW - 4,
+            ROW_TOP_Y,
+            2,
+            vis_nets * ROW_H,
+            len(self._nets),
+            self._nets_sel,
+            visible=vis_nets,
+        )
 
     def _rssi_value(self, snap):
         rssi = snap.get("rssi")
@@ -620,6 +654,7 @@ class App(oreoOS.App):
     def _http(self):
         try:
             from oreoOS import http_server as _hs
+
             return _hs
         except Exception:
             return None
@@ -662,14 +697,15 @@ class App(oreoOS.App):
 
         # Master kill switch on — only `A = re-enable` works in this state.
         try:
-            disabled = (hasattr(hs, "is_transfer_enabled")
-                        and not hs.is_transfer_enabled())
+            disabled = hasattr(hs, "is_transfer_enabled") and not hs.is_transfer_enabled()
         except Exception:
             disabled = False
         if disabled:
             if btn == api.BTN_A:
-                try: hs.set_transfer_enabled(True)
-                except Exception: pass
+                try:
+                    hs.set_transfer_enabled(True)
+                except Exception:
+                    pass
                 self._dirty = True
             return
 
@@ -706,7 +742,7 @@ class App(oreoOS.App):
             # and toggle on a single press would be confusing.
             if self._lp_left_press_ms == 0:
                 self._lp_left_press_ms = time.ticks_ms()
-            return     # don't mark dirty — visual state hasn't changed yet
+            return  # don't mark dirty — visual state hasn't changed yet
         else:
             return
         self._dirty = True
@@ -728,8 +764,7 @@ class App(oreoOS.App):
         if held >= self.LP_HOLD_MS:
             # Long press → toggle the master kill switch.
             try:
-                cur = (hs.is_transfer_enabled()
-                       if hasattr(hs, "is_transfer_enabled") else True)
+                cur = hs.is_transfer_enabled() if hasattr(hs, "is_transfer_enabled") else True
                 hs.set_transfer_enabled(not cur)
             except Exception:
                 pass
@@ -743,8 +778,10 @@ class App(oreoOS.App):
             if sessions and 0 <= self._trans_sel < len(sessions):
                 sid = sessions[self._trans_sel].get("id", "")
                 if sid:
-                    try: hs.deny(sid)
-                    except Exception: pass
+                    try:
+                        hs.deny(sid)
+                    except Exception:
+                        pass
         self._dirty = True
 
     def _refresh_transfer(self):
@@ -781,23 +818,20 @@ class App(oreoOS.App):
         # ── Master kill switch state — entire screen flips to a
         # ── single "Transfer closed" panel.
         try:
-            disabled = (running
-                        and hasattr(hs, "is_transfer_enabled")
-                        and not hs.is_transfer_enabled())
+            disabled = (
+                running and hasattr(hs, "is_transfer_enabled") and not hs.is_transfer_enabled()
+            )
         except Exception:
             disabled = False
         if disabled:
             widgets.draw_hint(d, "A=re-enable  B=back")
             y = ROW_TOP_Y + 40
             label = "TRANSFER CLOSED"
-            d.text(label, (SW - len(label) * 16) // 2, y,
-                   theme.PRIMARY, scale=2)
+            d.text(label, (SW - len(label) * 16) // 2, y, theme.PRIMARY, scale=2)
             sub = "File transfer disabled by you."
-            d.text(sub, (SW - len(sub) * 8) // 2, y + 28,
-                   theme.TEXT_DIM)
+            d.text(sub, (SW - len(sub) * 8) // 2, y + 28, theme.TEXT_DIM)
             cta = "Tap A to re-enable."
-            d.text(cta, (SW - len(cta) * 8) // 2, y + 44,
-                   theme.MUTED)
+            d.text(cta, (SW - len(cta) * 8) // 2, y + 44, theme.MUTED)
             return
 
         widgets.draw_hint(d, "A=allow  L=deny  hold-L=close  R=refresh")
@@ -820,27 +854,27 @@ class App(oreoOS.App):
             d.text(label, ROW_PAD_X, y, theme.TEXT_DIM)
             # Big code — scale=3 so it dominates the page.
             code_w = len(code) * 8 * 3
-            d.text(code, (SW - code_w) // 2, y + 14,
-                   theme.PRIMARY, scale=3)
+            d.text(code, (SW - code_w) // 2, y + 14, theme.PRIMARY, scale=3)
             # Tiny TTL countdown below the code, centred.
             ttl = "rotates in %d:%02d" % (mins, ss)
-            d.text(ttl, (SW - len(ttl) * 8) // 2, y + 14 + 24 + 4,
-                   theme.GOLD if remain_ms > 30_000 else theme.PRIMARY)
+            d.text(
+                ttl,
+                (SW - len(ttl) * 8) // 2,
+                y + 14 + 24 + 4,
+                theme.GOLD if remain_ms > 30_000 else theme.PRIMARY,
+            )
             # URL hints below the countdown. We show BOTH the mDNS
             # form and the raw IP because multicast DNS is unreliable
             # in the wild — on most networks oreo.local works, but
             # the IP is the universal fallback the user can type into
             # the website's address field.
             url_local = hs.url()
-            url_ip    = hs.url_fallback()
-            d.text(url_local, ROW_PAD_X, y + 14 + 24 + 18,
-                   theme.TEXT_DIM)
-            d.text(url_ip,    ROW_PAD_X, y + 14 + 24 + 32,
-                   theme.MUTED)
+            url_ip = hs.url_fallback()
+            d.text(url_local, ROW_PAD_X, y + 14 + 24 + 18, theme.TEXT_DIM)
+            d.text(url_ip, ROW_PAD_X, y + 14 + 24 + 32, theme.MUTED)
         else:
             d.text("Server offline.", ROW_PAD_X, y, theme.MUTED, scale=1)
-            d.text("Connect WiFi to enable transfer.",
-                   ROW_PAD_X, y + 14, theme.MUTED2, scale=1)
+            d.text("Connect WiFi to enable transfer.", ROW_PAD_X, y + 14, theme.MUTED2, scale=1)
 
         # ── live transfer progress bar ──
         # Header now spans: label (14) + code at scale=3 (~26) + TTL
@@ -850,17 +884,25 @@ class App(oreoOS.App):
         prog_y = y + 92
         if prog:
             total = max(1, int(prog.get("total", 0)))
-            done  = min(total, int(prog.get("received", 0)))
-            pct   = int((done * 100) // total)
-            d.text("Receiving %s" % (prog.get("filename", "")[:22] or "?"),
-                   ROW_PAD_X, prog_y, theme.TEAL)
+            done = min(total, int(prog.get("received", 0)))
+            pct = int((done * 100) // total)
+            d.text(
+                "Receiving %s" % (prog.get("filename", "")[:22] or "?"),
+                ROW_PAD_X,
+                prog_y,
+                theme.TEAL,
+            )
             # bar
             bar_x, bar_y, bar_w, bar_h = ROW_PAD_X, prog_y + 14, SW - 2 * ROW_PAD_X, 8
             d.rect(bar_x, bar_y, bar_w, bar_h, theme.MUTED2, fill=True)
             fill_w = int(bar_w * pct / 100)
             d.rect(bar_x, bar_y, fill_w, bar_h, theme.PRIMARY, fill=True)
-            d.text("%d%%  %d / %d KB" % (pct, done // 1024, total // 1024),
-                   ROW_PAD_X, bar_y + 12, theme.TEXT_DIM)
+            d.text(
+                "%d%%  %d / %d KB" % (pct, done // 1024, total // 1024),
+                ROW_PAD_X,
+                bar_y + 12,
+                theme.TEXT_DIM,
+            )
             list_y = bar_y + 28
         else:
             list_y = prog_y
@@ -880,8 +922,7 @@ class App(oreoOS.App):
         d.rect(ROW_PAD_X, list_y, SW - 2 * ROW_PAD_X, 1, theme.MUTED2, fill=True)
         list_y += 6
         if not sessions:
-            d.text("no senders connected",
-                   ROW_PAD_X + 2, list_y, theme.MUTED2)
+            d.text("no senders connected", ROW_PAD_X + 2, list_y, theme.MUTED2)
             return
 
         # State -> dot colour. RGB tuples instead of theme constants
@@ -893,31 +934,29 @@ class App(oreoOS.App):
         # browser acknowledgement is pending; "approved" = green; "denied"
         # is filtered upstream so it shouldn't normally appear.
         dot_color = {
-            "authed":   api.rgb(255, 209, 102),    # yellow
-            "approving": api.rgb(162, 155, 254),    # lilac
-            "approved": api.rgb( 61, 220, 151),    # green
-            "denied":   api.rgb(255,  93, 104),    # red (filtered)
+            "authed": api.rgb(255, 209, 102),  # yellow
+            "approving": api.rgb(162, 155, 254),  # lilac
+            "approved": api.rgb(61, 220, 151),  # green
+            "denied": api.rgb(255, 93, 104),  # red (filtered)
             # Legacy fallback for the old "pending" state name —
             # remove once every device is on the new protocol.
-            "pending":  api.rgb(255, 209, 102),
+            "pending": api.rgb(255, 209, 102),
         }
-        DOT_SIZE   = 8
-        DOT_RIGHT  = ROW_PAD_X + 2   # pad from the right edge
-        BAR_PAD    = 8               # gap on either side of the bar
-        ROW_INNER  = ROW_H - 4
+        DOT_SIZE = 8
+        DOT_RIGHT = ROW_PAD_X + 2  # pad from the right edge
+        BAR_PAD = 8  # gap on either side of the bar
+        ROW_INNER = ROW_H - 4
 
         prog = hs.progress() if hs else None
 
         for i, s in enumerate(sessions[:5]):
             row_y = list_y + i * ROW_H
-            sel   = (i == self._trans_sel)
+            sel = i == self._trans_sel
             if sel:
-                d.rect(4, row_y - 2, SW - 8, ROW_H - 1,
-                       theme.DOCK_SEL, fill=True)
+                d.rect(4, row_y - 2, SW - 8, ROW_H - 1, theme.DOCK_SEL, fill=True)
                 d.rect(4, row_y - 2, SW - 8, 1, theme.SEL_BORDER, fill=True)
-                d.rect(4, row_y + ROW_H - 4, SW - 8, 1,
-                       theme.SEL_BORDER, fill=True)
-            sid   = s.get("id", "------")
+                d.rect(4, row_y + ROW_H - 4, SW - 8, 1, theme.SEL_BORDER, fill=True)
+            sid = s.get("id", "------")
             state = s.get("state", "pending")
 
             # ID at scale=1 (smaller than before — the page got too
@@ -929,14 +968,12 @@ class App(oreoOS.App):
                 # Immediate feedback for the same physical A press. Animate
                 # while the browser performs its next 500 ms heartbeat.
                 dots = "." * (1 + ((time.ticks_ms() // 180) % 3))
-                d.text("allowing" + dots, ROW_PAD_X + 58, row_y + 6,
-                       theme.PURPLE, scale=1)
+                d.text("allowing" + dots, ROW_PAD_X + 58, row_y + 6, theme.PURPLE, scale=1)
 
             # Status dot, right side, vertically centred in the row.
             dx = SW - DOT_RIGHT - DOT_SIZE
             dy = row_y + (ROW_INNER - DOT_SIZE) // 2 + 2
-            d.rect(dx, dy, DOT_SIZE, DOT_SIZE,
-                   dot_color.get(state, theme.MUTED), fill=True)
+            d.rect(dx, dy, DOT_SIZE, DOT_SIZE, dot_color.get(state, theme.MUTED), fill=True)
 
             # Mid-row progress bar — only when THIS session is the one
             # currently receiving. Spans the area between the ID text
@@ -948,13 +985,11 @@ class App(oreoOS.App):
                 bar_w = dx - BAR_PAD - bar_x
                 if bar_w > 8:
                     total = max(1, int(prog.get("total", 0)))
-                    done  = min(total, int(prog.get("received", 0)))
+                    done = min(total, int(prog.get("received", 0)))
                     pct_w = int(bar_w * done / total)
                     bar_y = row_y + (ROW_INNER - 4) // 2 + 2
-                    d.rect(bar_x, bar_y, bar_w, 4,
-                           theme.MUTED2, fill=True)
-                    d.rect(bar_x, bar_y, pct_w, 4,
-                           theme.PRIMARY, fill=True)
+                    d.rect(bar_x, bar_y, bar_w, 4, theme.MUTED2, fill=True)
+                    d.rect(bar_x, bar_y, pct_w, 4, theme.PRIMARY, fill=True)
 
         # ── Bottom 'Received' toast ──
         # Renders for self.TOAST_MS after http_server records a
@@ -963,8 +998,7 @@ class App(oreoOS.App):
         # entry separately; this toast is the in-app cue.
         if self._toast_seen_ts and self._toast_name:
             try:
-                held = time.ticks_diff(time.ticks_ms(),
-                                       self._toast_seen_ts)
+                held = time.ticks_diff(time.ticks_ms(), self._toast_seen_ts)
             except Exception:
                 held = self.TOAST_MS
             if held < self.TOAST_MS:
@@ -972,23 +1006,22 @@ class App(oreoOS.App):
                 # Centre the pill horizontally; sit a few pixels above
                 # the bottom edge so it doesn't collide with the OS hint
                 # bar on devices that draw one.
-                txt_w  = len(label) * 8
-                pad_x  = 10
-                pad_y  = 4
+                txt_w = len(label) * 8
+                pad_x = 10
+                pad_y = 4
                 pill_w = txt_w + 2 * pad_x
                 pill_h = 14
                 pill_x = max(2, (SW - pill_w) // 2)
                 pill_y = SH - pill_h - 6
-                d.rect(pill_x, pill_y, pill_w, pill_h,
-                       theme.TEAL, fill=True)
-                d.text(label, pill_x + pad_x, pill_y + pad_y,
-                       theme.BG, scale=1)
+                d.rect(pill_x, pill_y, pill_w, pill_h, theme.TEAL, fill=True)
+                d.text(label, pill_x + pad_x, pill_y + pad_y, theme.BG, scale=1)
 
     def on_exit(self):
         """Free network cache lists and sweep GC on exit."""
         self._nets = []
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass

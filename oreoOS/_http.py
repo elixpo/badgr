@@ -22,7 +22,8 @@ import time
 
 try:
     import socket as _socket
-    import ssl    as _ssl
+    import ssl as _ssl
+
     _OK = True
 except ImportError:
     _OK = False
@@ -44,7 +45,7 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     if not url.startswith("https://"):
         return None
 
-    rest = url[len("https://"):]
+    rest = url[len("https://") :]
     slash = rest.find("/")
     if slash < 0:
         host, path = rest, "/"
@@ -53,8 +54,10 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     port = 443
     if ":" in host:
         host, p = host.split(":", 1)
-        try: port = int(p)
-        except ValueError: port = 443
+        try:
+            port = int(p)
+        except ValueError:
+            port = 443
 
     accept_hdr = accept or "*/*"
 
@@ -65,6 +68,7 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     if auth is None and "api.github.com" in host:
         try:
             from oreoOS.config import GH_TOKEN as _TOK
+
             if _TOK:
                 auth = "Bearer " + _TOK
         except Exception:
@@ -86,8 +90,10 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
                 break
             except Exception:
                 if raw is not None:
-                    try: raw.close()
-                    except Exception: pass
+                    try:
+                        raw.close()
+                    except Exception:
+                        pass
                 raw = None
 
         if raw is None:
@@ -110,8 +116,10 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
                 pass
         finally:
             if s is None and raw is not None:
-                try: raw.close()
-                except Exception: pass
+                try:
+                    raw.close()
+                except Exception:
+                    pass
 
         req = (
             "GET %s HTTP/1.1\r\n"
@@ -149,7 +157,7 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
                     head_lower = bytes(buf[:head_end]).lower()
                     cl_idx = head_lower.find(b"\r\ncontent-length: ")
                     if cl_idx >= 0:
-                        cl_val = head_lower[cl_idx + 18:].split(b"\r\n", 1)[0]
+                        cl_val = head_lower[cl_idx + 18 :].split(b"\r\n", 1)[0]
                         try:
                             expected_len = int(cl_val)
                         except ValueError:
@@ -177,14 +185,16 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     if head_end < 0:
         return None
     head = bytes(buf[:head_end])
-    body = bytes(buf[head_end + 4:])
+    body = bytes(buf[head_end + 4 :])
 
     status = 0
-    line0  = head.split(b"\r\n", 1)[0]
-    parts  = line0.split(b" ", 2)
+    line0 = head.split(b"\r\n", 1)[0]
+    parts = line0.split(b" ", 2)
     if len(parts) >= 2:
-        try: status = int(parts[1])
-        except ValueError: status = 0
+        try:
+            status = int(parts[1])
+        except ValueError:
+            status = 0
     if status != 200:
         _bc("HTTP %d %s" % (status, host))
         return None
@@ -211,6 +221,6 @@ def _dechunk(body):
         i = nl + 2
         if n == 0:
             break
-        out.extend(body[i:i + n])
+        out.extend(body[i : i + n])
         i += n + 2
     return bytes(out)

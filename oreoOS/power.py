@@ -7,20 +7,19 @@ except ImportError:
 
 from oreoWare import pins
 
-
-DEFAULT_IDLE_SECONDS = 120    # 2 min default — short enough to save battery
-                              # in a pocket, long enough that idle reading
-                              # the home screen doesn't get cut short.
-                              # Slider in Settings goes 0..10 min; 0 = off.
+DEFAULT_IDLE_SECONDS = 120  # 2 min default — short enough to save battery
+# in a pocket, long enough that idle reading
+# the home screen doesn't get cut short.
+# Slider in Settings goes 0..10 min; 0 = off.
 SETTINGS = {
-    "idle_enable":  True,
+    "idle_enable": True,
     "idle_seconds": DEFAULT_IDLE_SECONDS,
 }
 
 
 def load_settings(os_obj):
     """Pull persisted settings off the OS object if any were stored."""
-    for k, default in SETTINGS.items():
+    for k, _default in SETTINGS.items():
         v = os_obj.settings_get(k, None)
         if v is not None:
             SETTINGS[k] = v
@@ -35,7 +34,7 @@ class PowerManager:
     """Polled from the main app loop, calls deepsleep() when idle elapses."""
 
     def __init__(self, os_obj):
-        self._os         = os_obj
+        self._os = os_obj
         self._last_event = time.ticks_ms()
         load_settings(os_obj)
 
@@ -98,13 +97,20 @@ class PowerManager:
         # Wake condition: a button that was UNPRESSED at sleep entry now
         # reads PRESSED. Snapshot of initial state prevents a stuck press
         # from insta-waking us.
-        btn_ids = (pins.BTN_HOME, pins.BTN_A, pins.BTN_B, pins.BTN_C,
-                   pins.BTN_UP, pins.BTN_DOWN, pins.BTN_LEFT, pins.BTN_RIGHT)
+        btn_ids = (
+            pins.BTN_HOME,
+            pins.BTN_A,
+            pins.BTN_B,
+            pins.BTN_C,
+            pins.BTN_UP,
+            pins.BTN_DOWN,
+            pins.BTN_LEFT,
+            pins.BTN_RIGHT,
+        )
         btn_pins = {}
         for b in btn_ids:
             try:
-                btn_pins[b] = machine.Pin(b, machine.Pin.IN,
-                                           machine.Pin.PULL_UP)
+                btn_pins[b] = machine.Pin(b, machine.Pin.IN, machine.Pin.PULL_UP)
             except Exception:
                 pass
 
@@ -172,19 +178,26 @@ class PowerManager:
             pass
         # Wake mask: every matrix button. Active-low → wake on any going LOW.
         wake_pins = [
-            pins.BTN_HOME, pins.BTN_A, pins.BTN_B, pins.BTN_C,
-            pins.BTN_UP, pins.BTN_DOWN, pins.BTN_LEFT, pins.BTN_RIGHT,
+            pins.BTN_HOME,
+            pins.BTN_A,
+            pins.BTN_B,
+            pins.BTN_C,
+            pins.BTN_UP,
+            pins.BTN_DOWN,
+            pins.BTN_LEFT,
+            pins.BTN_RIGHT,
         ]
         try:
             import esp32
-            esp32.wake_on_ext1(pins=[machine.Pin(p) for p in wake_pins],
-                               level=esp32.WAKEUP_ANY_LOW)
+
+            esp32.wake_on_ext1(pins=[machine.Pin(p) for p in wake_pins], level=esp32.WAKEUP_ANY_LOW)
         except Exception:
             pass
         machine.deepsleep()
 
 
 # ── reset-cause helper used by launcher.boot() to fast-path wake-from-sleep ──
+
 
 def woke_from_deep_sleep():
     """True iff the previous reset was deep-sleep wake."""

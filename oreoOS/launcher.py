@@ -5,18 +5,18 @@ an App class subclassing oreoOS.App.  The OS launcher owns the top-level loop;
 individual screens (splash, home, app-menu) live in separate modules.
 """
 
-import gc
 import json
 import os as _os
+import sys
 import time
 
 from oreoOS import api
 
-from oreoOS.config import VERSION   # single source of truth; deploy bumps PATCH
 # Target ~33 fps (30 ms cap). At 40 MHz SPI a full framebuf push is 30.7 ms,
 # plus ~3 ms render → total ≈ 34 ms. The sleep rarely actually fires during
 # gameplay; it caps idle screens so they don't hammer the panel >50 fps.
 FRAME_MIN_MS = 30
+
 
 def _copy_tree(src, dst):
     """Recursively copy directory tree from src to dst."""
@@ -50,6 +50,7 @@ def bootstrap_badge_apps():
     """Ensure badge_data/apps/ is initialized with stock default apps on first boot."""
     try:
         from oreoOS.config import BADGE_DATA_DIR, ensure_state_dirs
+
         ensure_state_dirs()
         apps_target = BADGE_DATA_DIR + "/apps"
 
@@ -88,6 +89,7 @@ def invalidate_apps_cache():
 
 # ── app discovery ─────────────────────────────────────────────────────────────
 
+
 def list_apps():
     """Return [{'dir':..., 'name':..., 'type':...}, ...]  sorted alphabetically by name."""
     apps = []
@@ -101,17 +103,19 @@ def list_apps():
         try:
             with open("%s/%s/manifest.json" % (APPS_DIR, entry)) as f:
                 manifest = json.loads(f.read())
-            apps.append({
-                "dir":         entry,
-                "name":        manifest.get("name", entry),
-                "type":        manifest.get("type", "app"),
-                "color":       manifest.get("color", None),
-                "icon":        manifest.get("icon", None),
-                "author":      manifest.get("author", None),
-                "description": manifest.get("description", ""),
-                "version":     manifest.get("version", "1.0.0"),
-                "category":    manifest.get("category", "General"),
-            })
+            apps.append(
+                {
+                    "dir": entry,
+                    "name": manifest.get("name", entry),
+                    "type": manifest.get("type", "app"),
+                    "color": manifest.get("color", None),
+                    "icon": manifest.get("icon", None),
+                    "author": manifest.get("author", None),
+                    "description": manifest.get("description", ""),
+                    "version": manifest.get("version", "1.0.0"),
+                    "category": manifest.get("category", "General"),
+                }
+            )
         except (OSError, ValueError):
             continue
     apps = [a for a in apps if a["type"] == "app"]
@@ -146,13 +150,16 @@ def load_app(app_dir):
 # ── loading transition (default for apps) ────────────────────────────────────
 # Apps opt-out with:    class App(oreoOS.App): SHOW_LOADING = False
 
+
 def _show_loading(os_obj, label, author=None):
     """Slide a primary-coloured panel down from the top, covering the screen."""
     from oreoOS import widgets
+
     return widgets.show_loading(os_obj, label, author)
 
 
 # ── generic app run loop ──────────────────────────────────────────────────────
+
 
 def run_app(os_obj, app):
     os_obj._quit_requested = False
@@ -162,7 +169,7 @@ def run_app(os_obj, app):
     # The panel covers the screen while on_enter does its work.
     # If the user hits HOME during the slide, abort launch immediately.
     if getattr(app, "SHOW_LOADING", True):
-        label  = getattr(app, "name",   app.__class__.__name__)
+        label = getattr(app, "name", app.__class__.__name__)
         author = getattr(app, "author", None)
         if _show_loading(os_obj, label, author):
             os_obj._launch_request = "__appmenu__"
@@ -173,6 +180,7 @@ def run_app(os_obj, app):
     if pm is None:
         try:
             from oreoOS.power import PowerManager
+
             pm = PowerManager(os_obj)
             os_obj._power = pm
         except Exception:
@@ -182,12 +190,14 @@ def run_app(os_obj, app):
     # overlay. Same instance survives app switches so notifications you
     # push from inside an app are visible the moment the user opens it.
     from oreoOS import notif_panel as _np_mod
+
     panel = _np_mod.get(os_obj)
 
     # Pair-confirm overlay — sits above the notif panel and the app.
     # While active it eats all input. Drawn after the panel so a fresh
     # SMP prompt is never visually clobbered by a passing notification.
     from oreoOS import pair_prompt as _pp_mod
+
     pair_pp = _pp_mod.get(os_obj)
 
     # Consecutive-frame error counter. A single bad frame (transient
@@ -203,13 +213,14 @@ def run_app(os_obj, app):
     # NOT included — those are commit-style and one fire per press is
     # the right semantic. Apps inherit this behaviour for free: any
     # scrollable list already handles UP/DOWN, no per-app changes.
-    HOLD_MS   = 350
+    HOLD_MS = 350
     REPEAT_MS = 80
     AUTOREPEAT_BUTTONS = (api.BTN_UP, api.BTN_DOWN, api.BTN_LEFT, api.BTN_RIGHT)
     next_repeat_ms = {b: 0 for b in AUTOREPEAT_BUTTONS}
 
     try:
         import gc
+
         gc.collect()
     except Exception:
         pass
@@ -219,6 +230,7 @@ def run_app(os_obj, app):
     if app_id and str(app_id).lower() not in ("home", "__appmenu__"):
         try:
             import os
+
             os.environ["OREOSIM_ACTIVE_APP"] = str(app_id)
         except Exception:
             pass
@@ -228,7 +240,7 @@ def run_app(os_obj, app):
     try:
         while not os_obj._quit_requested:
             now = time.ticks_ms()
-            dt  = time.ticks_diff(now, last) / 1000.0
+            dt = time.ticks_diff(now, last) / 1000.0
             last = now
 
             os_obj.buttons.update()
@@ -242,7 +254,8 @@ def run_app(os_obj, app):
             else:
                 for b in api.BUTTONS:
                     if os_obj.buttons.just_pressed(b):
-                        if pm: pm.note_event()
+                        if pm:
+                            pm.note_event()
 
                         # Pair-confirm prompt has top priority — when an
                         # SMP numeric comparison is in flight, NOTHING
@@ -312,7 +325,8 @@ def run_app(os_obj, app):
                         fire = False
                     if not fire:
                         continue
-                    if pm: pm.note_event()
+                    if pm:
+                        pm.note_event()
                     if b == api.BTN_C:
                         # Defensive — BTN_C isn't in AUTOREPEAT_BUTTONS,
                         # but keep the guard so a future edit can't make
@@ -331,7 +345,7 @@ def run_app(os_obj, app):
             panel_was_active = panel.is_active()
             panel.tick(dt)
             is_animating = getattr(panel, "_dir", 0) != 0
-            just_closed  = panel_was_active and not panel.is_active()
+            just_closed = panel_was_active and not panel.is_active()
             if is_animating or just_closed:
                 try:
                     app._dirty = True
@@ -371,7 +385,10 @@ def run_app(os_obj, app):
                 panel_open = panel.is_active() or getattr(panel, "_t", 0.0) > 0.0
                 if not hide_top and not panel_open:
                     from oreoOS import widgets as _w_mod
-                    header_title = getattr(app, "HEADER_TITLE", None) or getattr(app, "name", "").upper()
+
+                    header_title = (
+                        getattr(app, "HEADER_TITLE", None) or getattr(app, "name", "").upper()
+                    )
                     if header_title:
                         _w_mod.draw_header(os_obj.display, header_title)
 
@@ -394,10 +411,12 @@ def run_app(os_obj, app):
                 # let the outer handler crash-screen this app.
                 try:
                     from oreoOS import config
+
                     if getattr(config, "DEBUG", True):
                         print("[DEBUG] Frame error in '%s':" % getattr(app, "name", "?"))
                         try:
                             import traceback
+
                             traceback.print_exc()
                         except Exception:
                             try:
@@ -425,6 +444,7 @@ def run_app(os_obj, app):
             # stall the frame loop.
             try:
                 from oreoOS import ota as _ota
+
                 _ota.background_check(os_obj)
             except Exception:
                 pass
@@ -444,6 +464,7 @@ def run_app(os_obj, app):
             # case where adv silently stopped between sessions.
             try:
                 from oreoWare import bt as _bt
+
                 _bt.watchdog_tick()
             except Exception:
                 pass
@@ -457,6 +478,7 @@ def run_app(os_obj, app):
             # uploads ever grow above a few hundred KB).
             try:
                 from oreoOS import http_server as _hs
+
                 _hs.tick()
             except Exception:
                 pass
@@ -474,6 +496,7 @@ def run_app(os_obj, app):
         finally:
             try:
                 import gc
+
                 gc.collect()
             except Exception:
                 pass
@@ -481,29 +504,31 @@ def run_app(os_obj, app):
 
 # ── crash screen ──────────────────────────────────────────────────────────────
 
+
 def show_crash(os_obj, name, err):
     """Centred, themed crash screen — Pixelify Sans title + app name,
     framebuf body text. Press any button to dismiss."""
-    d  = os_obj.display
+    d = os_obj.display
     SW = api.SCREEN_W
     SH = api.SCREEN_H
 
-    BG     = api.rgb( 40,   8,  16)
-    HDR    = api.rgb(255,  93, 104)
-    ACCENT = api.rgb(255, 230,  80)
-    TEXT   = api.rgb(245, 230, 220)
-    DIM    = api.rgb(180, 150, 150)
+    BG = api.rgb(40, 8, 16)
+    HDR = api.rgb(255, 93, 104)
+    ACCENT = api.rgb(255, 230, 80)
+    TEXT = api.rgb(245, 230, 220)
+    DIM = api.rgb(180, 150, 150)
 
     d.clear(BG)
 
     # Header bar
     HDR_H = 30
-    d.rect(0, 0, SW, HDR_H,    HDR,    fill=True)
-    d.rect(0, HDR_H, SW, 1,    ACCENT, fill=True)
+    d.rect(0, 0, SW, HDR_H, HDR, fill=True)
+    d.rect(0, HDR_H, SW, 1, ACCENT, fill=True)
 
     # Pixelify display font for the app name; fall back to framebuf if missing.
     try:
         from oreoOS import pixelfont
+
         title_font = pixelfont.load("pixelify_24")
     except (ImportError, AttributeError):
         title_font = None
@@ -527,24 +552,24 @@ def show_crash(os_obj, name, err):
 
     # ── error message panel ─────────────────────────────────────────────
     panel_y = name_y + name_h + 12
-    panel_h = SH - panel_y - 26          # leave room for footer hint
+    panel_h = SH - panel_y - 26  # leave room for footer hint
     d.rect(8, panel_y - 4, SW - 16, panel_h + 8, api.rgb(56, 16, 24), fill=True)
     d.rect(8, panel_y - 4, SW - 16, 1, HDR, fill=True)
 
-    msg       = str(err)
+    msg = str(err)
     max_chars = (SW - 32) // 8
-    lines     = _wrap_text(msg, max_chars)
-    max_lns   = panel_h // 12
-    lines     = lines[:max_lns]
-    block_h   = len(lines) * 12
-    text_y    = panel_y + max(0, (panel_h - block_h) // 2)
+    lines = _wrap_text(msg, max_chars)
+    max_lns = panel_h // 12
+    lines = lines[:max_lns]
+    block_h = len(lines) * 12
+    text_y = panel_y + max(0, (panel_h - block_h) // 2)
     for i, line in enumerate(lines):
         lw = len(line) * 8
         d.text(line, (SW - lw) // 2, text_y + i * 12, TEXT)
 
     # ── centred footer hint ──────────────────────────────────────────────
     hint = "press any button to continue"
-    hw   = len(hint) * 8
+    hw = len(hint) * 8
     d.text(hint, (SW - hw) // 2, SH - 18, DIM)
 
     d.present()
@@ -586,6 +611,7 @@ def _wrap_text(text, max_chars):
 
 # ── boot entry point ─────────────────────────────────────────────────────────
 
+
 def _maybe_apply_ota(os_obj=None):
     """Run any staged OTA update BEFORE we import the home screen.
 
@@ -596,21 +622,24 @@ def _maybe_apply_ota(os_obj=None):
     """
     try:
         from oreoOS import ota
+
         if not ota.is_pending():
             return None
         # Peek at the staged manifest to learn the target version + file
         # count for the splash. Cheap — just opens one JSON file.
         try:
             import json as _j
+
             with open(ota.STAGE_DIR + "/" + ota.MANIFEST_NAME) as f:
                 m = _j.load(f)
             target = m.get("version", "")
-            total  = len(m.get("files", ()))
+            total = len(m.get("files", ()))
         except Exception:
             target, total = "", 1
         if os_obj is not None:
             try:
                 from oreoOS.splash import show_updating
+
                 advance = show_updating(os_obj, target, total)
             except Exception:
                 advance = None
@@ -625,6 +654,7 @@ def _maybe_apply_ota(os_obj=None):
         # Custom apply loop with progress callbacks.
         try:
             import json as _j
+
             with open(ota.STAGE_DIR + "/" + ota.MANIFEST_NAME) as f:
                 manifest = _j.load(f)
         except Exception:
@@ -665,9 +695,10 @@ def _bc(tag):
 
 def boot():
     _bc("entered boot()")
-    from oreoWare.os import OS
+    from oreoOS.home import Home
     from oreoOS.splash import show_splash
-    from oreoOS.home   import Home
+    from oreoWare.os import OS
+
     _bc("imports done")
 
     # Bring the hardware up first so the OTA splash has a display to draw
@@ -697,7 +728,7 @@ def boot():
         # Persist the version for the post-reboot "Updated to vX.Y.Z" toast.
         try:
             os_obj.settings_set("ota_just_applied", applied)
-            os_obj.settings_set("ota_status",       "applied")
+            os_obj.settings_set("ota_status", "applied")
             os_obj.settings_set("ota_pending_peek_ok", False)
         except Exception:
             pass
@@ -706,6 +737,7 @@ def boot():
         # won't re-apply this round.
         try:
             import machine
+
             machine.reset()
         except Exception:
             pass
@@ -729,10 +761,12 @@ def boot():
     #      can at least reach the home screen
     wifi_ok_to_try = True
     from oreoOS import config
+
     if not config.get("WIFI_AUTO_CONNECT", True):
         wifi_ok_to_try = False
     try:
         import machine
+
         # MicroPython exposes BROWNOUT_RESET on most ports; treat unknown
         # constants as "not a brownout" so this stays portable.
         if hasattr(machine, "BROWNOUT_RESET"):
@@ -742,7 +776,8 @@ def boot():
         pass
 
     try:
-        from oreoWare import wifi, bt
+        from oreoWare import bt, wifi
+
         if wifi_ok_to_try:
             _bc("wifi.connect_from_config begin")
             wifi.connect_from_config()
@@ -752,6 +787,7 @@ def boot():
             # tick handles accept(). No-op if WiFi failed.
             try:
                 from oreoOS import http_server as _hs
+
                 _hs.start(os_obj)
             except Exception:
                 pass
@@ -764,6 +800,7 @@ def boot():
             _bc("ntp sync begin")
             try:
                 from oreoOS import timeutil
+
                 timeutil.sync_from_ntp()
             except Exception as e:
                 _bc("ntp sync FAILED: %s" % e)
@@ -775,7 +812,9 @@ def boot():
     # Check for direct CLI target or hot-reload resumed app
     initial_target = None
     try:
-        import sys, os
+        import os
+        import sys
+
         for arg in sys.argv[1:]:
             if arg.startswith("--app="):
                 initial_target = arg.split("=", 1)[1]
@@ -804,6 +843,7 @@ def boot():
             try:
                 os_obj._launcher_resume = None
                 import os
+
                 os.environ.pop("OREOSIM_ACTIVE_APP", None)
             except Exception:
                 pass
@@ -833,7 +873,7 @@ def boot():
                 target = "launcher"
 
             if not target:
-                break    # nothing queued; outer loop returns to Home
+                break  # nothing queued; outer loop returns to Home
 
             try:
                 app = load_app(target)

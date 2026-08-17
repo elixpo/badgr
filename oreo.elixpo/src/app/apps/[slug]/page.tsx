@@ -107,7 +107,6 @@ export default async function AppDetail({
           aria-hidden="true"
           className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[640px] overflow-hidden"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={bgUrl}
             alt=""
@@ -264,7 +263,6 @@ function RelatedIcon({ app }: { app: AppEntry }) {
     <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden
                     rounded-md bg-card-sub p-1.5">
       {app.pngIcon ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={app.pngIcon}
           alt=""
