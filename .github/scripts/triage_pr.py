@@ -78,9 +78,7 @@ def triage_llm(title: str, body: str, files: list[str]) -> dict:
 
     files_preview = "\n".join(f"- {f}" for f in files[:50]) or "(no files)"
     user_message = (
-        f"PR title: {title}\n\n"
-        f"PR body:\n{body or '(empty)'}\n\n"
-        f"Changed files:\n{files_preview}"
+        f"PR title: {title}\n\nPR body:\n{body or '(empty)'}\n\nChanged files:\n{files_preview}"
     )
 
     content = call_llm(LLM_MODEL_CHAT, system_prompt, user_message, json_mode=True)
@@ -94,9 +92,7 @@ def fetch_pr(pr_number: str) -> dict:
 
 def fetch_pr_files(pr_number: str, limit: int = 100) -> list[str]:
     try:
-        data = github_rest(
-            "GET", f"/repos/{REPO}/pulls/{pr_number}/files?per_page={limit}"
-        )
+        data = github_rest("GET", f"/repos/{REPO}/pulls/{pr_number}/files?per_page={limit}")
         if isinstance(data, list):
             return [f.get("filename", "") for f in data if f.get("filename")]
     except Exception as exc:
@@ -112,9 +108,7 @@ def add_to_project(project_id: str, pr_node_id: str) -> str | None:
       }
     }
     """
-    result = github_graphql(
-        mutation, {"projectId": project_id, "contentId": pr_node_id}
-    )
+    result = github_graphql(mutation, {"projectId": project_id, "contentId": pr_node_id})
     try:
         return result["data"]["addProjectV2ItemById"]["item"]["id"]
     except (KeyError, TypeError):
@@ -176,18 +170,19 @@ def set_status_todo(project_id: str, item_id: str) -> bool:
       }
     }
     """
-    github_graphql(mutation, {
-        "projectId": project_id,
-        "itemId": item_id,
-        "fieldId": field_id,
-        "optionId": option_id,
-    })
+    github_graphql(
+        mutation,
+        {
+            "projectId": project_id,
+            "itemId": item_id,
+            "fieldId": field_id,
+            "optionId": option_id,
+        },
+    )
     return True
 
 
-def set_single_select_field(
-    project_id: str, item_id: str, field_id: str, option_id: str
-) -> None:
+def set_single_select_field(project_id: str, item_id: str, field_id: str, option_id: str) -> None:
     mutation = """
     mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
       updateProjectV2ItemFieldValue(input: {
@@ -198,12 +193,15 @@ def set_single_select_field(
       }) { projectV2Item { id } }
     }
     """
-    github_graphql(mutation, {
-        "projectId": project_id,
-        "itemId": item_id,
-        "fieldId": field_id,
-        "optionId": option_id,
-    })
+    github_graphql(
+        mutation,
+        {
+            "projectId": project_id,
+            "itemId": item_id,
+            "fieldId": field_id,
+            "optionId": option_id,
+        },
+    )
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
@@ -276,9 +274,15 @@ def main() -> None:
     type_label = f"TYPE: {task_type.upper()}"
     print(f"Applying labels: [{cat_label}, {pri_label}, {type_label}]")
     try:
-        ensure_label(REPO, cat_label, LABEL_COLORS.get(cat_label, "ededed"), f"Category: {category}")
-        ensure_label(REPO, pri_label, LABEL_COLORS.get(pri_label, "ededed"), f"Priority: {priority}")
-        ensure_label(REPO, type_label, LABEL_COLORS.get(type_label, "ededed"), f"Task type: {task_type}")
+        ensure_label(
+            REPO, cat_label, LABEL_COLORS.get(cat_label, "ededed"), f"Category: {category}"
+        )
+        ensure_label(
+            REPO, pri_label, LABEL_COLORS.get(pri_label, "ededed"), f"Priority: {priority}"
+        )
+        ensure_label(
+            REPO, type_label, LABEL_COLORS.get(type_label, "ededed"), f"Task type: {task_type}"
+        )
         add_labels(REPO, PR_NUMBER, [cat_label, pri_label, type_label])
     except Exception as exc:
         print(f"[warn] Label application failed: {exc}")

@@ -239,11 +239,11 @@ class App(oreoOS.App):
             return
         self._dirty = False
         d.clear(theme.BG)
-        widgets.draw_header(d, "STORE")
+        self.title = "STORE"
         if self._mode == "details":
-            widgets.draw_hint(d, "A=install/uninstall  B=back")
+            self.hints = [("A", "install/uninstall"), ("B", "back")]
         else:
-            widgets.draw_hint(d, "A=open  LEFT=refresh  B=quit")
+            self.hints = [("A", "open"), ("LEFT", "refresh"), ("B", "quit")]
 
         if self._mode == "details":
             self._draw_details_page(d)

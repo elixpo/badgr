@@ -395,6 +395,10 @@ def run_app(os_obj, app):
                     if header_title:
                         _w_mod.draw_header(os_obj.display, header_title)
 
+                    hint_data = getattr(app, "hints", getattr(app, "hint", None))
+                    if hint_data:
+                        _w_mod.draw_hint(os_obj.display, hint_data)
+
                 panel.draw(os_obj.display)
                 # Pair prompt is the topmost layer — drawn last so the
                 # 6-digit code can never be obscured by a panel slide-in.

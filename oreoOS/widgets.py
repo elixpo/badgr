@@ -210,18 +210,35 @@ def draw_header(d, title=None, color=None, accent=None):
     _icon_battery(d, bat_x, bat_y, pct=status.get("battery_pct", 85), color=fg)
 
 
-def draw_hint(d, text, color=None):
+def draw_hint(d, hints):
     """Small grey hint text at the very bottom of the screen.
 
-    Use for "press X for Y" prompts so apps don't have to handcode the bar.
+    Accepts either a raw string or a list of (button, action) tuples.
     """
     SW = api.SCREEN_W
     SH = api.SCREEN_H
     y = SH - HINT_H
     d.rect(0, y, SW, HINT_H, theme.DOCK_BG, fill=True)
     d.rect(0, y, SW, 1, theme.MUTED2, fill=True)
-    tx = (SW - len(text) * 8) // 2
-    d.text(text, tx, y + 4, color or theme.TEXT_DIM)
+
+    if isinstance(hints, str):
+        tx = (SW - len(hints) * 8) // 2
+        d.text(hints, tx, y + 4, theme.TEXT_DIM)
+    else:
+        total_chars = 0
+        for i, (btn, act) in enumerate(hints):
+            total_chars += len(btn) + 1 + len(act)
+            if i < len(hints) - 1:
+                total_chars += 2  # 2 spaces between hints
+
+        tx = (SW - total_chars * 8) // 2
+        for btn, act in hints:
+            d.text(btn, tx, y + 4, theme.PRIMARY)
+            tx += len(btn) * 8
+            d.text("=", tx, y + 4, theme.MUTED2)
+            tx += 8
+            d.text(act, tx, y + 4, theme.TEXT_DIM)
+            tx += (len(act) + 2) * 8
 
 
 def draw_panel(d, x, y, w, h, color=None, border=True):

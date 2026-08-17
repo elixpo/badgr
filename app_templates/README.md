@@ -62,14 +62,13 @@ optional except `draw`:
 
 ```python
 class App(oreoOS.App):
-
-    def on_enter(self, os):       # once, when the app is opened
+    def on_enter(self, os):  # once, when the app is opened
         ...
 
-    def update(self, dt):         # per-frame logic
+    def update(self, dt):  # per-frame logic
         ...
 
-    def draw(self, d):            # per-frame render
+    def draw(self, d):  # per-frame render
         ...
 
     def on_button_press(self, btn):  # btn is api.BTN_A / B / UP / etc.

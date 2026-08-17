@@ -32,8 +32,8 @@ class App(oreoOS.App):
             return
         self._dirty = False
         d.clear(theme.BG)
-        widgets.draw_header(d, "BLUETOOTH")
-        widgets.draw_hint(d, "B / HOME to back out")
+        self.title = "BLUETOOTH"
+        self.hints = [("", "B / HOME to back out")]
 
         cy = SH // 2
 

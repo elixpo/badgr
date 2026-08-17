@@ -57,9 +57,7 @@ def run_gist_digest():
     merged_by = pr.get("merged_by", {}).get("login", "unknown")
 
     # Fetch changed files
-    files_data = github_rest(
-        "GET", f"/repos/{REPO}/pulls/{PR_NUMBER}/files?per_page=100"
-    )
+    files_data = github_rest("GET", f"/repos/{REPO}/pulls/{PR_NUMBER}/files?per_page=100")
     filenames = [f["filename"] for f in files_data]
 
     # LLM summary
@@ -115,7 +113,9 @@ def run_gist_digest():
     github_rest(
         "POST",
         f"/repos/{REPO}/issues/{PR_NUMBER}/comments",
-        {"body": f"**[CHANGE LOG]** \U0001f4cb Changelog updated for PR #{PR_NUMBER}. [View changelog]({gist_url})"},
+        {
+            "body": f"**[CHANGE LOG]** \U0001f4cb Changelog updated for PR #{PR_NUMBER}. [View changelog]({gist_url})"
+        },
     )
     print(f"Commented on PR #{PR_NUMBER}")
 
@@ -133,9 +133,7 @@ def find_linked_issues():
 
     # Fetch commit messages
     try:
-        commits = github_rest(
-            "GET", f"/repos/{REPO}/pulls/{PR_NUMBER}/commits?per_page=100"
-        )
+        commits = github_rest("GET", f"/repos/{REPO}/pulls/{PR_NUMBER}/commits?per_page=100")
         for c in commits:
             msg = c.get("commit", {}).get("message", "")
             sources.append(msg)

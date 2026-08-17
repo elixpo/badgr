@@ -22,41 +22,40 @@ Public surface:
 import time
 
 # ── Settings keys ────────────────────────────────────────────────────────
-SET_ENABLED         = "gestures_enabled"
-SET_TAP             = "gesture_tap"
-SET_DOUBLE_TAP      = "gesture_double_tap"
-SET_FLIP_UP         = "gesture_flip_up"
-SET_HARD_SHAKE      = "gesture_hard_shake"
-SET_FLIP_UP_ACTION  = "gesture_flip_up_action"
+SET_ENABLED = "gestures_enabled"
+SET_TAP = "gesture_tap"
+SET_DOUBLE_TAP = "gesture_double_tap"
+SET_FLIP_UP = "gesture_flip_up"
+SET_HARD_SHAKE = "gesture_hard_shake"
+SET_FLIP_UP_ACTION = "gesture_flip_up_action"
 
 # Flip-up action codes — stored verbatim in settings, dispatched by launcher.
-ACTION_DRAWER  = "drawer"
-ACTION_NOTIFS  = "notifs"
-ACTION_WIFI    = "wifi"
-ACTION_BT      = "bt"
-ACTION_CAMERA  = "camera"     # reserved for IR-quest / future capture flow
+ACTION_DRAWER = "drawer"
+ACTION_NOTIFS = "notifs"
+ACTION_WIFI = "wifi"
+ACTION_BT = "bt"
+ACTION_CAMERA = "camera"  # reserved for IR-quest / future capture flow
 
-FLIP_ACTIONS = (ACTION_DRAWER, ACTION_NOTIFS, ACTION_WIFI,
-                ACTION_BT, ACTION_CAMERA)
+FLIP_ACTIONS = (ACTION_DRAWER, ACTION_NOTIFS, ACTION_WIFI, ACTION_BT, ACTION_CAMERA)
 
 # ── detection tuning (per-axis in g, durations in ms) ────────────────────
-TAP_PEAK_G          = 1.6        # |a| crossing this counts as a spike
-TAP_RETURN_G        = 1.2        # back-below to arm the next tap
-TAP_REFRACTORY_MS   = 200        # min gap between two distinct TAPs
-DOUBLE_TAP_MAX_MS   = 400        # two TAPs must land within this window
+TAP_PEAK_G = 1.6  # |a| crossing this counts as a spike
+TAP_RETURN_G = 1.2  # back-below to arm the next tap
+TAP_REFRACTORY_MS = 200  # min gap between two distinct TAPs
+DOUBLE_TAP_MAX_MS = 400  # two TAPs must land within this window
 
-FLIP_AZ_REST_MIN    = 0.80       # gravity-Z floor in resting-flat orientation
-FLIP_AZ_LIFTED_MAX  = 0.60       # gravity-Z ceiling when lifted off the table
-FLIP_TILT_DELTA     = 0.40       # |Δay| from rest required for the tilt-back leg
-FLIP_SUSTAIN_MS     = 180        # tilted state must persist this long
-FLIP_REFRACTORY_MS  = 800        # don't re-fire too quickly
+FLIP_AZ_REST_MIN = 0.80  # gravity-Z floor in resting-flat orientation
+FLIP_AZ_LIFTED_MAX = 0.60  # gravity-Z ceiling when lifted off the table
+FLIP_TILT_DELTA = 0.40  # |Δay| from rest required for the tilt-back leg
+FLIP_SUSTAIN_MS = 180  # tilted state must persist this long
+FLIP_REFRACTORY_MS = 800  # don't re-fire too quickly
 
-SHAKE_PEAK_G        = 1.8        # threshold for "this is a shake-event peak"
-SHAKE_MIN_REVS_PS   = 8          # required direction-reversals per second
-SHAKE_HOLD_MS       = 5000       # must sustain that rate for this long
-SHAKE_GAP_MS        = 350        # if no peak this long, reset the streak
+SHAKE_PEAK_G = 1.8  # threshold for "this is a shake-event peak"
+SHAKE_MIN_REVS_PS = 8  # required direction-reversals per second
+SHAKE_HOLD_MS = 5000  # must sustain that rate for this long
+SHAKE_GAP_MS = 350  # if no peak this long, reset the streak
 
-POLL_DT_MS          = 20         # 50 Hz when actively sampling
+POLL_DT_MS = 20  # 50 Hz when actively sampling
 
 
 def get(os_obj):
@@ -82,6 +81,7 @@ def get(os_obj):
     else:
         try:
             from oreoWare import imu as _imu_mod
+
             imu = _imu_mod.detect()
         except Exception:
             imu = None
@@ -108,23 +108,23 @@ class Gestures:
     """
 
     def __init__(self, os_obj, imu):
-        self._os         = os_obj
-        self._imu        = imu
-        self._last_poll  = 0
-        self._events     = []
-        self._cfg        = self._read_settings()
-        self._cfg_ts_ms  = time.ticks_ms()
+        self._os = os_obj
+        self._imu = imu
+        self._last_poll = 0
+        self._events = []
+        self._cfg = self._read_settings()
+        self._cfg_ts_ms = time.ticks_ms()
         # Per-detector state ────────────────────────────────────────────
-        self._tap_armed       = True            # below TAP_RETURN_G
-        self._last_tap_ms     = 0
-        self._pending_tap_ms  = 0               # waiting for a 2nd tap
-        self._flip_phase      = "rest"          # rest | lifted | tilted
-        self._flip_tilted_at  = 0
-        self._flip_last_fire  = 0
-        self._flip_rest_ay    = 0.0             # captured at "rest" entry
-        self._shake_peaks     = []              # ticks_ms of recent peaks
-        self._shake_streak_at = 0               # when the streak first met threshold
-        self._shake_last_dir  = 0
+        self._tap_armed = True  # below TAP_RETURN_G
+        self._last_tap_ms = 0
+        self._pending_tap_ms = 0  # waiting for a 2nd tap
+        self._flip_phase = "rest"  # rest | lifted | tilted
+        self._flip_tilted_at = 0
+        self._flip_last_fire = 0
+        self._flip_rest_ay = 0.0  # captured at "rest" entry
+        self._shake_peaks = []  # ticks_ms of recent peaks
+        self._shake_streak_at = 0  # when the streak first met threshold
+        self._shake_last_dir = 0
         # Apply settings now so the IMU enters the right power state.
         self._apply_imu_power()
 
@@ -132,19 +132,19 @@ class Gestures:
     def _read_settings(self):
         get_ = self._os.settings_get
         return {
-            "enabled":      bool(get_(SET_ENABLED, False)),
-            "tap":          bool(get_(SET_TAP, False)),
-            "double_tap":   bool(get_(SET_DOUBLE_TAP, False)),
-            "flip_up":      bool(get_(SET_FLIP_UP, False)),
-            "hard_shake":   bool(get_(SET_HARD_SHAKE, False)),
-            "flip_action":  get_(SET_FLIP_UP_ACTION, ACTION_DRAWER),
+            "enabled": bool(get_(SET_ENABLED, False)),
+            "tap": bool(get_(SET_TAP, False)),
+            "double_tap": bool(get_(SET_DOUBLE_TAP, False)),
+            "flip_up": bool(get_(SET_FLIP_UP, False)),
+            "hard_shake": bool(get_(SET_HARD_SHAKE, False)),
+            "flip_action": get_(SET_FLIP_UP_ACTION, ACTION_DRAWER),
         }
 
     def apply_settings(self):
         """Re-read settings + reconfigure the IMU. Settings page calls
         this after the user flips a toggle so power state updates without
         waiting for the 2-second auto-refresh."""
-        self._cfg      = self._read_settings()
+        self._cfg = self._read_settings()
         self._cfg_ts_ms = time.ticks_ms()
         self._apply_imu_power()
 
@@ -189,7 +189,7 @@ class Gestures:
         # Refresh settings every 2 s so Settings-page edits propagate
         # without an explicit apply_settings() callback.
         if time.ticks_diff(now, self._cfg_ts_ms) > 2000:
-            self._cfg     = self._read_settings()
+            self._cfg = self._read_settings()
             self._cfg_ts_ms = now
             self._apply_imu_power()
         # 50 Hz poll cap — we don't need to read faster than the
@@ -250,9 +250,12 @@ class Gestures:
                 self._tap_armed = True
         # Single-tap deferred fire: if a pending tap exists and the
         # window closed without a second tap, fire single tap now.
-        if (self._cfg["tap"] and self._pending_tap_ms
-                and self._cfg["double_tap"]
-                and time.ticks_diff(now, self._pending_tap_ms) > DOUBLE_TAP_MAX_MS):
+        if (
+            self._cfg["tap"]
+            and self._pending_tap_ms
+            and self._cfg["double_tap"]
+            and time.ticks_diff(now, self._pending_tap_ms) > DOUBLE_TAP_MAX_MS
+        ):
             self._emit("tap")
             self._last_tap_ms = self._pending_tap_ms
             self._pending_tap_ms = 0
@@ -266,20 +269,20 @@ class Gestures:
             return
         if self._flip_phase == "rest":
             if az >= FLIP_AZ_REST_MIN:
-                self._flip_rest_ay = ay     # capture orientation baseline
+                self._flip_rest_ay = ay  # capture orientation baseline
             if az <= FLIP_AZ_LIFTED_MAX:
                 self._flip_phase = "lifted"
         elif self._flip_phase == "lifted":
             d_ay = ay - self._flip_rest_ay
             if abs(d_ay) >= FLIP_TILT_DELTA:
-                self._flip_phase    = "tilted"
+                self._flip_phase = "tilted"
                 self._flip_tilted_at = now
             elif az >= FLIP_AZ_REST_MIN:
-                self._flip_phase = "rest"   # placed back down without tilting
+                self._flip_phase = "rest"  # placed back down without tilting
         elif self._flip_phase == "tilted":
             if time.ticks_diff(now, self._flip_tilted_at) >= FLIP_SUSTAIN_MS:
                 self._emit("flip_up", action=self._cfg["flip_action"])
-                self._flip_phase    = "rest"
+                self._flip_phase = "rest"
                 self._flip_last_fire = now
 
     def _detect_hard_shake(self, ax, ay, az, mag, now):
@@ -290,36 +293,33 @@ class Gestures:
         if mag < SHAKE_PEAK_G:
             # Idle gap — if we go too long without a peak, the streak
             # dies and we restart from scratch.
-            if (self._shake_peaks
-                    and time.ticks_diff(now, self._shake_peaks[-1])
-                        > SHAKE_GAP_MS):
-                self._shake_peaks     = []
+            if self._shake_peaks and time.ticks_diff(now, self._shake_peaks[-1]) > SHAKE_GAP_MS:
+                self._shake_peaks = []
                 self._shake_streak_at = 0
-                self._shake_last_dir  = 0
+                self._shake_last_dir = 0
             return
         # Pick the strongest-magnitude axis for direction tracking.
-        axes = (("x", ax), ("y", ay), ("z", az - 1.0))   # subtract gravity
+        axes = (("x", ax), ("y", ay), ("z", az - 1.0))  # subtract gravity
         axes_sorted = sorted(axes, key=lambda kv: -abs(kv[1]))
         _name, val = axes_sorted[0]
         cur_dir = 1 if val > 0 else -1
         if cur_dir == self._shake_last_dir:
-            return   # same direction = same peak; need a reversal
+            return  # same direction = same peak; need a reversal
         self._shake_last_dir = cur_dir
         self._shake_peaks.append(now)
         # Window the peaks list to the last 1 second so the rate calc
         # is bounded.
         cutoff = time.ticks_add(now, -1000)
-        while self._shake_peaks and time.ticks_diff(self._shake_peaks[0],
-                                                    cutoff) < 0:
+        while self._shake_peaks and time.ticks_diff(self._shake_peaks[0], cutoff) < 0:
             self._shake_peaks.pop(0)
         if len(self._shake_peaks) >= SHAKE_MIN_REVS_PS:
             if self._shake_streak_at == 0:
                 self._shake_streak_at = now
             elif time.ticks_diff(now, self._shake_streak_at) >= SHAKE_HOLD_MS:
                 self._emit("hard_shake")
-                self._shake_peaks     = []
+                self._shake_peaks = []
                 self._shake_streak_at = 0
-                self._shake_last_dir  = 0
+                self._shake_last_dir = 0
         else:
             self._shake_streak_at = 0
 
@@ -331,11 +331,11 @@ def push_default_settings(os_obj):
     set_ = os_obj.settings_set
     get_ = os_obj.settings_get
     pairs = (
-        (SET_ENABLED,        False),
-        (SET_TAP,            False),
-        (SET_DOUBLE_TAP,     False),
-        (SET_FLIP_UP,        False),
-        (SET_HARD_SHAKE,     False),
+        (SET_ENABLED, False),
+        (SET_TAP, False),
+        (SET_DOUBLE_TAP, False),
+        (SET_FLIP_UP, False),
+        (SET_HARD_SHAKE, False),
         (SET_FLIP_UP_ACTION, ACTION_DRAWER),
     )
     for k, default in pairs:

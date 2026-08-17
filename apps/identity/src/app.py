@@ -34,8 +34,7 @@ def _wrap(text, max_chars):
 
 def _try_avatar():
     try:
-        m = __import__("apps.identity.assets.optimized.avatar", None, None,
-                       ["DATA", "W", "H"])
+        m = __import__("apps.identity.assets.optimized.avatar", None, None, ["DATA", "W", "H"])
         return (bytearray(m.DATA), m.W, m.H)
     except (ImportError, AttributeError):
         return None
@@ -43,13 +42,13 @@ def _try_avatar():
 
 # Common profile shortcuts
 STANDARD_LINKS = [
-    ("GITHUB_USER",   "GitHub",      "https://github.com/%s"),
-    ("TWITTER_USER",  "X / Twitter", "https://x.com/%s"),
-    ("LINKEDIN_USER", "LinkedIn",    "https://linkedin.com/in/%s"),
-    ("BLUESKY_USER",  "Bluesky",     "https://bsky.app/profile/%s"),
-    ("NPM_USER",      "NPM",         "https://npmjs.com/~%s"),
-    ("WEBSITE_URL",   "Website",     "%s"),
-    ("EMAIL",         "Email",       "mailto:%s"),
+    ("GITHUB_USER", "GitHub", "https://github.com/%s"),
+    ("TWITTER_USER", "X / Twitter", "https://x.com/%s"),
+    ("LINKEDIN_USER", "LinkedIn", "https://linkedin.com/in/%s"),
+    ("BLUESKY_USER", "Bluesky", "https://bsky.app/profile/%s"),
+    ("NPM_USER", "NPM", "https://npmjs.com/~%s"),
+    ("WEBSITE_URL", "Website", "%s"),
+    ("EMAIL", "Email", "mailto:%s"),
 ]
 
 
@@ -65,9 +64,9 @@ def _format_url(val):
 def _load_identity(os_obj=None):
     from oreoOS import config
 
-    name    = config.get("DISPLAY_NAME") or config.get("GITHUB_USER", "Badge Holder")
+    name = config.get("DISPLAY_NAME") or config.get("GITHUB_USER", "Badge Holder")
     gh_user = config.get("GITHUB_USER", "")
-    desig   = config.get("DESIGNATION", "")
+    desig = config.get("DESIGNATION", "")
 
     channels = []
     seen = set()
@@ -92,7 +91,9 @@ def _load_identity(os_obj=None):
         k_upper = k.upper().strip()
         if k_upper.startswith(("LINK_", "SOCIAL_")):
             raw_name = k_upper.split("_", 1)[1]
-            label = " ".join(w.capitalize() for w in raw_name.replace("-", "_").split("_")) or "Link"
+            label = (
+                " ".join(w.capitalize() for w in raw_name.replace("-", "_").split("_")) or "Link"
+            )
             if label.lower() not in seen:
                 channels.append({"name": label, "url": _format_url(val)})
                 seen.add(label.lower())
@@ -100,40 +101,39 @@ def _load_identity(os_obj=None):
     if not channels:
         channels.append({"name": "Website", "url": "https://oreo.elixpo.com"})
 
-    return {
-        "name":        name,
-        "login":       gh_user,
-        "designation": desig,
-        "channels":    channels
-    }
+    return {"name": name, "login": gh_user, "designation": desig, "channels": channels}
 
 
 class App(oreoOS.App):
-    name         = "Identity"
+    name = "Identity"
     SHOW_LOADING = False
 
     def __init__(self):
-        self._os          = None
-        self._avatar      = None
-        self._identity    = None
-        self._mode        = "card"   # "card" or "qr"
+        self._os = None
+        self._avatar = None
+        self._identity = None
+        self._mode = "card"  # "card" or "qr"
         self._channel_idx = 0
-        self._qr_cache    = {}       # url -> matrix cache
-        self._dirty       = True
+        self._qr_cache = {}  # url -> matrix cache
+        self._dirty = True
 
     def on_enter(self, os_obj):
-        self._os          = os_obj
-        self._avatar      = _try_avatar()
-        self._identity    = _load_identity(os_obj)
-        self._mode        = "card"
+        self._os = os_obj
+        self._avatar = _try_avatar()
+        self._identity = _load_identity(os_obj)
+        self._mode = "card"
         self._channel_idx = 0
-        self._dirty       = True
+        self._dirty = True
 
     def _get_active_channel(self):
         chans = self._identity.get("channels", [])
         if 0 <= self._channel_idx < len(chans):
             return chans[self._channel_idx]
-        return chans[0] if chans else {"name": "Website", "tab": "Website", "url": "https://oreo.elixpo.com"}
+        return (
+            chans[0]
+            if chans
+            else {"name": "Website", "tab": "Website", "url": "https://oreo.elixpo.com"}
+        )
 
     def _get_qr_matrix(self, url):
         if url not in self._qr_cache:
@@ -141,7 +141,7 @@ class App(oreoOS.App):
                 self._qr_cache[url] = QRCode.encode(url)
             except Exception as e:
                 print("[Identity] QR Encode error:", e)
-                self._qr_cache[url] = [[False]*21 for _ in range(21)]
+                self._qr_cache[url] = [[False] * 21 for _ in range(21)]
         return self._qr_cache[url]
 
     def on_button_press(self, btn):
@@ -193,17 +193,17 @@ class App(oreoOS.App):
         self._dirty = False
 
     def _draw_card(self, d):
-        widgets.draw_header(d, "IDENTITY")
-        widgets.draw_hint(d, "A=toggle QR  HOME=back")
+        self.title = "IDENTITY"
+        self.hints = [("A", "toggle QR"), ("HOME", "back")]
 
         p = self._identity
         cx, cy = 12, widgets.HEADER_H + 4
-        cw     = SW - 24
-        ch     = SH - widgets.HEADER_H - widgets.HINT_H - 8
+        cw = SW - 24
+        ch = SH - widgets.HEADER_H - widgets.HINT_H - 8
 
         d.rect(cx + 2, cy + 2, cw, ch, theme.MUTED2, fill=True)
-        d.rect(cx,     cy,     cw, ch, theme.CARD,   fill=True)
-        d.rect(cx,     cy,     cw, 3,  theme.PRIMARY, fill=True)
+        d.rect(cx, cy, cw, ch, theme.CARD, fill=True)
+        d.rect(cx, cy, cw, 3, theme.PRIMARY, fill=True)
 
         if self._avatar:
             data, aw, ah = self._avatar
@@ -255,19 +255,19 @@ class App(oreoOS.App):
         d.text(lbl, btn_x + (btn_w - len(lbl) * 8) // 2, btn_y + 4, api.WHITE)
 
     def _draw_qr(self, d):
-        widgets.draw_header(d, "SOCIAL QR CARD")
-        widgets.draw_hint(d, "A=card  LEFT/RIGHT=channel")
+        self.title = "SOCIAL QR CARD"
+        self.hints = [("A", "card"), ("LEFT/RIGHT", "channel")]
 
         chan = self._get_active_channel()
-        url  = chan["url"]
+        url = chan["url"]
 
         cx, cy = 12, widgets.HEADER_H + 4
-        cw     = SW - 24
-        ch     = SH - widgets.HEADER_H - widgets.HINT_H - 8
+        cw = SW - 24
+        ch = SH - widgets.HEADER_H - widgets.HINT_H - 8
 
         d.rect(cx + 2, cy + 2, cw, ch, theme.MUTED2, fill=True)
-        d.rect(cx,     cy,     cw, ch, theme.CARD,   fill=True)
-        d.rect(cx,     cy,     cw, 3,  theme.PRIMARY, fill=True)
+        d.rect(cx, cy, cw, ch, theme.CARD, fill=True)
+        d.rect(cx, cy, cw, 3, theme.PRIMARY, fill=True)
 
         # 1. Top Channel Switcher Bar with high-contrast PRIMARY fill
         chans = self._identity.get("channels", [])
@@ -295,15 +295,16 @@ class App(oreoOS.App):
         d.text(">", bar_x + bar_w - 14, bar_y + 5, api.WHITE)
 
         # Horizontal scroll bar indicator track & slider thumb
-        widgets.draw_scrollbar(d, bar_x, bar_y + bar_h + 2, bar_w, 3,
-                               n, self._channel_idx, visible=1, horizontal=True)
+        widgets.draw_scrollbar(
+            d, bar_x, bar_y + bar_h + 2, bar_w, 3, n, self._channel_idx, visible=1, horizontal=True
+        )
 
         # 2. QR Container Box — tightly hugs the QR code so it fills the square!
         qr_matrix = self._get_qr_matrix(url)
-        q_size    = len(qr_matrix)
-        mod_sz    = 4 if q_size <= 29 else max(2, min(4, 116 // q_size))
+        q_size = len(qr_matrix)
+        mod_sz = 4 if q_size <= 29 else max(2, min(4, 116 // q_size))
         qr_pixel_w = q_size * mod_sz
-        pad       = 4
+        pad = 4
 
         box_w = qr_pixel_w + pad * 2
         box_h = box_w
@@ -337,13 +338,19 @@ class App(oreoOS.App):
         if len(display_url) > 33:
             display_url = display_url[:30] + "..."
 
-        d.text(display_url, field_x + (field_w - len(display_url) * 8) // 2, field_y + 5, theme.TEXT_BRIGHT)
+        d.text(
+            display_url,
+            field_x + (field_w - len(display_url) * 8) // 2,
+            field_y + 5,
+            theme.TEXT_BRIGHT,
+        )
 
     def on_exit(self):
         """Free QR cache and sweep GC on exit."""
         self._qr_cache = {}
         try:
             import gc
+
             gc.collect()
         except Exception:
             pass

@@ -28,13 +28,13 @@ class SpriteSheet:
         data_mod : module exposing DATA (bytes), W, H of the whole sheet
         cols, rows : grid dimensions
         """
-        self._buf  = data_mod.DATA if hasattr(data_mod, "DATA") else data_mod[0]
-        self._sw   = data_mod.W    if hasattr(data_mod, "W")    else data_mod[1]
-        self._sh   = data_mod.H    if hasattr(data_mod, "H")    else data_mod[2]
-        self.cols  = cols
-        self.rows  = rows
-        self.fw    = self._sw // cols
-        self.fh    = self._sh // rows
+        self._buf = data_mod.DATA if hasattr(data_mod, "DATA") else data_mod[0]
+        self._sw = data_mod.W if hasattr(data_mod, "W") else data_mod[1]
+        self._sh = data_mod.H if hasattr(data_mod, "H") else data_mod[2]
+        self.cols = cols
+        self.rows = rows
+        self.fw = self._sw // cols
+        self.fh = self._sh // rows
         self._cache = {}
 
     def sprite(self, col, row):
@@ -44,14 +44,14 @@ class SpriteSheet:
         if c is not None:
             return c
         fw, fh = self.fw, self.fh
-        sw     = self._sw
+        sw = self._sw
         # Extract `fh` rows of `fw` pixels each
         out = bytearray(fw * fh * 2)
         for fy in range(fh):
             src_y = row * fh + fy
             src_x = col * fw
             src_start = (src_y * sw + src_x) * 2
-            out[fy * fw * 2: (fy + 1) * fw * 2] = self._buf[src_start: src_start + fw * 2]
+            out[fy * fw * 2 : (fy + 1) * fw * 2] = self._buf[src_start : src_start + fw * 2]
         result = (bytes(out), fw, fh)
         self._cache[key] = result
         return result
@@ -65,8 +65,8 @@ class SpriteSheet:
 class Animation:
     def __init__(self, sheet, start_col, row, count):
         self._sheet = sheet
-        self._sc    = start_col
-        self._row   = row
+        self._sc = start_col
+        self._row = row
         self._count = count
 
     def count(self):
@@ -75,6 +75,8 @@ class Animation:
     def frame(self, idx):
         """Return the sprite tuple for the idx-th frame (clamped)."""
         i = int(idx)
-        if i < 0:           i = 0
-        elif i >= self._count: i = self._count - 1
+        if i < 0:
+            i = 0
+        elif i >= self._count:
+            i = self._count - 1
         return self._sheet.sprite(self._sc + i, self._row)

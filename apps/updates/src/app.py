@@ -270,7 +270,7 @@ class App(oreoOS.App):
             return
         self._dirty = False
         d.clear(theme.BG)
-        widgets.draw_header(d, "UPDATES")
+        self.title = "UPDATES"
         if self._mode == "changelog":
             self._draw_changelog(d)
             return
@@ -278,11 +278,11 @@ class App(oreoOS.App):
 
     def _draw_main(self, d):
         if self._state in (S_AVAILABLE, S_READY):
-            widgets.draw_hint(d, "L/R=pick  A=do  HOME=back")
+            self.hints = [("L/R", "pick"), ("A", "do"), ("HOME", "back")]
         elif self._state == S_CHECKING:
-            widgets.draw_hint(d, "HOME=back")
+            self.hints = [("HOME", "back")]
         else:
-            widgets.draw_hint(d, "A=check  HOME=back")
+            self.hints = [("A", "check"), ("HOME", "back")]
 
         # ── Title: OREO OS <version> ──────────────────────────────
         cur = self._current_version()
@@ -388,7 +388,7 @@ class App(oreoOS.App):
 
     # ── changelog sub-page ─────────────────────────────────────────────
     def _draw_changelog(self, d):
-        widgets.draw_hint(d, "UP/DOWN=scroll  B/HOME=back")
+        self.hints = [("UP/DOWN", "scroll"), ("B/HOME", "back")]
         ver = (self._release or {}).get("version", "?")
         title = "CHANGELOG  " + ver
         d.text(title, (SW - len(title) * 8) // 2, widgets.HEADER_H + 6, theme.PRIMARY, scale=1)

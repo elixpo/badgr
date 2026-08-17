@@ -26,8 +26,7 @@ def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 
-def convert(src: Path, dst: Path, size: tuple[int, int],
-            bg=(255, 255, 255), tol=30, bg_565=None):
+def convert(src: Path, dst: Path, size: tuple[int, int], bg=(255, 255, 255), tol=30, bg_565=None):
     from PIL import Image
 
     img = Image.open(src).convert("RGBA").resize(size, Image.LANCZOS)
@@ -61,7 +60,7 @@ def convert(src: Path, dst: Path, size: tuple[int, int],
     ]
     chunk = 16  # uint16 values per line
     for i in range(0, len(pixels), chunk):
-        row = pixels[i:i + chunk]
+        row = pixels[i : i + chunk]
         lines.append("    b'" + "".join("\\x%02x\\x%02x" % (v >> 8, v & 0xFF) for v in row) + "'")
     lines.append(")")
     dst.write_text("\n".join(lines) + "\n")
@@ -73,7 +72,7 @@ def main():
     ap.add_argument("src", help="Source PNG")
     ap.add_argument("dst", help="Output .py file")
     ap.add_argument("--size", nargs=2, type=int, default=[64, 64], metavar=("W", "H"))
-    ap.add_argument("--bg",  nargs=3, type=int, default=[255, 255, 255], metavar=("R", "G", "B"))
+    ap.add_argument("--bg", nargs=3, type=int, default=[255, 255, 255], metavar=("R", "G", "B"))
     ap.add_argument("--tol", type=int, default=30, help="Background tolerance")
     args = ap.parse_args()
     convert(Path(args.src), Path(args.dst), tuple(args.size), tuple(args.bg), args.tol)

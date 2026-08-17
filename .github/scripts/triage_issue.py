@@ -125,9 +125,7 @@ def add_to_project(project_id: str, issue_node_id: str) -> str:
       }
     }
     """
-    result = github_graphql(
-        mutation, {"projectId": project_id, "contentId": issue_node_id}
-    )
+    result = github_graphql(mutation, {"projectId": project_id, "contentId": issue_node_id})
     try:
         return result["data"]["addProjectV2ItemById"]["item"]["id"]
     except (KeyError, TypeError) as exc:
@@ -168,9 +166,7 @@ def find_status_todo(project_id: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-def set_single_select_field(
-    project_id: str, item_id: str, field_id: str, option_id: str
-) -> None:
+def set_single_select_field(project_id: str, item_id: str, field_id: str, option_id: str) -> None:
     """Set a single-select field value on a project item."""
     mutation = """
     mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
@@ -207,9 +203,7 @@ def set_issue_type(issue_node_id: str, issue_type_id: str) -> None:
       }
     }
     """
-    github_graphql(
-        mutation, {"issueId": issue_node_id, "issueTypeId": issue_type_id}
-    )
+    github_graphql(mutation, {"issueId": issue_node_id, "issueTypeId": issue_type_id})
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
@@ -266,17 +260,13 @@ def main() -> None:
             if raw_category in CATEGORIES:
                 category = raw_category
             else:
-                print(
-                    f"[warn] Unknown category '{raw_category}', defaulting to {DEFAULT_CATEGORY}"
-                )
+                print(f"[warn] Unknown category '{raw_category}', defaulting to {DEFAULT_CATEGORY}")
                 category = DEFAULT_CATEGORY
 
             if raw_priority in PRIORITIES:
                 priority = raw_priority
             else:
-                print(
-                    f"[warn] Unknown priority '{raw_priority}', defaulting to {DEFAULT_PRIORITY}"
-                )
+                print(f"[warn] Unknown priority '{raw_priority}', defaulting to {DEFAULT_PRIORITY}")
                 priority = DEFAULT_PRIORITY
 
             summary = (raw_summary or DEFAULT_SUMMARY).strip() or DEFAULT_SUMMARY
@@ -292,9 +282,7 @@ def main() -> None:
     # ── Step 2: Resolve project ───────────────────────────────────────────
     project = PROJECTS.get(category)
     if project is None:
-        print(
-            f"[warn] No project config for category '{category}', falling back to Support"
-        )
+        print(f"[warn] No project config for category '{category}', falling back to Support")
         category = "Support"
         project = PROJECTS["Support"]
 
@@ -345,9 +333,7 @@ def main() -> None:
         status_field_id, todo_option_id = find_status_todo(project["id"])
         if status_field_id and todo_option_id:
             try:
-                set_single_select_field(
-                    project["id"], item_id, status_field_id, todo_option_id
-                )
+                set_single_select_field(project["id"], item_id, status_field_id, todo_option_id)
                 print("Status set to 'Todo'")
             except Exception as exc:
                 print(f"[warn] Failed to set Status=Todo: {exc}")

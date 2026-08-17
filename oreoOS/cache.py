@@ -42,6 +42,7 @@ def _now_s():
 # MicroPython. The values are coerced to str on write and returned as str
 # on read; callers cast back to int / float / tuple as needed.
 
+
 def _ser(obj):
     if isinstance(obj, dict):
         out = []
@@ -74,6 +75,7 @@ def _deser(text):
 
 
 # ── public API ──────────────────────────────────────────────────────────────
+
 
 def save(path, payload):
     """Write `payload` (dict OR scalar) to `path` with a timestamp header.
@@ -130,6 +132,7 @@ def invalidate(path):
     """Delete a cache file. Used when the user presses 'force refresh'."""
     try:
         import os as _os
+
         _os.remove(path)
         return True
     except Exception:

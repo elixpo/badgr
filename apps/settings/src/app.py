@@ -66,6 +66,8 @@ class App(oreoOS.App):
 
     def on_enter(self, os):
         self._os = os
+        self.title = "SETTINGS"
+        self.hints = [("A", "toggle"), ("L/R", "slider"), ("HOME", "back")]
         self._sel = 0
         self._scroll_top = 0  # first visible row index
         self._dirty = True
@@ -439,8 +441,6 @@ class App(oreoOS.App):
         if not self._dirty:
             return
         d.clear(theme.BG)
-        widgets.draw_header(d, "SETTINGS")
-        widgets.draw_hint(d, "A=toggle  L/R=slider  HOME=back")
 
         n = len(self._rows)
         top = self._scroll_top

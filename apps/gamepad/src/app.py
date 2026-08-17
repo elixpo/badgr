@@ -103,8 +103,8 @@ class App(oreoOS.App):
         # Solid dark backdrop covering the whole screen — the rows then sit
         # edge-to-edge with no cream border peeking through.
         d.rect(0, 0, SW, SH, HEADER_BG, fill=True)
-        widgets.draw_header(d, "BUTTONS")
-        widgets.draw_hint(d, "HOME x2 = exit")
+        self.title = "BUTTONS"
+        self.hints = [("HOME x2 ", " exit")]
 
         rows = self._labels()
         play_top = widgets.HEADER_H + 4

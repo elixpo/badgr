@@ -552,16 +552,19 @@ class App(oreoOS.App):
         self._dirty = False
         d.clear(theme.BG)
         if self._mode == "picker":
+            self.title = "READER"
+            self.hints = [("A", "open"), ("HOME", "back")]
             self._draw_picker(d)
         elif self._mode == "help":
+            self.title = "ADD A DOC"
+            self.hints = [("UP/DOWN", "scroll"), ("B", "back")]
             self._draw_help(d)
         else:
+            self.title = self._title[:18]
+            self.hints = [("UP/DOWN", "scroll"), ("B", "back")]
             self._draw_view(d)
 
     def _draw_picker(self, d):
-        widgets.draw_header(d, "READER")
-        widgets.draw_hint(d, "A=open  HOME=back")
-
         row_h = 20
         top_y = widgets.HEADER_H + 6
 
@@ -611,16 +614,10 @@ class App(oreoOS.App):
 
     # ── help splash ─────────────────────────────────────────────────────
     def _draw_help(self, d):
-        widgets.draw_header(d, "ADD A DOC")
-        widgets.draw_hint(d, "UP/DOWN=scroll  B=back")
-
-        # Cream card filling the play area — matches the gallery splash
-        # so the two how-to screens feel like one family.
         card_x = 10
         card_y = widgets.HEADER_H + 4
         card_w = SW - 20
         card_h = SH - widgets.HEADER_H - widgets.HINT_H - 8
-        d.rect(card_x + 2, card_y + 2, card_w, card_h, theme.MUTED2, fill=True)
         d.rect(card_x, card_y, card_w, card_h, theme.CARD, fill=True)
         d.rect(card_x, card_y, card_w, 3, theme.PRIMARY, fill=True)
 
@@ -697,9 +694,6 @@ class App(oreoOS.App):
             d.text("v", sx, list_bot - 12, theme.PRIMARY, scale=2)
 
     def _draw_view(self, d):
-        widgets.draw_header(d, self._title[:18])
-        widgets.draw_hint(d, "UP/DOWN=scroll  B=back")
-
         play_top = widgets.HEADER_H + 4
         play_h = SH - widgets.HEADER_H - widgets.HINT_H - 4
         # Vertical clip: walk blocks, skip those above scroll, draw those

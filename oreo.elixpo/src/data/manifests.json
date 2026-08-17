@@ -89,16 +89,7 @@
     "icon": "apps_icon.png",
     "author": "Circuit-Overtime"
   },
-  "manager": {
-    "name": "App Manager",
-    "description": "System application manager: inspect storage, monitor RAM/heap, manage permissions, and uninstall packages on ESP32 & emulator.",
-    "type": "app",
-    "version": "1.0.0",
-    "icon": "manager_icon.png",
-    "author": "sea-deep",
-    "color": "#4CAF50",
-    "category": "Tools"
-  },
+
   "quest": {
     "name": "IR Quest",
     "description": "Find other badges over IR and trade quest tokens.",
@@ -140,12 +131,14 @@
     "author": "Circuit-Overtime"
   },
   "storage": {
-    "name": "Storage",
-    "description": "Disk usage breakdown by app and asset bundle.",
+    "name": "System Monitor",
+    "description": "System Monitor app with a 2-tab interface for flash usage and live MicroPython heap monitoring.",
     "type": "app",
-    "version": "0.1",
+    "version": "1.0.0",
     "icon": "storage_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "color": "#4CAF50",
+    "category": "Tools"
   },
   "store": {
     "name": "Store",

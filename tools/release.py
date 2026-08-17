@@ -35,8 +35,8 @@ import sys
 from pathlib import Path
 
 
-REPO_ROOT  = Path(__file__).resolve().parent.parent
-CONFIG     = REPO_ROOT / "oreoOS" / "config.py"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CONFIG = REPO_ROOT / "oreoOS" / "config.py"
 VERSION_RE = re.compile(r'(VERSION\s*=\s*")v\d+\.\d+\.\d+(")')
 
 
@@ -59,12 +59,13 @@ def run(cmd, dry, capture=False, check=True):
 
 # ── pre-flight ──────────────────────────────────────────────────────────────
 
+
 def _read_current_version():
     """Default for the `version` arg — what's pinned in oreoOS/config.py."""
     m = VERSION_RE.search(CONFIG.read_text())
     if not m:
         return None
-    return re.search(r'v\d+\.\d+\.\d+', m.group(0)).group(0)
+    return re.search(r"v\d+\.\d+\.\d+", m.group(0)).group(0)
 
 
 def _handle_dirty_tree(version, dry, force, yes):
@@ -86,10 +87,14 @@ def _handle_dirty_tree(version, dry, force, yes):
         ans = "y"
     else:
         try:
-            ans = input(
-                "\nAuto-stage everything and commit as "
-                "'release: %s (auto)'? [Y/n] " % version
-            ).strip().lower() or "y"
+            ans = (
+                input(
+                    "\nAuto-stage everything and commit as 'release: %s (auto)'? [Y/n] " % version
+                )
+                .strip()
+                .lower()
+                or "y"
+            )
         except EOFError:
             ans = "n"
     if ans not in ("y", "yes"):
@@ -128,17 +133,18 @@ def _release_exists(tag, dry):
 
 # ── version bump ────────────────────────────────────────────────────────────
 
+
 def _bump_version(target_version, dry):
     txt = CONFIG.read_text()
-    m   = VERSION_RE.search(txt)
+    m = VERSION_RE.search(txt)
     if not m:
         sys.exit("✗ could not find VERSION literal in %s" % CONFIG)
-    current = re.search(r'v\d+\.\d+\.\d+', m.group(0)).group(0)
+    current = re.search(r"v\d+\.\d+\.\d+", m.group(0)).group(0)
     if current == target_version:
         print("  version already at %s — no bump needed" % target_version)
         return False
-    new_line = '%s%s%s' % (m.group(1), target_version, m.group(2))
-    new_txt  = txt[:m.start()] + new_line + txt[m.end():]
+    new_line = "%s%s%s" % (m.group(1), target_version, m.group(2))
+    new_txt = txt[: m.start()] + new_line + txt[m.end() :]
     print("  %s → %s in oreoOS/config.py" % (current, target_version))
     if not dry:
         CONFIG.write_text(new_txt)
@@ -147,21 +153,31 @@ def _bump_version(target_version, dry):
 
 # ── main flow ───────────────────────────────────────────────────────────────
 
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("version", nargs="?", default=None,
-                    help="vX.Y.Z. Omit to use the version in oreoOS/config.py.")
-    ap.add_argument("--channel", default="stable",
-                    choices=("stable", "beta"),
-                    help="release channel (default: stable)")
-    ap.add_argument("--notes", default="",
-                    help="release notes body. If omitted, a sensible default is used.")
-    ap.add_argument("--force", action="store_true",
-                    help="skip the clean-working-tree prompt entirely.")
-    ap.add_argument("--yes", "-y", action="store_true",
-                    help="answer 'yes' to every prompt (auto-stage, etc.).")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="print every step without executing.")
+    ap.add_argument(
+        "version",
+        nargs="?",
+        default=None,
+        help="vX.Y.Z. Omit to use the version in oreoOS/config.py.",
+    )
+    ap.add_argument(
+        "--channel",
+        default="stable",
+        choices=("stable", "beta"),
+        help="release channel (default: stable)",
+    )
+    ap.add_argument(
+        "--notes", default="", help="release notes body. If omitted, a sensible default is used."
+    )
+    ap.add_argument(
+        "--force", action="store_true", help="skip the clean-working-tree prompt entirely."
+    )
+    ap.add_argument(
+        "--yes", "-y", action="store_true", help="answer 'yes' to every prompt (auto-stage, etc.)."
+    )
+    ap.add_argument("--dry-run", action="store_true", help="print every step without executing.")
     args = ap.parse_args()
 
     # Default to whatever oreoOS/config.py:VERSION currently holds. This is
@@ -193,7 +209,7 @@ def main():
     # GitHub Release for it (i.e. a previous attempt died after the tag
     # push), we skip the git steps and jump straight to build + publish.
     tag_on_remote = _tag_exists(tag, dry)
-    release_live  = _release_exists(tag, dry)
+    release_live = _release_exists(tag, dry)
     # Three resume states the script knows how to handle:
     #   resume=False         clean run: full git → build → create
     #   resume="build"       tag pushed but no GitHub Release: git skipped,
@@ -228,14 +244,23 @@ def main():
     # 3. Build the release artefacts. asset_base_url points at the URL
     # gh will use once the upload step has finished.
     asset_base = "https://github.com/elixpo/oreo/releases/download/%s/" % tag
-    run([
-        sys.executable, "tools/build_release.py",
-        "--version", args.version,
-        "--channel", args.channel,
-        "--asset-base-url", asset_base,
-        "--notes", args.notes,
-        "--out",   "dist",
-    ], dry)
+    run(
+        [
+            sys.executable,
+            "tools/build_release.py",
+            "--version",
+            args.version,
+            "--channel",
+            args.channel,
+            "--asset-base-url",
+            asset_base,
+            "--notes",
+            args.notes,
+            "--out",
+            "dist",
+        ],
+        dry,
+    )
 
     # 4. Flatten the per-file assets into upload/ — the manifest's URLs
     # reference path-flattened names (slashes → underscores). build_release
@@ -252,10 +277,10 @@ def main():
                 flat = str(rel).replace("/", "_")
                 shutil.copyfile(p, upload_dir / flat)
         # Add manifest + bundle alongside.
-        shutil.copyfile(REPO_ROOT / "dist" / args.version / "manifest.json",
-                        upload_dir / "manifest.json")
-        shutil.copyfile(REPO_ROOT / "dist" / args.version / "bundle.tar",
-                        upload_dir / "bundle.tar")
+        shutil.copyfile(
+            REPO_ROOT / "dist" / args.version / "manifest.json", upload_dir / "manifest.json"
+        )
+        shutil.copyfile(REPO_ROOT / "dist" / args.version / "bundle.tar", upload_dir / "bundle.tar")
 
     # 5. Create the GitHub Release.
     prerelease_flag = ["--prerelease"] if args.channel != "stable" else []
@@ -265,6 +290,7 @@ def main():
     # suffix when off-channel. The date is ISO yyyy-mm-dd in UTC so it
     # matches what GitHub renders alongside the release.
     import datetime as _dt
+
     # tz-aware now() so we don't trip Python 3.12's utcnow() deprecation.
     today = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
     if args.channel == "stable":
@@ -290,20 +316,35 @@ def main():
         # Release row already exists from a half-failed previous run. We
         # only need to (re-)upload the asset files. --clobber replaces
         # any partial uploads from before.
-        run([
-            "gh", "release", "upload", tag,
-            "--clobber",
-            *upload_files,
-        ], dry)
+        run(
+            [
+                "gh",
+                "release",
+                "upload",
+                tag,
+                "--clobber",
+                *upload_files,
+            ],
+            dry,
+        )
     else:
-        run([
-            "gh", "release", "create", tag,
-            "--title", title,
-            "--notes", notes,
-            *prerelease_flag,
-            "--target", "main",
-            *upload_files,
-        ], dry)
+        run(
+            [
+                "gh",
+                "release",
+                "create",
+                tag,
+                "--title",
+                title,
+                "--notes",
+                notes,
+                *prerelease_flag,
+                "--target",
+                "main",
+                *upload_files,
+            ],
+            dry,
+        )
 
     print("\n✓ release %s pushed and published." % tag)
     if not dry:

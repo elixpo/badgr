@@ -26,8 +26,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-KEY   = os.getenv("POLLINATIONS_KEY")
-BASE  = "https://gen.pollinations.ai/image"
+KEY = os.getenv("POLLINATIONS_KEY")
+BASE = "https://gen.pollinations.ai/image"
 MODEL = "gptimage"
 
 
@@ -60,18 +60,20 @@ def download_to(prompt, out_path, width=200, height=200, seed=42):
         return False
 
     # NOTE: User-Agent is REQUIRED — the API returns 403 without it.
-    headers = {
-        "Authorization": "Bearer %s" % KEY,
-        "User-Agent":    "OreoBadge/1.0"
-    }
+    headers = {"Authorization": "Bearer %s" % KEY, "User-Agent": "OreoBadge/1.0"}
     enc = urllib.parse.quote(prompt)
     url = "%s/%s?width=%d&height=%d&seed=%d&nologo=true&model=%s" % (
-        BASE, enc, width, height, seed, MODEL
+        BASE,
+        enc,
+        width,
+        height,
+        seed,
+        MODEL,
     )
 
     for attempt in range(4):
         try:
-            req  = urllib.request.Request(url, headers=headers)
+            req = urllib.request.Request(url, headers=headers)
             resp = urllib.request.urlopen(req, timeout=90)
             data = resp.read()
             if len(data) < 1000:
@@ -102,8 +104,7 @@ def download_to(prompt, out_path, width=200, height=200, seed=42):
                 return False
 
             wait = 20 * (attempt + 1)
-            print("  attempt %d HTTP %d %s — retry in %ds" %
-                  (attempt + 1, e.code, e.reason, wait))
+            print("  attempt %d HTTP %d %s — retry in %ds" % (attempt + 1, e.code, e.reason, wait))
             if body:
                 print("    server: " + short.splitlines()[0][:200])
             time.sleep(wait)
@@ -123,7 +124,7 @@ def generate_stickers(only_names=None, seed=42, size=1024):
     composited into a sheet by tools/compile_sticker_sheet.py.
     """
     prompts_dir = Path("prompts") / "stickers"
-    out_dir     = Path("stickers")
+    out_dir = Path("stickers")
 
     if not prompts_dir.exists():
         print("No prompts directory at %s" % prompts_dir)
@@ -140,14 +141,14 @@ def generate_stickers(only_names=None, seed=42, size=1024):
         print("No sticker .md prompt files in %s (after filtering)" % prompts_dir)
         return
 
-    print("Generating %d sticker(s)  [%dx%d, seed=%d]...\n" %
-          (len(mds), size, size, seed))
+    print("Generating %d sticker(s)  [%dx%d, seed=%d]...\n" % (len(mds), size, size, seed))
 
     # Defer the transparency import so users without Pillow can still
     # run the icon/app generators. If it's unavailable we just warn
     # and skip the post-step — raw cream PNGs are still useful.
     try:
         from tools.sticker_transparency import make_transparent  # type: ignore
+
         _alpha_ok = True
     except Exception:
         try:
@@ -155,6 +156,7 @@ def generate_stickers(only_names=None, seed=42, size=1024):
             # (tools/ isn't on sys.path).
             sys.path.insert(0, str(Path("tools").resolve()))
             from sticker_transparency import make_transparent  # type: ignore
+
             _alpha_ok = True
         except Exception as e:
             print("  warn: transparency pass unavailable (%s)" % e)
@@ -186,7 +188,7 @@ def generate_stickers(only_names=None, seed=42, size=1024):
 def generate_app(app_name, only_names=None, seed=42):
     """Generate all assets for one app: prompts/<app>/*.md → apps/<app>/assets/raw/*.png"""
     prompts_dir = Path("prompts") / app_name
-    out_dir     = Path("apps") / app_name / "assets" / "raw"
+    out_dir = Path("apps") / app_name / "assets" / "raw"
 
     if not prompts_dir.exists():
         print("No prompts directory at %s" % prompts_dir)
@@ -199,8 +201,7 @@ def generate_app(app_name, only_names=None, seed=42):
         print("No .md prompt files in %s" % prompts_dir)
         return
 
-    print("Generating %d sprite(s) for app '%s'  [seed=%d]...\n" %
-          (len(mds), app_name, seed))
+    print("Generating %d sprite(s) for app '%s'  [seed=%d]...\n" % (len(mds), app_name, seed))
     for md in mds:
         prompt = _read_prompt(md)
         if not prompt:
@@ -210,8 +211,6 @@ def generate_app(app_name, only_names=None, seed=42):
         download_to(prompt, out, width=200, height=200, seed=seed)
         time.sleep(8)
     print("\nDone. Run:  python tools/optimize_assets.py --app %s" % app_name)
-
-
 
 
 # ── Active assets ──────────────────────────────────────────────────────────────
@@ -260,17 +259,18 @@ ICON_STYLE = (
 
 # ── Download ──────────────────────────────────────────────────────────────────
 
+
 def download(name, width=200, height=200, seed=42):
     """Top-level icon: prompts/{name,icons/<name>}.md → assets/icons/raw/<name>.png."""
-    prompt = (_read_prompt("prompts/%s.md" % name)
-              or _read_prompt("prompts/icons/%s.md" % name)
-              or _FALLBACK_PROMPTS.get(name))
+    prompt = (
+        _read_prompt("prompts/%s.md" % name)
+        or _read_prompt("prompts/icons/%s.md" % name)
+        or _FALLBACK_PROMPTS.get(name)
+    )
     if not prompt:
-        print("  SKIP %s — no prompt at prompts/%s.md or prompts/icons/%s.md"
-              % (name, name, name))
+        print("  SKIP %s — no prompt at prompts/%s.md or prompts/icons/%s.md" % (name, name, name))
         return
-    download_to(prompt, "assets/icons/raw/%s.png" % name,
-                width, height, seed=seed)
+    download_to(prompt, "assets/icons/raw/%s.png" % name, width, height, seed=seed)
 
 
 def _pop_seed(args):
@@ -283,7 +283,7 @@ def _pop_seed(args):
                 seed = int(args[i + 1])
             except ValueError:
                 print("WARN: --seed expects an integer; using 42")
-            args = args[:i] + args[i + 2:]
+            args = args[:i] + args[i + 2 :]
     return args, seed
 
 
@@ -295,15 +295,15 @@ def main():
     # are treated as stems to filter on (e.g. `--stickers 01_hello`),
     # mirroring the per-app mode's behaviour.
     if "--stickers" in args:
-        idx  = args.index("--stickers")
-        only = args[idx + 1:]
+        idx = args.index("--stickers")
+        only = args[idx + 1 :]
         generate_stickers(only_names=only or None, seed=seed)
         return
 
     # ── per-app mode ─────────────────────────────────────────────────────────
     if "--app" in args:
-        idx  = args.index("--app")
-        rest = args[idx + 1:]
+        idx = args.index("--app")
+        rest = args[idx + 1 :]
         if not rest:
             print("Usage: generate_assets.py --app <app> [name ...] [--seed N]")
             return
@@ -313,7 +313,7 @@ def main():
 
     # ── top-level icons mode ─────────────────────────────────────────────────
     targets = args
-    active  = {k: v for k, v in ACTIVE.items()}
+    active = {k: v for k, v in ACTIVE.items()}
     if targets:
         active = {k: active.get(k, (200, 200)) for k in targets}
     if not active:
@@ -323,12 +323,15 @@ def main():
     print("Generating %d asset(s)  [seed=%d]...\n" % (len(active), seed))
     for name, dims in active.items():
         w, h = dims if dims else (200, 200)
-        prompt = (_read_prompt("prompts/%s.md" % name)
-                  or _read_prompt("prompts/icons/%s.md" % name)
-                  or _FALLBACK_PROMPTS.get(name))
+        prompt = (
+            _read_prompt("prompts/%s.md" % name)
+            or _read_prompt("prompts/icons/%s.md" % name)
+            or _FALLBACK_PROMPTS.get(name)
+        )
         if not prompt:
-            print("  SKIP %s — no prompt at prompts/%s.md or prompts/icons/%s.md"
-                  % (name, name, name))
+            print(
+                "  SKIP %s — no prompt at prompts/%s.md or prompts/icons/%s.md" % (name, name, name)
+            )
             continue
         download_to(prompt, "assets/icons/raw/%s.png" % name, w, h, seed=seed)
         time.sleep(8)

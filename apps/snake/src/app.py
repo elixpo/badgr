@@ -138,7 +138,7 @@ class App(oreoOS.App):
         # Render every frame for the blinking prompts; the arena is
         # small enough that a full redraw is cheap.
         d.clear(theme.BG)
-        widgets.draw_header(d, "SNAKE")
+        self.title = "SNAKE"
 
         if self._state == game.INTRO:
             render.draw_arena(d, self._snake, self._food, self._food_sprite)
@@ -158,7 +158,7 @@ class App(oreoOS.App):
             render.dim_arena(d)
             render.draw_gameover(d, self._score, self._hi, self._new_hi, self._blink)
 
-        widgets.draw_hint(d, "A=start  B=pause  arrows=move")
+        self.hints = [("A", "start"), ("B", "pause"), ("arrows", "move")]
 
     def on_exit(self):
         """Free cached sprites and sweep GC on exit."""

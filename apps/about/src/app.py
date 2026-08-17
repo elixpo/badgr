@@ -123,8 +123,8 @@ class App(oreoOS.App):
         if not self._dirty:
             return
         d.clear(theme.BG)
-        widgets.draw_header(d, "ABOUT")
-        widgets.draw_hint(d, "UP/DOWN=scroll  HOME=back")
+        self.title = "ABOUT"
+        self.hints = [("UP/DOWN", "scroll"), ("HOME", "back")]
 
         # Scrollable content panel
         panel_x = 8

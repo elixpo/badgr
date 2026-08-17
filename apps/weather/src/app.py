@@ -261,8 +261,8 @@ class App(oreoOS.App):
         else:
             d.rect(0, play_top, SW, play_h, api.rgb(20, 30, 45), fill=True)
 
-        widgets.draw_header(d, "WEATHER")
-        widgets.draw_hint(d, "A=refresh  HOME=back")
+        self.title = "WEATHER"
+        self.hints = [("A", "refresh"), ("HOME", "back")]
 
         if not self._key:
             self._draw_setup_card(d)

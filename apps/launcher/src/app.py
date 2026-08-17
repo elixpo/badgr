@@ -482,6 +482,7 @@ class App(oreoOS.App):
         _name, _icon, app_idxs = self._categories[cat_idx]
         if not app_idxs:
             return
+        self.title = "APPS"
         self._view_apps = list(app_idxs)
         self._cat_level = 1
         self._sel = 0
@@ -670,7 +671,6 @@ class App(oreoOS.App):
         if not self._dirty:
             return
         d.clear(theme.BG)
-        widgets.draw_header(d, "APPS")
 
         n = len(self._apps)
         if not n:
@@ -682,7 +682,7 @@ class App(oreoOS.App):
         # the apps grid.
         if self._mode == "categories" and self._cat_level == 0:
             self._draw_category_picker(d)
-            widgets.draw_hint(d, "A=open  HOME=back  C=notif")
+            self.hints = [("A", "open"), ("HOME", "back"), ("C", "notif")]
             self._dirty = False
             return
 
@@ -784,15 +784,14 @@ class App(oreoOS.App):
         # ── viewport top mask: hide rows scrolled above the top edge ─────────
         if scroll_int > 0:
             d.rect(0, 0, SW, PAD_TOP, theme.BG, fill=True)
-            widgets.draw_header(d, "APPS")  # re-stamp the header on top
 
         # ── viewport bottom mask & hint bar: clean stamp over bottom edge ─────
         hint_y = SH - widgets.HINT_H
         d.rect(0, hint_y, SW, widgets.HINT_H, theme.DOCK_BG, fill=True)
         if self._mode == "categories" and self._cat_level == 1:
-            widgets.draw_hint(d, "A=launch  B=back  C=notif")
+            self.hints = [("A", "open"), ("HOME", "back"), ("C", "notif")]
         else:
-            widgets.draw_hint(d, "A=launch  HOME=back  C=notif")
+            self.hints = [("A", "launch"), ("HOME", "back"), ("C", "notif")]
 
         # ── scrollbar on the right ───────────────────────────────────────
         widgets.draw_scrollbar(

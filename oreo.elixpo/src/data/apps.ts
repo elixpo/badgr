@@ -112,8 +112,7 @@ export const ALL_APPS: AppEntry[] = [
     details: "HID Gamepad over BLE — your laptop sees the badge as a generic " +
              "gamepad. Maps the badge buttons to standard XInput buttons." }),
   app("storage",  { category: "tool", tint: "lilac",   icon: "HardDrive",
-    details: "Walks the filesystem and renders a breakdown of which apps and " +
-             "asset directories are using how much flash." }),
+    details: "System Monitor app with a 2-tab interface. Tab 0 provides a visual breakdown of flash usage across apps and assets. Tab 1 monitors live MicroPython heap usage and supports one-tap Garbage Collection." }),
   app("wifi",     { category: "core", tint: "teal",    icon: "Wifi",
     details: "Manage saved networks with per-entry priority and metered flags. " +
              "Run ping + speed test from the same screen. Send-files row exposes " +
@@ -132,9 +131,6 @@ export const ALL_APPS: AppEntry[] = [
   app("Colors",   { category: "tool", tint: "lilac",   icon: "Palette",
     details: "Multi-slot real-time palette designer. Customize Primary, Background, Card, " +
              "Secondary, and Accent colors with automatic contrast inversion and live OS preview." }),
-  app("manager",  { category: "core", tint: "teal", icon: "Cpu",
-    details: "System management suite: per-app flash footprint calculation, cache cleaning, " +
-             "safe package uninstaller, and real-time PSRAM heap monitoring with one-tap GC." }),
 ];
 
 export const STORE: AppEntry[] = [

@@ -324,8 +324,8 @@ class App(oreoOS.App):
         if not self._dirty:
             return
         d.clear(theme.BG)
-        widgets.draw_header(d, "COMMITS")
-        widgets.draw_hint(d, "A=refresh  HOME=back")
+        self.title = "COMMITS"
+        self.hints = [("A", "refresh"), ("HOME", "back")]
 
         # Full-height card filling the play area.
         card_x = 10

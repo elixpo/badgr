@@ -11,29 +11,30 @@ from oreoWare import pins
 
 try:
     from machine import ADC, Pin
+
     _HAVE_ADC = True
 except ImportError:
     _HAVE_ADC = False
 
 
-_adc       = None
-_initted   = False
-_SAMPLES   = 8         # average across N reads to suppress mains noise
-_DIVIDER   = 2.0       # 100k/100k → cell voltage = 2× pin voltage
-_VREF_MV   = 3100      # ESP32-S3 ADC1 @ 11 dB ≈ 0–3.1 V full scale
+_adc = None
+_initted = False
+_SAMPLES = 8  # average across N reads to suppress mains noise
+_DIVIDER = 2.0  # 100k/100k → cell voltage = 2× pin voltage
+_VREF_MV = 3100  # ESP32-S3 ADC1 @ 11 dB ≈ 0–3.1 V full scale
 
 # Li-Po discharge approximation — (cell_V, percent)
 _CURVE = (
     (4.20, 100),
-    (4.10,  90),
-    (4.00,  80),
-    (3.90,  65),
-    (3.80,  50),
-    (3.70,  35),
-    (3.60,  20),
-    (3.50,  10),
-    (3.40,   5),
-    (3.30,   0),
+    (4.10, 90),
+    (4.00, 80),
+    (3.90, 65),
+    (3.80, 50),
+    (3.70, 35),
+    (3.60, 20),
+    (3.50, 10),
+    (3.40, 5),
+    (3.30, 0),
 )
 
 

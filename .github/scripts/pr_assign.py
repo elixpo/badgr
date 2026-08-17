@@ -12,7 +12,7 @@ Env vars: AGENT_TOKEN, POLLINATIONS_KEY, PR_NUMBER, PR_TITLE, PR_BODY,
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ci_config import *
 from _common import github_rest, call_llm, parse_llm_json
@@ -46,16 +46,12 @@ def pick_reviewer(pr_title, pr_body, changed_files):
         "- File paths changed (frontend/backend/docs?)\n"
         "- PR title and description\n"
         "- Nature of the change (feature/bug/docs/infra?)\n\n"
-        "Respond in JSON only: {\"reviewer\": \"username\", \"reason\": \"one sentence why\"}"
+        'Respond in JSON only: {"reviewer": "username", "reason": "one sentence why"}'
     )
 
     files_for_prompt = changed_files[:30]
     files_list = "\n".join(f"- {f}" for f in files_for_prompt) if files_for_prompt else "(none)"
-    user_message = (
-        f"Title: {pr_title}\n\n"
-        f"Body: {pr_body}\n\n"
-        f"Changed files:\n{files_list}"
-    )
+    user_message = f"Title: {pr_title}\n\nBody: {pr_body}\n\nChanged files:\n{files_list}"
 
     try:
         raw = call_llm(LLM_MODEL_CHAT, system_prompt, user_message, temperature=0.2, json_mode=True)
@@ -97,13 +93,18 @@ def main():
         return
 
     # 3. External contributor — fetch changed files and pick a reviewer.
-    files_data = safe_api(
-        "GET",
-        f"/repos/{repo}/pulls/{pr_number}/files?per_page=100",
-        description="list changed files",
-    ) or []
+    files_data = (
+        safe_api(
+            "GET",
+            f"/repos/{repo}/pulls/{pr_number}/files?per_page=100",
+            description="list changed files",
+        )
+        or []
+    )
     changed_files = [f.get("filename", "") for f in files_data if f.get("filename")]
-    print(f"Changed files ({len(changed_files)}): {changed_files[:10]}{'...' if len(changed_files) > 10 else ''}")
+    print(
+        f"Changed files ({len(changed_files)}): {changed_files[:10]}{'...' if len(changed_files) > 10 else ''}"
+    )
 
     chosen, reason = pick_reviewer(pr_title, pr_body, changed_files)
     print(f"Chosen reviewer: {chosen} — {reason}")

@@ -537,8 +537,8 @@ class App(oreoOS.App):
         if self._mode == "transfer":
             self._draw_transfer(d)
             return
-        widgets.draw_header(d, "WIFI")
-        widgets.draw_hint(d, "A=select  HOME=back")
+        self.title = "WIFI"
+        self.hints = [("A", "select"), ("HOME", "back")]
 
         snap = self._snap
         # Two-state status only: connected → ON, anything else → OFF.
@@ -585,8 +585,8 @@ class App(oreoOS.App):
         return "%d saved" % n
 
     def _draw_nets(self, d):
-        widgets.draw_header(d, "NETWORKS")
-        widgets.draw_hint(d, "A=connect  B=forget  L=metered")
+        self.title = "NETWORKS"
+        self.hints = [("A", "connect"), ("B", "forget"), ("L", "metered")]
         if not self._nets:
             self._reload_nets()
         if not self._nets:
@@ -808,7 +808,7 @@ class App(oreoOS.App):
         self._snap = self._read()
 
     def _draw_transfer(self, d):
-        widgets.draw_header(d, "SEND FILES")
+        self.title = "SEND FILES"
 
         hs = self._http()
         running = bool(hs and hs.is_running())
@@ -822,7 +822,7 @@ class App(oreoOS.App):
         except Exception:
             disabled = False
         if disabled:
-            widgets.draw_hint(d, "A=re-enable  B=back")
+            self.hints = [("A", "re-enable"), ("B", "back")]
             y = ROW_TOP_Y + 40
             label = "TRANSFER CLOSED"
             d.text(label, (SW - len(label) * 16) // 2, y, theme.PRIMARY, scale=2)
@@ -832,7 +832,7 @@ class App(oreoOS.App):
             d.text(cta, (SW - len(cta) * 8) // 2, y + 44, theme.MUTED)
             return
 
-        widgets.draw_hint(d, "A=allow  L=deny  hold-L=close  R=refresh")
+        self.hints = [("A", "allow"), ("L", "deny"), ("hold-L", "close"), ("R", "refresh")]
 
         # ── Code header — big 6-char display + TTL countdown ──
         y = ROW_TOP_Y

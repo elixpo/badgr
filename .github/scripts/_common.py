@@ -65,8 +65,7 @@ def _with_retry(fn, *, label: str = "request"):
         except urllib.error.URLError as exc:
             last_exc = exc
             print(
-                f"[retry] {label} network error "
-                f"(attempt {attempt}/{MAX_RETRIES}): {exc.reason}",
+                f"[retry] {label} network error (attempt {attempt}/{MAX_RETRIES}): {exc.reason}",
                 file=sys.stderr,
             )
         except Exception as exc:
@@ -194,9 +193,7 @@ def call_llm(
         headers["Authorization"] = f"Bearer {key}"
 
     def _do():
-        req = urllib.request.Request(
-            LLM_API_URL, data=json.dumps(payload).encode(), method="POST"
-        )
+        req = urllib.request.Request(LLM_API_URL, data=json.dumps(payload).encode(), method="POST")
         for k, v in headers.items():
             req.add_header(k, v)
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:

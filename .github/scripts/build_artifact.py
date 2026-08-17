@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """build_artifact.py — builds .elixpo-context/context.md for AI CI grounding."""
+
 import os, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,7 +11,17 @@ from ci_config import *  # noqa
 from _common import github_rest
 
 REPO = os.environ.get("REPO") or globals().get("REPO", "")
-SKIP = {"node_modules", ".git", ".next", "dist", "build", ".venv", "__pycache__", ".wrangler", ".vercel"}
+SKIP = {
+    "node_modules",
+    ".git",
+    ".next",
+    "dist",
+    "build",
+    ".venv",
+    "__pycache__",
+    ".wrangler",
+    ".vercel",
+}
 PR_FILES_LIMIT, PR_FILES_PER_PR, CHANGELOG_MAX_LINES = 8, 6, 60
 ROOT = Path.cwd()
 
@@ -33,22 +44,32 @@ def skipped(name):
 
 def pr_files(num):
     files = github_rest("GET", f"/repos/{REPO}/pulls/{num}/files?per_page={PR_FILES_PER_PR}")
-    return [f["filename"] for f in files if isinstance(f, dict) and f.get("filename")] if isinstance(files, list) else []
+    return (
+        [f["filename"] for f in files if isinstance(f, dict) and f.get("filename")]
+        if isinstance(files, list)
+        else []
+    )
 
 
 def recent_prs():
     if not REPO:
         return "_(REPO env var not set)_"
-    data = github_rest("GET", f"/repos/{REPO}/pulls?state=closed&sort=updated&direction=desc&per_page=30")
+    data = github_rest(
+        "GET", f"/repos/{REPO}/pulls?state=closed&sort=updated&direction=desc&per_page=30"
+    )
     merged = [pr for pr in data if pr.get("merged_at")][:20] if isinstance(data, list) else []
     if not merged:
         return "_No merged PRs found._"
     lines = []
     for i, pr in enumerate(merged):
-        line = (f"- PR #{pr.get('number', '?')}: {(pr.get('title') or '').strip()} "
-                f"(merged {(pr.get('merged_at') or '')[:10] or 'unknown'} by @{(pr.get('user') or {}).get('login', 'unknown')})")
+        line = (
+            f"- PR #{pr.get('number', '?')}: {(pr.get('title') or '').strip()} "
+            f"(merged {(pr.get('merged_at') or '')[:10] or 'unknown'} by @{(pr.get('user') or {}).get('login', 'unknown')})"
+        )
         if i < PR_FILES_LIMIT:
-            changed = safe(lambda n=pr.get("number"): pr_files(n), [], f"pr_files({pr.get('number')})")
+            changed = safe(
+                lambda n=pr.get("number"): pr_files(n), [], f"pr_files({pr.get('number')})"
+            )
             if changed:
                 line += f" — files: {', '.join(changed)}"
         lines.append(line)
@@ -67,7 +88,9 @@ def tree(path=ROOT, depth=1):
     if depth > 2:
         return []
     try:
-        entries = sorted((e for e in path.iterdir() if not skipped(e.name)), key=lambda e: (e.is_file(), e.name))
+        entries = sorted(
+            (e for e in path.iterdir() if not skipped(e.name)), key=lambda e: (e.is_file(), e.name)
+        )
     except OSError:
         return []
     lines = []
@@ -97,7 +120,9 @@ def recent_files(days=30, limit=40):
             if mt >= cutoff:
                 found.append((mt, os.path.relpath(fp, ROOT)))
     found.sort(reverse=True)
-    return "\n".join(f"- {r}" for _, r in found[:limit]) or "_No files modified in the last 30 days._"
+    return (
+        "\n".join(f"- {r}" for _, r in found[:limit]) or "_No files modified in the last 30 days._"
+    )
 
 
 def doc(path, title, max_lines=80):
@@ -120,7 +145,14 @@ def main():
     changelog_md = safe(changelog, "_(error reading changelog)_", "changelog")
     # AGENTS.md is the real operating manual; embedded so AI CI steps see it
     # without an extra read (README.md is on disk if needed instead).
-    agents_md = safe(lambda: doc(ROOT / "AGENTS.md", "AGENTS.md (operating manual excerpt)", 120), None, "agents_doc") or "_No AGENTS.md found._"
+    agents_md = (
+        safe(
+            lambda: doc(ROOT / "AGENTS.md", "AGENTS.md (operating manual excerpt)", 120),
+            None,
+            "agents_doc",
+        )
+        or "_No AGENTS.md found._"
+    )
 
     md = (
         f"# {name} — Repo Context\n> Auto-generated on {now}. Used by CI to give AI better context.\n\n"

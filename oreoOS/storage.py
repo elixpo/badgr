@@ -25,19 +25,36 @@ except ImportError:
 # Display order matters — the Storage app paints buckets top-to-bottom.
 BUCKETS = ("system", "apps", "gallery", "documents", "misc")
 
-_SYSTEM_PREFIXES   = ("oreoOS/", "oreoWare/", "assets/")
-_SYSTEM_FILES      = ("main.py", "boot.py", "secrets.py")
-_GALLERY_PREFIX    = "apps/gallery/assets/"
-_DOCUMENTS_PREFIX  = "documents/"
-_MISC_PREFIXES     = ("_ota/", ".ota/", "ota_staging/")
-_MISC_SUFFIXES     = ("cache.txt", "state.txt", ".json")
-_MISC_FILES        = (".deploy_hashes.json",)
+_SYSTEM_PREFIXES = ("oreoOS/", "oreoWare/", "assets/")
+_SYSTEM_FILES = ("main.py", "boot.py", "secrets.py")
+_GALLERY_PREFIX = "apps/gallery/assets/"
+_DOCUMENTS_PREFIX = "documents/"
+_MISC_PREFIXES = ("_ota/", ".ota/", "ota_staging/")
+_MISC_SUFFIXES = ("cache.txt", "state.txt", ".json")
+_MISC_FILES = (".deploy_hashes.json",)
 
 # Host/developer-only directories ignored during walk
 _SKIP_DIRS = (
-    "__pycache__", ".git", ".venv", "node_modules", "oreoSim", "oreo.elixpo",
-    "tools", "tests", "build", "dist", "apps_market", ".github", ".gemini",
-    "raw", "transparent", "docs", "stickers", "LICENSES", "site", "web"
+    "__pycache__",
+    ".git",
+    ".venv",
+    "node_modules",
+    "oreoSim",
+    "oreo.elixpo",
+    "tools",
+    "tests",
+    "build",
+    "dist",
+    "apps_market",
+    ".github",
+    ".gemini",
+    "raw",
+    "transparent",
+    "docs",
+    "stickers",
+    "LICENSES",
+    "site",
+    "web",
 )
 
 
@@ -55,7 +72,12 @@ def _classify(path):
     for p in _MISC_PREFIXES:
         if path.startswith(p):
             return "misc"
-    if path in _MISC_FILES or path.startswith("state_") or path.startswith("badge_data/cache/") or path.startswith("badge_data/saves/"):
+    if (
+        path in _MISC_FILES
+        or path.startswith("state_")
+        or path.startswith("badge_data/cache/")
+        or path.startswith("badge_data/saves/")
+    ):
         return "misc"
     for s in _MISC_SUFFIXES:
         if path.endswith("/" + s) or path == s or path.endswith(s):
@@ -153,7 +175,9 @@ def usage():
         bks["system"]["bytes"] = int(used * 0.40)
         bks["apps"]["bytes"] = int(used * 0.40)
         bks["gallery"]["bytes"] = int(used * 0.15)
-        bks["misc"]["bytes"] = used - (bks["system"]["bytes"] + bks["apps"]["bytes"] + bks["gallery"]["bytes"])
+        bks["misc"]["bytes"] = used - (
+            bks["system"]["bytes"] + bks["apps"]["bytes"] + bks["gallery"]["bytes"]
+        )
 
     return {"stats": stats, "buckets": bks}
 
@@ -162,6 +186,7 @@ def rm_tree(path):
     """rm -rf — robust cross-platform recursive directory deletion."""
     try:
         import shutil
+
         shutil.rmtree(path)
         return True
     except ImportError:
@@ -199,6 +224,7 @@ def rm_tree(path):
     except OSError:
         return True
 
+
 def atomic_write(path, data):
     """Write data to path+'.tmp' then os.rename for atomic update."""
     if os is None:
@@ -216,4 +242,3 @@ def atomic_write(path, data):
         except OSError:
             pass
         return False
-

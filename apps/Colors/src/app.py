@@ -381,7 +381,7 @@ class App(oreoOS.App):
             d.rect(0, PLAY_TOP, PLAY_W, PLAY_H, api.rgb(*self._rgb), fill=True)
 
         self._draw_header(d)
-        widgets.draw_hint(d, "arrows=pick  B=slot  C=preset  A=apply")
+        self.hints = [("arrows", "pick"), ("B", "slot"), ("C", "preset"), ("A", "apply")]
         self._draw_cursor(d)
         self._draw_palette_bar(d)
 

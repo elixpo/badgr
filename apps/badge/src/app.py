@@ -174,8 +174,8 @@ class App(oreoOS.App):
         if not self._dirty:
             return
         d.clear(theme.BG)
-        widgets.draw_header(d, "BADGE")
-        widgets.draw_hint(d, "A=refresh  HOME=back")
+        self.title = "BADGE"
+        self.hints = [("A", "refresh"), ("HOME", "back")]
 
         if self._profile is None:
             self._draw_offline(d)

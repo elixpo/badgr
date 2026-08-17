@@ -33,8 +33,8 @@ except ImportError:
 
 
 STICKER_DIR = Path("stickers")
-OUT_PATH    = STICKER_DIR / "oreoOS_gummy_sheet.png"
-SKIP_NAMES  = {"sheet.png"}
+OUT_PATH = STICKER_DIR / "oreoOS_gummy_sheet.png"
+SKIP_NAMES = {"sheet.png"}
 
 
 def parse_args():
@@ -42,18 +42,19 @@ def parse_args():
         description="Composite stickers/*.png into a single printable sheet.",
     )
     # A4 @ 300 DPI default — the most common print-shop format.
-    p.add_argument("--w",    type=int, default=2480,
-                   help="output sheet width in px (default 2480 = A4 @ 300 DPI)")
-    p.add_argument("--h",    type=int, default=3508,
-                   help="output sheet height in px (default 3508 = A4 @ 300 DPI)")
-    p.add_argument("--cols", type=int, default=4,
-                   help="number of sticker columns (default 3)")
-    p.add_argument("--gap",  type=int, default=30,
-                   help="gap between stickers in px (default 40)")
-    p.add_argument("--margin", type=int, default=20,
-                   help="outer page margin in px (default 80)")
-    p.add_argument("--bg",   default="#FFF8EB",
-                   help="sheet background colour (default warm ivory)")
+    p.add_argument(
+        "--w", type=int, default=2480, help="output sheet width in px (default 2480 = A4 @ 300 DPI)"
+    )
+    p.add_argument(
+        "--h",
+        type=int,
+        default=3508,
+        help="output sheet height in px (default 3508 = A4 @ 300 DPI)",
+    )
+    p.add_argument("--cols", type=int, default=4, help="number of sticker columns (default 3)")
+    p.add_argument("--gap", type=int, default=30, help="gap between stickers in px (default 40)")
+    p.add_argument("--margin", type=int, default=20, help="outer page margin in px (default 80)")
+    p.add_argument("--bg", default="#FFF8EB", help="sheet background colour (default warm ivory)")
     return p.parse_args()
 
 
@@ -61,19 +62,17 @@ def collect_stickers():
     """Every .png in stickers/ except the output itself. Sorted by name
     so the numeric prefixes (01_, 02_, ...) drive the grid order."""
     if not STICKER_DIR.is_dir():
-        print(f"error: {STICKER_DIR}/ not found (run from repo root)",
-              file=sys.stderr)
+        print(f"error: {STICKER_DIR}/ not found (run from repo root)", file=sys.stderr)
         sys.exit(1)
     files = sorted(
-        p for p in STICKER_DIR.glob("*.png")
+        p
+        for p in STICKER_DIR.glob("*.png")
         if p.name not in SKIP_NAMES and not p.name.startswith(".")
     )
     if not files:
         print(f"error: no PNGs found in {STICKER_DIR}/", file=sys.stderr)
-        print("       generate them first via Pollinations using the prompts",
-              file=sys.stderr)
-        print("       in prompts/stickers/, then re-run this script.",
-              file=sys.stderr)
+        print("       generate them first via Pollinations using the prompts", file=sys.stderr)
+        print("       in prompts/stickers/, then re-run this script.", file=sys.stderr)
         sys.exit(1)
     return files
 
@@ -113,7 +112,7 @@ def main():
             continue
         im.thumbnail((cell, cell), Image.LANCZOS)
         # Centre the resized sticker inside its cell.
-        ox = x + (cell - im.width)  // 2
+        ox = x + (cell - im.width) // 2
         oy = y + (cell - im.height) // 2
         # Use the alpha channel as the paste mask so the warm-cream
         # sheet background shows through any transparent edges.

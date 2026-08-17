@@ -14,9 +14,9 @@ so oreoWare modules can call us without making oreoOS a hard dependency
 
 import time
 
-MAX_ITEMS    = 12   # ring size — last 12 events kept, oldest evicted
-_items       = []   # newest-first
-_last_seen   = 0    # ts of the newest item the user has acknowledged
+MAX_ITEMS = 12  # ring size — last 12 events kept, oldest evicted
+_items = []  # newest-first
+_last_seen = 0  # ts of the newest item the user has acknowledged
 
 
 def _now():
@@ -29,17 +29,17 @@ def _now():
 def push(kind, title, body="", target=None):
     """Drop a notification on top of the ring.
 
-      kind   short string for icon/colour routing
-             ("file" / "ota" / "wifi" / "bt" / "system")
-      title  short headline, ~24 chars renders cleanly
-      body   one-line subtitle, optional
-      target app dir to launch when the user hits A on this entry, or None
+    kind   short string for icon/colour routing
+           ("file" / "ota" / "wifi" / "bt" / "system")
+    title  short headline, ~24 chars renders cleanly
+    body   one-line subtitle, optional
+    target app dir to launch when the user hits A on this entry, or None
     """
     item = {
-        "ts":     _now(),
-        "kind":   kind,
-        "title":  title,
-        "body":   body,
+        "ts": _now(),
+        "kind": kind,
+        "title": title,
+        "body": body,
         "target": target,
     }
     _items.insert(0, item)

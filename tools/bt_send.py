@@ -34,11 +34,11 @@ except ImportError:
 
 DEVICE_NAME = "Oreo"
 SVC_UUID = "6f72656f-0000-1000-8000-00805f9b34fb"
-RX_UUID  = "6f72656f-0001-1000-8000-00805f9b34fb"
-TX_UUID  = "6f72656f-0002-1000-8000-00805f9b34fb"
+RX_UUID = "6f72656f-0001-1000-8000-00805f9b34fb"
+TX_UUID = "6f72656f-0002-1000-8000-00805f9b34fb"
 
 IMAGE_MAX = 250 * 1024
-CHUNK     = 180          # safe under typical BLE MTU (185–244 B)
+CHUNK = 180  # safe under typical BLE MTU (185–244 B)
 
 STATUS = {
     0x01: "START_OK",
@@ -54,9 +54,12 @@ STATUS = {
 def _detect_type(path, override):
     if override:
         m = override.lower()
-        if m in ("i", "image"):    return "I"
-        if m in ("m", "md", "markdown"):  return "M"
-        if m in ("t", "txt", "text"):     return "T"
+        if m in ("i", "image"):
+            return "I"
+        if m in ("m", "md", "markdown"):
+            return "M"
+        if m in ("t", "txt", "text"):
+            return "T"
         raise SystemExit("unknown --as %r" % override)
     ext = path.suffix.lower()
     if ext in (".png", ".jpg", ".jpeg", ".gif", ".bin"):
@@ -68,18 +71,19 @@ def _detect_type(path, override):
 
 def _build_payload(type_byte, body):
     """type (1B) + length (4B BE) + body + crc32(body) (4B BE)."""
-    return (type_byte.encode("ascii")
-            + struct.pack(">I", len(body))
-            + body
-            + struct.pack(">I", binascii.crc32(body) & 0xFFFFFFFF))
+    return (
+        type_byte.encode("ascii")
+        + struct.pack(">I", len(body))
+        + body
+        + struct.pack(">I", binascii.crc32(body) & 0xFFFFFFFF)
+    )
 
 
 def _prepare(path, type_byte):
     raw = path.read_bytes()
     if type_byte == "I":
         if len(raw) > IMAGE_MAX:
-            raise SystemExit("image too large: %d B (cap is %d)"
-                             % (len(raw), IMAGE_MAX))
+            raise SystemExit("image too large: %d B (cap is %d)" % (len(raw), IMAGE_MAX))
         body = raw
     else:
         body = zlib.compress(raw, 9)
@@ -93,7 +97,8 @@ async def _send(path, type_byte):
 
     print("scanning for %r ..." % DEVICE_NAME)
     dev = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEVICE_NAME, timeout=8.0)
+        lambda d, ad: (d.name or "") == DEVICE_NAME, timeout=8.0
+    )
     if not dev:
         raise SystemExit("could not find %r — is BT enabled in Settings?" % DEVICE_NAME)
     print("found: %s (%s)" % (dev.address, dev.name))
@@ -108,7 +113,7 @@ async def _send(path, type_byte):
         name = STATUS.get(code, "0x%02X" % code)
         print("  ← %s" % name)
         last_status["code"] = code
-        if code != 0x01:           # anything that isn't START_OK is terminal
+        if code != 0x01:  # anything that isn't START_OK is terminal
             done.set()
 
     async with BleakClient(dev) as client:
@@ -117,7 +122,7 @@ async def _send(path, type_byte):
         # any single payload.
         sent = 0
         while sent < len(payload):
-            chunk = payload[sent:sent + CHUNK]
+            chunk = payload[sent : sent + CHUNK]
             await client.write_gatt_char(RX_UUID, chunk, response=False)
             sent += len(chunk)
             print("  → %d / %d B" % (sent, len(payload)))
@@ -136,8 +141,9 @@ async def _send(path, type_byte):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("file")
-    ap.add_argument("--as", dest="kind",
-                    help="force type: image / md / txt (default: detect by extension)")
+    ap.add_argument(
+        "--as", dest="kind", help="force type: image / md / txt (default: detect by extension)"
+    )
     args = ap.parse_args()
 
     path = Path(args.file)

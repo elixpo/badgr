@@ -630,9 +630,9 @@ class App(oreoOS.App):
             self._dirty = False
             return
         d.clear(theme.BG)
-        widgets.draw_header(d, "GALLERY")
+        self.title = "GALLERY"
         if self._is_add_tile():
-            widgets.draw_hint(d, "UP/DOWN=scroll  L/R=back")
+            self.hints = [("UP/DOWN", "scroll"), ("L/R", "back")]
         else:
             # Only advertise B=delete for uploaded photos, since baked
             # .py photos refuse the delete and silently confusing the
@@ -640,11 +640,11 @@ class App(oreoOS.App):
             cur_name = self._names[self._idx] if self._idx < len(self._names) else ""
             if cur_name.endswith(".rv565"):
                 state = "pause" if self._video_playing else "play"
-                widgets.draw_hint(d, "L/R=next  A=%s  B=delete" % state)
+                self.hints = [("L/R", "next"), ("A", "%s"), ("B", "delete")] % state
             elif cur_name.endswith(".r565"):
-                widgets.draw_hint(d, "L/R=prev/next  A=refresh  B=delete")
+                self.hints = [("L/R", "prev/next"), ("A", "refresh"), ("B", "delete")]
             else:
-                widgets.draw_hint(d, "L/R=prev/next  A=refresh")
+                self.hints = [("L/R", "prev/next"), ("A", "refresh")]
 
         # n/n counter inside the header bar (right-aligned). ADD tile counts
         # too so the user knows there's something after the last photo.

@@ -127,8 +127,9 @@ Open the **App Market** tile, scroll to the app you want, press **A**:
 ```python
 # Programmatic API (handy from REPL or another app):
 from oreoOS import store
-store.list_market()      # [{name, dir, icon, author, installed}, …]
-store.install("pet")     # → bool
+
+store.list_market()  # [{name, dir, icon, author, installed}, …]
+store.install("pet")  # → bool
 store.uninstall("pet")
 ```
 
@@ -177,13 +178,14 @@ from `oreoOS`. Three of those are worth a quick tour:
 ```python
 from oreoOS import api, theme
 
+
 def draw(self, d):
-    d.clear(theme.BG)                            # fill cream background
+    d.clear(theme.BG)  # fill cream background
     d.rect(10, 10, 100, 40, theme.PRIMARY, fill=True)
-    d.rect(10, 10, 100, 40, theme.GOLD)          # outline (fill=False default)
-    d.pixel(60, 30, api.WHITE)                   # single pixel
-    d.text("hello!", 14, 20, api.WHITE, scale=2) # framebuf 8×8, scaled
-    d.text(api.rgb(160, 50, 220), 14, 60, ...)   # arbitrary RGB
+    d.rect(10, 10, 100, 40, theme.GOLD)  # outline (fill=False default)
+    d.pixel(60, 30, api.WHITE)  # single pixel
+    d.text("hello!", 14, 20, api.WHITE, scale=2)  # framebuf 8×8, scaled
+    d.text(api.rgb(160, 50, 220), 14, 60, ...)  # arbitrary RGB
 ```
 
 The framebuffer is RGB565 big-endian. Build colours with `api.rgb(r, g, b)`
@@ -196,14 +198,14 @@ exist for visual consistency across apps.
 ```python
 def _try_sprite(name):
     try:
-        m = __import__("apps.my_app.assets.optimized." + name, None, None,
-                       ["DATA", "W", "H"])
+        m = __import__("apps.my_app.assets.optimized." + name, None, None, ["DATA", "W", "H"])
         return (bytearray(m.DATA), m.W, m.H)
     except (ImportError, AttributeError):
         return None
 
+
 def draw(self, d):
-    if (s := self._sprite):
+    if s := self._sprite:
         data, w, h = s
         d.blit(data, x, y, w, h)
 ```
@@ -217,9 +219,10 @@ panda mascot ends up with a transparent backdrop on the splash.
 
 ```python
 from oreoOS import pixelfont
+
 font = pixelfont.load("pixelify_16")  # also pixelify_8, _12, _24
 font.text(d, "Score: 42", 8, 6, theme.PRIMARY)
-w = font.measure("Score: 42")          # for centring
+w = font.measure("Score: 42")  # for centring
 ```
 
 The framebuf's 8×8 font is fine for HUDs; the Pixelify Sans bitmaps
@@ -229,6 +232,7 @@ look better for titles and menus.
 
 ```python
 from oreoOS import cache
+
 profile, age = cache.load("badge_data/cache/my_app.txt", ttl_s=3600)
 if not profile or age > 3600:
     profile = my_fetch_function()
@@ -243,10 +247,11 @@ the cache age.
 
 ```python
 from oreoOS import timeutil
+
 hour, minute, sec, weekday, day, month, year = timeutil.now()
 
-ok, msg = timeutil.sync_from_ntp()        # ~2 s blocking, gated on WiFi
-print(timeutil.last_sync_status())        # "ok" | "no-wifi" | "failed" | "never"
+ok, msg = timeutil.sync_from_ntp()  # ~2 s blocking, gated on WiFi
+print(timeutil.last_sync_status())  # "ok" | "no-wifi" | "failed" | "never"
 ```
 
 Same call drives the boot-time auto-sync, the **Sync Time** row in
@@ -257,6 +262,7 @@ agree on the last result via the shared `last_sync_status()`.
 
 ```python
 from oreoOS import storage
+
 snap = storage.usage()
 # {'stats': {'total': …, 'used': …, 'free': …},
 #  'buckets': {'system': {...}, 'apps': {...}, 'gallery': {...},
@@ -298,11 +304,13 @@ power capping on top.
 ```python
 # WiFi via the OreoOS wrapper — auto-applies power caps from config
 from oreoWare import wifi
+
 wifi.connect_from_config()
 print(wifi.ip())
 
 # Or drop straight to stock MicroPython:
 import network
+
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
 wlan.connect("SSID", "password")
@@ -311,6 +319,7 @@ wlan.connect("SSID", "password")
 ```python
 # BLE advertise (raw stdlib path)
 import bluetooth
+
 ble = bluetooth.BLE()
 ble.active(True)
 ble.gap_advertise(500_000, b"\x02\x01\x06\x05\x09Oreo")

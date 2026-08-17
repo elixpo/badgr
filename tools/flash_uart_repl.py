@@ -44,15 +44,25 @@ BOOT_PY = (
     "    pass\n"
 ).encode()
 
-PT_OFFSET    = 0x8000          # ESP32 default partition-table offset
-PT_SIZE      = 0xC00           # 3 KB is more than enough for a normal PT
-PT_MAGIC     = 0xAA50          # entry magic, little-endian uint16
+PT_OFFSET = 0x8000  # ESP32 default partition-table offset
+PT_SIZE = 0xC00  # 3 KB is more than enough for a normal PT
+PT_MAGIC = 0xAA50  # entry magic, little-endian uint16
 LFS_SUBTYPES = (0x82, 0x81, 0x83)  # littlefs (vfs) subtypes seen across MP builds
 
 
 def _esptool(port, *args):
-    return [sys.executable, "-m", "esptool", "--port", port, "--baud", "460800",
-            "--after", "no_reset", *args]
+    return [
+        sys.executable,
+        "-m",
+        "esptool",
+        "--port",
+        port,
+        "--baud",
+        "460800",
+        "--after",
+        "no_reset",
+        *args,
+    ]
 
 
 def _esptool_run(port, *args, capture=False):
@@ -61,7 +71,8 @@ def _esptool_run(port, *args, capture=False):
     if capture:
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
-            print(r.stdout); print(r.stderr)
+            print(r.stdout)
+            print(r.stderr)
             sys.exit("esptool failed (rc=%d)" % r.returncode)
         return r.stdout
     if subprocess.run(cmd).returncode != 0:
@@ -87,7 +98,7 @@ def find_lfs_partition(pt_bytes):
       char[16] label        | uint32 flags
     """
     for i in range(0, len(pt_bytes), 32):
-        entry = pt_bytes[i:i + 32]
+        entry = pt_bytes[i : i + 32]
         if len(entry) < 32:
             break
         magic, ptype, subtype, off, size = struct.unpack("<HBBII", entry[:12])
@@ -102,6 +113,7 @@ def find_lfs_partition(pt_bytes):
 
 def load_lfs(image_bytes, block_size=4096):
     from littlefs import LittleFS
+
     block_count = len(image_bytes) // block_size
     fs = LittleFS(block_size=block_size, block_count=block_count, mount=False)
     fs.context.buffer[:] = image_bytes
@@ -135,12 +147,16 @@ def main():
 
     found = find_lfs_partition(pt_bytes)
     if not found:
-        sys.exit("Could not find a LittleFS partition in the partition table.\n"
-                 "Edit LFS_SUBTYPES at the top of this script if your firmware\n"
-                 "uses an unusual subtype.")
+        sys.exit(
+            "Could not find a LittleFS partition in the partition table.\n"
+            "Edit LFS_SUBTYPES at the top of this script if your firmware\n"
+            "uses an unusual subtype."
+        )
     lfs_off, lfs_size, lfs_label = found
-    print("  found LittleFS '%s' at 0x%x  size 0x%x (%d MB)"
-          % (lfs_label, lfs_off, lfs_size, lfs_size // (1024 * 1024)))
+    print(
+        "  found LittleFS '%s' at 0x%x  size 0x%x (%d MB)"
+        % (lfs_label, lfs_off, lfs_size, lfs_size // (1024 * 1024))
+    )
 
     lfs_path = Path(".lfs_dump.bin")
     print("\nReading existing LittleFS image (%d MB)..." % (lfs_size // (1024 * 1024)))

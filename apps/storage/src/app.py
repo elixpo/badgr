@@ -5,8 +5,7 @@ Tab 1: RAM & Heap (MicroPython GC stats)
 
 Controls:
   Left/Right  switch tabs
-  A           refresh stats
-  C           force Garbage Collection (RAM tab)
+  A           refresh stats (Flash) / Garbage Collection (RAM)
   HOME        back to launcher
 """
 
@@ -63,6 +62,7 @@ class App(oreoOS.App):
         super().on_enter(os)
         self._os = os
         self._tab = 0
+        self.title = "SYSTEM MONITOR"
         self._dirty = True
         self._refresh()
 
@@ -91,23 +91,20 @@ class App(oreoOS.App):
                 self._tab += 1
                 self._dirty = True
         elif btn == api.BTN_A:
-            self._refresh()
-        elif btn == api.BTN_C and self._tab == 1:
-            try:
-                import gc
+            if self._tab == 1:
+                try:
+                    import gc
 
-                gc.collect()
-            except Exception:
-                pass
-            self._dirty = True
+                    gc.collect()
+                except Exception:
+                    pass
+            self._refresh()
 
     def draw(self, d):
         if not self._dirty:
             return
         self._dirty = False
-
         d.clear(theme.BG)
-        widgets.draw_header(d, "SYSTEM MONITOR")
 
         # ── Tabs ──
         tab_w = SW // 2
@@ -128,10 +125,10 @@ class App(oreoOS.App):
 
         if self._tab == 0:
             self._draw_flash(d)
-            widgets.draw_hint(d, "< > switch   A=refresh")
+            self.hints = [("", "< > switch"), ("A", "refresh")]
         else:
             self._draw_ram(d)
-            widgets.draw_hint(d, "< > switch   C=gc")
+            self.hints = [("", "< > switch"), ("A", "gc")]
 
     def _draw_flash(self, d):
         stats = self._snap["stats"]
@@ -211,7 +208,7 @@ class App(oreoOS.App):
             theme.GREEN,
         )
 
-        msg = "Press C to GC"
+        msg = "Press A to GC"
         d.text(msg, (SW - len(msg) * 8) // 2, 150, theme.TEXT_DIM)
 
     def on_exit(self):

@@ -141,8 +141,8 @@ class App(oreoOS.App):
             return
         self._dirty = False
         d.clear(theme.BG)
-        widgets.draw_header(d, "GESTURES")
-        widgets.draw_hint(d, "A=toggle/cycle  HOME=back")
+        self.title = "GESTURES"
+        self.hints = [("A", "toggle/cycle"), ("HOME", "back")]
 
         master_on = self._get(_K_MASTER)
 

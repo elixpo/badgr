@@ -112,6 +112,7 @@ And the shim:
 ```python
 # apps/my_app/main.py
 from .src.app import App
+
 __all__ = ["App"]
 ```
 

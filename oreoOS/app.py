@@ -17,9 +17,9 @@ class App:
     name = "unnamed"
     author = "sea-deep"
     SHOW_LOADING = True
-    FULLSCREEN   = False
-    NO_HEADER    = False
-    CONSUMES_C   = False
+    FULLSCREEN = False
+    NO_HEADER = False
+    CONSUMES_C = False
     HEADER_TITLE = None
 
     def on_enter(self, os):

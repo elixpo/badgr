@@ -1,4 +1,5 @@
 """issue_description.py — auto-fill vague/empty issue bodies using repo context."""
+
 import os, sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
