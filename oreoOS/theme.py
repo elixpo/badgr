@@ -138,8 +138,7 @@ class Theme:
         }
 
 
-# ── Curated Theme Presets ───────────────────────────────────────────────────
-
+# ── Curated Theme Presets (Unixporn & Iconic Rice Aesthetics) ────────────────
 PRESETS = {
     "celebration": Theme(
         id="celebration",
@@ -162,110 +161,194 @@ PRESETS = {
         sel_text=(255, 93, 104),
         is_dark=False,
     ),
-    "midnight": Theme(
-        id="midnight",
-        name="Midnight OLED",
-        bg=(18, 18, 26),  # deep obsidian slate
-        card=(28, 28, 40),  # elevated surface
-        primary=(0, 240, 255),  # neon cyan
-        teal=(0, 200, 180),  # aqua
-        gold=(255, 200, 50),  # electric gold
-        text_bright=(245, 245, 250),  # pure bright white
-        text_dim=(180, 180, 200),
-        muted=(120, 120, 145),
-        muted2=(70, 70, 90),
-        status_bg=(18, 18, 26),
-        status_text=(0, 240, 255),
-        status_accent=(0, 240, 255),
-        dock_bg=(24, 24, 36),
-        dock_sel=(40, 40, 60),
-        sel_border=(0, 240, 255),
-        sel_text=(0, 240, 255),
+    "catppuccin": Theme(
+        id="catppuccin",
+        name="Catppuccin Mocha",
+        bg=(30, 30, 46),  # #1e1e2e Base
+        card=(24, 24, 37),  # #181825 Mantle
+        primary=(203, 166, 247),  # #cba6f7 Mauve
+        teal=(137, 220, 235),  # #89dceb Sky
+        gold=(249, 226, 175),  # #f9e2af Yellow
+        text_bright=(205, 214, 244),  # #cdd6f4 Text
+        text_dim=(166, 173, 200),  # #a6adc8 Subtext0
+        muted=(108, 112, 134),  # #6c7086 Overlay0
+        muted2=(69, 71, 90),  # #45475a Surface1
+        status_bg=(24, 24, 37),
+        status_text=(203, 166, 247),
+        status_accent=(137, 220, 235),
+        dock_bg=(24, 24, 37),
+        dock_sel=(49, 50, 68),
+        sel_border=(203, 166, 247),
+        sel_text=(203, 166, 247),
         is_dark=True,
     ),
-    "emerald": Theme(
-        id="emerald",
-        name="Matcha Forest",
-        bg=(238, 245, 232),  # soft matcha cream
-        card=(220, 235, 212),  # sage surface
-        primary=(46, 102, 74),  # deep forest green
-        teal=(90, 168, 124),  # bamboo green
-        gold=(230, 180, 40),  # harvest gold
-        text_bright=(26, 51, 34),  # deep dark evergreen text
-        text_dim=(60, 95, 72),
-        muted=(110, 140, 120),
-        muted2=(170, 195, 175),
-        status_bg=(46, 102, 74),
-        status_text=(255, 255, 255),
-        status_accent=(90, 168, 124),
-        dock_bg=(225, 238, 218),
-        dock_sel=(200, 222, 192),
-        sel_border=(46, 102, 74),
-        sel_text=(46, 102, 74),
-        is_dark=False,
-    ),
-    "cyberpunk": Theme(
-        id="cyberpunk",
-        name="Neon Synthwave",
-        bg=(22, 15, 41),  # deep purple void
-        card=(36, 23, 68),  # synth card surface
-        primary=(255, 42, 133),  # hot neon magenta
-        teal=(0, 255, 240),  # electric cyan
-        gold=(255, 220, 0),  # laser yellow
-        text_bright=(255, 255, 255),
-        text_dim=(200, 180, 230),
-        muted=(140, 110, 180),
-        muted2=(80, 60, 110),
-        status_bg=(255, 42, 133),
-        status_text=(255, 255, 255),
-        status_accent=(0, 255, 240),
-        dock_bg=(30, 18, 56),
-        dock_sel=(55, 30, 95),
-        sel_border=(255, 42, 133),
-        sel_text=(255, 42, 133),
+    "tokyo_night": Theme(
+        id="tokyo_night",
+        name="Tokyo Night",
+        bg=(26, 27, 38),  # #1a1b26
+        card=(36, 40, 59),  # #24283b
+        primary=(122, 162, 247),  # #7aa2f7 Blue
+        teal=(125, 207, 255),  # #7dcfff Cyan
+        gold=(224, 175, 104),  # #e0af68 Warm Yellow
+        text_bright=(192, 202, 245),  # #c0caf5
+        text_dim=(169, 177, 214),  # #a9b1d6
+        muted=(86, 95, 137),  # #565f89
+        muted2=(41, 46, 66),  # #292e42
+        status_bg=(26, 27, 38),
+        status_text=(122, 162, 247),
+        status_accent=(125, 207, 255),
+        dock_bg=(31, 35, 53),
+        dock_sel=(47, 54, 82),
+        sel_border=(122, 162, 247),
+        sel_text=(122, 162, 247),
         is_dark=True,
     ),
-    "sunset": Theme(
-        id="sunset",
-        name="Sunset Amber",
-        bg=(253, 244, 236),  # terracotta cream
-        card=(250, 230, 215),  # warm sand card
-        primary=(255, 140, 30),  # rich sunset amber
-        teal=(232, 77, 98),  # dusk rose
-        gold=(255, 200, 40),  # golden sun
-        text_bright=(45, 30, 25),  # espresso dark text
-        text_dim=(110, 75, 60),
-        muted=(175, 125, 105),
-        muted2=(215, 175, 155),
-        status_bg=(255, 140, 30),
+    "gruvbox": Theme(
+        id="gruvbox",
+        name="Gruvbox Dark",
+        bg=(40, 40, 40),  # #282828 Dark0
+        card=(50, 48, 47),  # #32302f Dark0_soft
+        primary=(254, 128, 25),  # #fe8019 Bright Orange
+        teal=(142, 192, 124),  # #8ec07c Bright Aqua
+        gold=(250, 189, 47),  # #fabd2f Bright Yellow
+        text_bright=(235, 219, 178),  # #ebdbb2 Light1
+        text_dim=(189, 174, 147),  # #bdae93 Light4
+        muted=(146, 131, 116),  # #928374 Gray
+        muted2=(80, 73, 69),  # #504945 Dark2
+        status_bg=(40, 40, 40),
+        status_text=(254, 128, 25),
+        status_accent=(250, 189, 47),
+        dock_bg=(50, 48, 47),
+        dock_sel=(60, 56, 54),
+        sel_border=(254, 128, 25),
+        sel_text=(254, 128, 25),
+        is_dark=True,
+    ),
+    "nord": Theme(
+        id="nord",
+        name="Nord Arctic",
+        bg=(46, 52, 64),  # #2e3440 Polar Night
+        card=(59, 66, 82),  # #3b4252 Polar Night 1
+        primary=(136, 192, 208),  # #88c0d0 Frost Ice
+        teal=(143, 188, 187),  # #8fbcbb Frost Teal
+        gold=(235, 203, 139),  # #ebcb8b Aurora Gold
+        text_bright=(236, 239, 244),  # #eceff4 Snow Storm
+        text_dim=(216, 222, 233),  # #d8dee9
+        muted=(129, 161, 193),  # #81a1c1 Frost Slate
+        muted2=(76, 86, 106),  # #4c566a
+        status_bg=(46, 52, 64),
+        status_text=(136, 192, 208),
+        status_accent=(143, 188, 187),
+        dock_bg=(59, 66, 82),
+        dock_sel=(67, 76, 94),
+        sel_border=(136, 192, 208),
+        sel_text=(136, 192, 208),
+        is_dark=True,
+    ),
+    "rose_pine": Theme(
+        id="rose_pine",
+        name="Rose Pine",
+        bg=(25, 23, 36),  # #191724 Base
+        card=(31, 29, 46),  # #1f1d2e Surface
+        primary=(235, 188, 186),  # #ebbcba Rose
+        teal=(156, 207, 216),  # #9ccfd8 Foam
+        gold=(246, 193, 119),  # #f6c177 Gold
+        text_bright=(224, 222, 244),  # #e0def4 Text
+        text_dim=(144, 140, 170),  # #908caa Subtle
+        muted=(110, 106, 134),  # #6e6a86 Muted
+        muted2=(38, 35, 58),  # #26233a Overlay
+        status_bg=(25, 23, 36),
+        status_text=(235, 188, 186),
+        status_accent=(156, 207, 216),
+        dock_bg=(31, 29, 46),
+        dock_sel=(42, 39, 63),
+        sel_border=(235, 188, 186),
+        sel_text=(235, 188, 186),
+        is_dark=True,
+    ),
+    "dracula": Theme(
+        id="dracula",
+        name="Dracula Pro",
+        bg=(40, 42, 54),  # #282a36
+        card=(68, 71, 90),  # #44475a Selection
+        primary=(255, 121, 198),  # #ff79c6 Pink
+        teal=(139, 233, 253),  # #8be9fd Cyan
+        gold=(241, 250, 140),  # #f1fa8c Yellow
+        text_bright=(248, 248, 242),  # #f8f8f2 Foreground
+        text_dim=(189, 147, 249),  # #bd93f9 Purple
+        muted=(98, 114, 164),  # #6272a4 Comment
+        muted2=(50, 52, 68),
+        status_bg=(40, 42, 54),
+        status_text=(255, 121, 198),
+        status_accent=(139, 233, 253),
+        dock_bg=(52, 55, 70),
+        dock_sel=(68, 71, 90),
+        sel_border=(255, 121, 198),
+        sel_text=(255, 121, 198),
+        is_dark=True,
+    ),
+    "kanagawa": Theme(
+        id="kanagawa",
+        name="Kanagawa Wave",
+        bg=(31, 31, 40),  # #1f1f28 SumiInk3
+        card=(42, 42, 55),  # #2a2a37 SumiInk4
+        primary=(126, 156, 216),  # #7e9cd8 Spring Blue
+        teal=(122, 168, 159),  # #7aa89f Wave Aqua
+        gold=(230, 195, 132),  # #e6c384 Carp Yellow
+        text_bright=(220, 215, 186),  # #dcd7ba Fuji White
+        text_dim=(192, 163, 110),  # #c0a36e Boat Yellow
+        muted=(114, 113, 105),  # #727169 Fuji Gray
+        muted2=(54, 54, 70),  # #363646 SumiInk5
+        status_bg=(31, 31, 40),
+        status_text=(126, 156, 216),
+        status_accent=(122, 168, 159),
+        dock_bg=(42, 42, 55),
+        dock_sel=(54, 54, 70),
+        sel_border=(126, 156, 216),
+        sel_text=(126, 156, 216),
+        is_dark=True,
+    ),
+    "latte": Theme(
+        id="latte",
+        name="Catppuccin Latte",
+        bg=(239, 241, 245),  # #eff1f5 Base
+        card=(230, 233, 239),  # #e6e9ef Mantle
+        primary=(136, 57, 239),  # #8839ef Mauve
+        teal=(32, 159, 181),  # #209fb5 Sapphire
+        gold=(223, 142, 29),  # #df8e1d Yellow
+        text_bright=(76, 79, 105),  # #4c4f69 Text
+        text_dim=(108, 111, 133),  # #6c6f85 Subtext0
+        muted=(156, 160, 176),  # #9ca0b0 Overlay0
+        muted2=(204, 208, 218),  # #ccd0da Surface0
+        status_bg=(136, 57, 239),
         status_text=(255, 255, 255),
-        status_accent=(255, 200, 40),
-        dock_bg=(248, 226, 208),
-        dock_sel=(240, 205, 180),
-        sel_border=(255, 140, 30),
-        sel_text=(255, 140, 30),
+        status_accent=(32, 159, 181),
+        dock_bg=(230, 233, 239),
+        dock_sel=(218, 222, 230),
+        sel_border=(136, 57, 239),
+        sel_text=(136, 57, 239),
         is_dark=False,
     ),
-    "nordic": Theme(
-        id="nordic",
-        name="Nordic Frost",
-        bg=(236, 239, 244),  # polar ice white
-        card=(216, 222, 233),  # glacier frost card
-        primary=(94, 129, 172),  # arctic blue
-        teal=(136, 192, 208),  # ice teal
-        gold=(235, 203, 139),  # auroral gold
-        text_bright=(46, 52, 64),  # slate ink text
-        text_dim=(76, 86, 106),
-        muted=(120, 130, 150),
-        muted2=(170, 180, 195),
-        status_bg=(94, 129, 172),
-        status_text=(255, 255, 255),
-        status_accent=(136, 192, 208),
-        dock_bg=(222, 228, 238),
-        dock_sel=(200, 210, 225),
-        sel_border=(94, 129, 172),
-        sel_text=(94, 129, 172),
-        is_dark=False,
+    "matrix": Theme(
+        id="matrix",
+        name="Matrix Phosphor",
+        bg=(13, 17, 23),  # pitch darkness
+        card=(22, 27, 34),  # terminal card
+        primary=(0, 255, 102),  # phosphor green
+        teal=(57, 211, 83),  # mid green
+        gold=(126, 231, 135),  # light matrix glow
+        text_bright=(0, 255, 102),  # green CRT text
+        text_dim=(46, 160, 67),
+        muted=(35, 134, 54),
+        muted2=(27, 60, 36),
+        status_bg=(13, 17, 23),
+        status_text=(0, 255, 102),
+        status_accent=(57, 211, 83),
+        dock_bg=(22, 27, 34),
+        dock_sel=(33, 44, 38),
+        sel_border=(0, 255, 102),
+        sel_text=(0, 255, 102),
+        is_dark=True,
     ),
     "gameboy": Theme(
         id="gameboy",
@@ -290,13 +373,25 @@ PRESETS = {
     ),
 }
 
+LEGACY_PRESET_MAP = {
+    "midnight": "catppuccin",
+    "cyberpunk": "tokyo_night",
+    "nordic": "nord",
+    "emerald": "kanagawa",
+    "sunset": "gruvbox",
+}
+
 PRESET_KEYS = [
     "celebration",
-    "midnight",
-    "emerald",
-    "cyberpunk",
-    "sunset",
-    "nordic",
+    "catppuccin",
+    "tokyo_night",
+    "gruvbox",
+    "nord",
+    "rose_pine",
+    "dracula",
+    "kanagawa",
+    "latte",
+    "matrix",
     "gameboy",
     "custom",
 ]
@@ -561,6 +656,8 @@ def load_custom_theme():
         with open(THEME_STATE_PATH, "r") as f:
             data = json.load(f)
             preset_id = data.get("preset_id")
+            if preset_id in LEGACY_PRESET_MAP:
+                preset_id = LEGACY_PRESET_MAP[preset_id]
             if preset_id in PRESETS and preset_id != "custom":
                 apply_theme(PRESETS[preset_id], save=False)
                 return
