@@ -2,14 +2,62 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const refreshToken = searchParams.get("refresh_token") || searchParams.get("token");
+    if (!refreshToken) {
+      return NextResponse.json(
+        { status: "error", message: "Missing refresh_token parameter" },
+        {
+          status: 400,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
+      );
+    }
+    return await handleRefresh(refreshToken);
+  } catch (err) {
+    return NextResponse.json(
+      { status: "error", message: (err as Error).message || "Internal error" },
+      {
+        status: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const refreshToken = body.refresh_token;
+    let refreshToken = "";
+
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await request.json().catch(() => ({}));
+      refreshToken = body.refresh_token || body.token || "";
+    } else if (contentType.includes("application/x-www-form-urlencoded")) {
+      const text = await request.text();
+      const params = new URLSearchParams(text);
+      refreshToken = params.get("refresh_token") || params.get("token") || "";
+    } else {
+      const body = await request.json().catch(() => ({}));
+      refreshToken = body.refresh_token || body.token || "";
+    }
+
+    if (!refreshToken) {
+      const { searchParams } = new URL(request.url);
+      refreshToken = searchParams.get("refresh_token") || searchParams.get("token") || "";
+    }
 
     if (!refreshToken) {
       return NextResponse.json(
-        { status: "error", message: "Missing refresh_token in request body" },
+        { status: "error", message: "Missing refresh_token in request" },
         {
           status: 400,
           headers: {

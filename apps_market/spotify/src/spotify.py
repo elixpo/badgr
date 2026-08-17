@@ -25,7 +25,11 @@ except ImportError:
     import binascii as _binascii
 
 
-STATE_FILE = "state_spotify.json"
+try:
+    from oreoOS.config import get_state_path
+    STATE_FILE = get_state_path("saves/state_spotify.json")
+except Exception:
+    STATE_FILE = "badge_data/saves/state_spotify.json"
 
 
 def _base64_encode(s):
@@ -36,7 +40,13 @@ def _base64_encode(s):
 
 
 def load_persisted_credentials():
-    for fpath in (STATE_FILE, "apps_market/spotify/" + STATE_FILE, "apps/spotify/" + STATE_FILE):
+    for fpath in (
+        STATE_FILE,
+        "badge_data/state_spotify.json",
+        "state_spotify.json",
+        "apps_market/spotify/state_spotify.json",
+        "apps/spotify/state_spotify.json"
+    ):
         try:
             with open(fpath, "r") as f:
                 data = _json.loads(f.read())
@@ -88,6 +98,14 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
             "updated_at": int(time.time() if hasattr(time, 'time') else 0),
         }
         import os
+        # Ensure parent dir exists
+        parent = os.path.dirname(STATE_FILE)
+        if parent:
+            try:
+                os.makedirs(parent)
+            except Exception:
+                pass
+
         with open(STATE_FILE + ".tmp", "w") as f:
             f.write(_json.dumps(data))
         os.rename(STATE_FILE + ".tmp", STATE_FILE)
@@ -98,7 +116,13 @@ def save_credentials(token=None, refresh_token=None, client_id=None, client_secr
 
 def clear_credentials():
     """Wipe saved Spotify tokens and credentials from disk."""
-    for fpath in (STATE_FILE, "apps_market/spotify/" + STATE_FILE, "apps/spotify/" + STATE_FILE):
+    for fpath in (
+        STATE_FILE,
+        "badge_data/state_spotify.json",
+        "state_spotify.json",
+        "apps_market/spotify/state_spotify.json",
+        "apps/spotify/state_spotify.json"
+    ):
         try:
             import os
             if os.path.exists(fpath):

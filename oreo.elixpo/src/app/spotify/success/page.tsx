@@ -26,7 +26,7 @@ function SpotifySuccessContent() {
 
       <div className="relative w-full max-w-md">
         <Reveal>
-          <div className="rounded-2xl border border-border bg-card/90 backdrop-blur-xl p-8 sm:p-10 text-center shadow-2xl shadow-black/60">
+          <div className="card-surface rounded-2xl border border-border bg-card/90 backdrop-blur-xl p-8 sm:p-10 text-center shadow-2xl">
             {/* Animated Icon */}
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
@@ -42,26 +42,26 @@ function SpotifySuccessContent() {
               Badge Connected
             </span>
 
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text mb-2">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text mb-2">
               Spotify Linked!
             </h1>
-            <p className="text-sm text-textDim leading-relaxed max-w-xs mx-auto mb-6">
+            <p className="text-sm text-text-dim leading-relaxed max-w-xs mx-auto mb-6">
               Your Spotify account has been authorized. Look at your Oreo Badge screen!
             </p>
 
             {code && (
-              <div className="p-3 rounded-xl bg-bgRaised/90 border border-border mb-6 flex items-center justify-center gap-2">
+              <div className="p-3 rounded-xl bg-bg-raised border border-border mb-6 flex items-center justify-center gap-2">
                 <span className="text-xs text-muted uppercase font-semibold">Session PIN:</span>
                 <span className="font-mono text-sm font-bold text-text tracking-widest">{code}</span>
               </div>
             )}
 
-            <div className="p-4 rounded-xl bg-[#1DB954]/10 border border-[#1DB954]/20 text-xs text-textDim">
-              <p className="flex items-center justify-center gap-1.5 font-medium text-[#1DB954] mb-1">
-                <Sparkles className="w-4 h-4" />
+            <div className="p-4 rounded-xl bg-[#1DB954]/10 border border-[#1DB954]/20 text-xs text-text-dim text-left">
+              <p className="flex items-center gap-1.5 font-medium text-[#1DB954] mb-1">
+                <Sparkles className="w-4 h-4 shrink-0" />
                 Live Music Sync Ready
               </p>
-              <p>Play any song in your Spotify app to see album art, track info, and playback progress on your badge.</p>
+              <p className="leading-relaxed">Play any song on your phone or desktop Spotify to see live album art, track details, and controls on your badge.</p>
             </div>
           </div>
         </Reveal>

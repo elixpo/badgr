@@ -31,6 +31,13 @@ globalThis.__spotifySessions = sessions;
 // Characters for clean, readable 6-character PIN (no ambiguous 0/O, 1/I)
 const PIN_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
+export function normalizePin(code: string): string {
+  return (code || "")
+    .replace(/[^2-9a-hj-np-z]/gi, "")
+    .trim()
+    .toUpperCase();
+}
+
 export function generatePin(len = 6): string {
   let res = "";
   for (let i = 0; i < len; i++) {
@@ -43,7 +50,8 @@ export function generatePin(len = 6): string {
 export function cleanExpiredSessions(): void {
   const now = Date.now();
   for (const [code, session] of sessions.entries()) {
-    if (session.status === "consumed" && session.consumedAt && now - session.consumedAt > 30000) {
+    // 60-second grace window after consumption for network retries
+    if (session.status === "consumed" && session.consumedAt && now - session.consumedAt > 60000) {
       sessions.delete(code);
     } else if (now - session.createdAt > SESSION_TTL_MS) {
       sessions.delete(code);
@@ -73,7 +81,7 @@ export async function createSession(): Promise<SpotifySession> {
 
 export async function getSession(code: string): Promise<SpotifySession | null> {
   cleanExpiredSessions();
-  const normalized = (code || "").trim().toUpperCase();
+  const normalized = normalizePin(code);
   const s = sessions.get(normalized);
   if (!s) return null;
   if (Date.now() - s.createdAt > SESSION_TTL_MS) {
@@ -88,7 +96,7 @@ export async function setAuthorized(
   tokens: { accessToken: string; refreshToken: string; clientId?: string }
 ): Promise<boolean> {
   cleanExpiredSessions();
-  const normalized = (code || "").trim().toUpperCase();
+  const normalized = normalizePin(code);
   const s = sessions.get(normalized);
   if (!s) return false;
 
@@ -101,10 +109,10 @@ export async function setAuthorized(
 
 export async function consumeSession(code: string): Promise<SpotifySession | null> {
   cleanExpiredSessions();
-  const normalized = (code || "").trim().toUpperCase();
+  const normalized = normalizePin(code);
   const s = sessions.get(normalized);
   if (!s) return null;
-  // Mark as consumed with a grace period for retries
+  // Mark as consumed with a 60-second grace period for retries
   if (s.status === "authorized") {
     s.status = "consumed";
     s.consumedAt = Date.now();

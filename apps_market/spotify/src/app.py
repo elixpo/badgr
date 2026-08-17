@@ -812,18 +812,32 @@ class App(oreoOS.App):
         # ── QR Code Pairing Modal ─────────────────────────────────────────
         if self._show_qr:
             self._draw_qr_screen(d)
+            if self._toast_msg and _ticks_diff(self._toast_until, _ticks_ms()) > 0:
+                self._draw_toast(d, self._toast_msg, COL_SPOTIFY)
             self._dirty = False
             return
 
         # ── Hierarchical Tree Library View ────────────────────────────────
         if self._view_mode == "LIBRARY":
             self._draw_library_tree(d)
+            if self._toast_msg and _ticks_diff(self._toast_until, _ticks_ms()) > 0:
+                self._draw_toast(d, self._toast_msg, COL_SPOTIFY)
             self._dirty = False
             return
 
         # ── Now Playing View ──────────────────────────────────────────────
         self._draw_player(d)
+        if self._toast_msg and _ticks_diff(self._toast_until, _ticks_ms()) > 0:
+            self._draw_toast(d, self._toast_msg, COL_SPOTIFY)
         self._dirty = False
+
+    def _draw_toast(self, d, msg, color=COL_SPOTIFY):
+        w = len(msg) * 8 + 24
+        x = (SW - w) // 2
+        y = SH - widgets.HINT_H - 24
+        d.rect(x, y, w, 20, api.rgb(24, 26, 34), fill=True)
+        d.rect(x, y, w, 20, color, fill=False)
+        d.text(msg, x + 12, y + 6, api.WHITE)
 
     def _draw_player(self, d):
         app_title = "SPOTIFY CONNECT" if self._spotify.is_configured() else "SPOTIFY"
@@ -936,15 +950,6 @@ class App(oreoOS.App):
             d.rect(vx, vy, v_fill, vh, COL_SPOTIFY, fill=True)
         d.rect(vx + min(vw - 2, max(0, v_fill - 1)), vy - 2, 3, 9, api.WHITE, fill=True)
         d.text("%d%%" % self._volume, 264, ctrl_y + 14, api.WHITE)
-
-        now = _ticks_ms()
-        if self._toast_until > 0 and _ticks_diff(now, self._toast_until) < 0:
-            tw = len(self._toast_msg) * 8 + 24
-            tx = (SW - tw) // 2
-            ty = widgets.HEADER_H + 6
-            d.rect(tx, ty, tw, 22, api.rgb(20, 22, 28), fill=True)
-            d.rect(tx, ty, tw, 22, theme.GOLD, fill=False)
-            d.text(self._toast_msg, tx + 12, ty + 7, theme.GOLD)
 
         c_act = "C:Unlink" if self._spotify.is_configured() else "C:Link"
         widgets.draw_hint(d, "A:Play  <>:Skip  ^v:Vol  B:Lib  " + c_act)
@@ -1115,6 +1120,14 @@ class App(oreoOS.App):
         d.rect(10, widgets.HEADER_H + 4, card_w, card_h, COL_CARD, fill=True)
         d.rect(10, widgets.HEADER_H + 4, card_w, card_h, COL_CARD_BD, fill=False)
 
+        if not self._wifi_online:
+            d.text("WIFI DISCONNECTED", 40, widgets.HEADER_H + 30, theme.GOLD, scale=1)
+            d.text("Connect to WiFi first in", 40, widgets.HEADER_H + 50, COL_MUTED)
+            d.text("Settings -> WiFi", 40, widgets.HEADER_H + 66, api.WHITE)
+            d.text("Press C to retry", 40, widgets.HEADER_H + 95, COL_SPOTIFY)
+            widgets.draw_hint(d, "A/B:Cancel  C:Retry WiFi")
+            return
+
         if self._qr_matrix:
             mat = self._qr_matrix
             rows = len(mat)
@@ -1141,10 +1154,13 @@ class App(oreoOS.App):
             d.rect(tx, qy + 32, pin_box_w, 32, theme.GOLD, fill=False)
             d.text(code_str, tx + 12, qy + 40, theme.GOLD, scale=2)
 
-            d.text("oreo-delta.vercel.app", tx, qy + 72, api.WHITE)
+            from oreoOS import config
+            relay_base = config.get("SPOTIFY_RELAY_URL", "oreo.elixpo.com").replace("https://", "").replace("http://", "").rstrip("/")
+            if len(relay_base) > 16:
+                relay_base = relay_base[:16]
+            d.text(relay_base, tx, qy + 72, api.WHITE)
             d.text("/spotify", tx, qy + 84, api.WHITE)
             d.text("Waiting login...", tx, qy + 102, COL_CYAN)
         else:
             d.text("Generating Link...", 80, 110, COL_SPOTIFY)
-
         widgets.draw_hint(d, "A/B:Cancel  C:Refresh")

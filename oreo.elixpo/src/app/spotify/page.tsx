@@ -84,12 +84,12 @@ function SpotifyAuthContent() {
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-1/4 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full bg-[#1DB954]/10 blur-[130px]" />
-        <div className="absolute right-1/4 bottom-1/4 w-[380px] h-[380px] rounded-full bg-[#FF5D68]/8 blur-[110px]" />
+        <div className="absolute right-1/4 bottom-1/4 w-[380px] h-[380px] rounded-full bg-primary/10 blur-[110px]" />
       </div>
 
       <div className="relative w-full max-w-lg">
         <Reveal>
-          <div className="rounded-2xl border border-border bg-card/85 backdrop-blur-xl p-8 sm:p-10 shadow-2xl shadow-black/50">
+          <div className="card-surface rounded-2xl border border-border bg-card/90 backdrop-blur-xl p-8 sm:p-10 shadow-2xl">
             {/* Header / Brand Icon */}
             <div className="flex items-center justify-between gap-4 mb-8">
               <div className="flex items-center gap-3.5">
@@ -97,16 +97,16 @@ function SpotifyAuthContent() {
                   <Music className="w-6 h-6" />
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text">
+                  <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text">
                     Link Spotify
                   </h1>
-                  <p className="text-xs text-muted mt-0.5">
+                  <p className="text-xs text-text-dim mt-0.5">
                     Connect your account to your Oreo Badge
                   </p>
                 </div>
               </div>
 
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-bgRaised border border-border text-textDim">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-bg-raised border border-border text-text-dim">
                 <Sparkles className="w-3 h-3 text-[#1DB954]" />
                 Music App
               </span>
@@ -119,7 +119,7 @@ function SpotifyAuthContent() {
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="mb-6 p-3.5 rounded-xl bg-[#FF5D68]/10 border border-[#FF5D68]/30 flex items-start gap-2.5 text-xs text-[#FF5D68]"
+                  className="mb-6 p-3.5 rounded-xl bg-primary/10 border border-primary/30 flex items-start gap-2.5 text-xs text-primary"
                 >
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <p>{error}</p>
@@ -134,7 +134,7 @@ function SpotifyAuthContent() {
                   Badge Screen PIN
                 </label>
                 {initialCode && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1DB954]">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Auto-filled from QR
                   </span>
@@ -153,7 +153,7 @@ function SpotifyAuthContent() {
                     value={val}
                     onChange={(e) => setCell(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
-                    className={`h-14 sm:h-16 text-center text-xl sm:text-2xl font-mono font-bold rounded-xl border bg-bgRaised/90 text-text transition-all outline-none ${
+                    className={`h-14 sm:h-16 text-center text-xl sm:text-2xl font-mono font-bold rounded-xl border bg-bg-raised text-text transition-all outline-none ${
                       val
                         ? "border-[#1DB954] shadow-[0_0_12px_rgba(29,185,84,0.25)]"
                         : "border-border hover:border-border/80 focus:border-primary"
@@ -174,8 +174,8 @@ function SpotifyAuthContent() {
               disabled={!isComplete}
               className={`w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-2.5 transition-all shadow-lg text-sm sm:text-base ${
                 isComplete
-                  ? "bg-[#1DB954] hover:bg-[#1ed760] text-black shadow-[#1DB954]/25 cursor-pointer"
-                  : "bg-bgRaised text-muted border border-border cursor-not-allowed"
+                  ? "bg-[#1DB954] hover:bg-[#1ed760] text-black shadow-[#1DB954]/25 cursor-pointer font-bold"
+                  : "bg-bg-raised text-muted border border-border cursor-not-allowed"
               }`}
             >
               <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -187,11 +187,11 @@ function SpotifyAuthContent() {
 
             {/* Privacy & Zero-Config Guarantee Footer */}
             <div className="mt-6 pt-5 border-t border-border/60 flex items-center justify-between text-[11px] text-muted">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#3DDC97]" />
+              <span className="flex items-center gap-1.5 text-teal">
+                <ShieldCheck className="w-3.5 h-3.5" />
                 Zero credentials stored on cloud
               </span>
-              <span>1-Time Token Relay</span>
+              <span className="text-text-dim font-mono">1-Time Token Relay</span>
             </div>
           </div>
         </Reveal>

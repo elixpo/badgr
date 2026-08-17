@@ -8,15 +8,22 @@ const SCOPES = "user-read-playback-state user-modify-playback-state user-read-cu
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const code = searchParams.get("code") || "";
+    const code = (searchParams.get("code") || searchParams.get("pin") || "").trim();
 
     if (!code) {
-      return new NextResponse("Missing session code", { status: 400 });
+      const origin =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        request.headers.get("origin") ||
+        new URL(request.url).origin ||
+        "https://oreo.elixpo.com";
+      return NextResponse.redirect(`${origin}/spotify?error=Missing+badge+PIN+code`);
     }
 
-    const session = await getSession(code);
-    if (!session || session.status !== "pending") {
-      return new NextResponse("Invalid or expired session code. Please restart login on your badge.", { status: 400 });
+    let session = await getSession(code);
+    if (!session) {
+      // Auto-create or allow pending handshake for the typed PIN
+      const { createSession } = await import("@/lib/spotifySessionStore");
+      session = await createSession();
     }
 
     const clientId = process.env.SPOTIFY_CLIENT_ID;

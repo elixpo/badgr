@@ -6,11 +6,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const code = searchParams.get("code");
+    const code = searchParams.get("code") || searchParams.get("pin");
 
     if (!code) {
       return NextResponse.json(
-        { status: "error", message: "Missing code parameter" },
+        { status: "error", message: "Missing code or pin parameter" },
         { status: 400 }
       );
     }
@@ -28,13 +28,14 @@ export async function GET(request: Request) {
       );
     }
 
-    if (session.status === "authorized") {
-      // Consume and return tokens
+    if (session.status === "authorized" || (session.status === "consumed" && session.accessToken)) {
+      // Consume and return tokens (or return tokens if in active retry grace period)
       await consumeSession(code);
       return NextResponse.json(
         {
           status: "authorized",
           access_token: session.accessToken,
+          token: session.accessToken,
           refresh_token: session.refreshToken,
           client_id: session.clientId,
         },
