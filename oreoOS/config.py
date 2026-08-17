@@ -41,12 +41,6 @@ VERSION = "v1.4.103"
 # "Latest stable as of …" line when no newer release is available.
 RELEASE_DATE = "2026-05-16"
 
-GITHUB_USER = _env.get("GITHUB_USER", "")
-DISPLAY_NAME = _env.get("DISPLAY_NAME", "")
-DESIGNATION = _env.get("DESIGNATION", "")
-LINKEDIN_USER = _env.get("LINKEDIN_USER", "")
-TWITTER_USER = _env.get("TWITTER_USER", "")
-WEBSITE_URL = _env.get("WEBSITE_URL", "")
 
 try:
     WEATHER_LAT = float(_env.get("WEATHER_LAT", 22.57) or 22.57)
