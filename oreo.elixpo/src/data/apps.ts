@@ -105,9 +105,7 @@ export const ALL_APPS: AppEntry[] = [
   app("commits",  { category: "tool", tint: "gold",    icon: "GitCommit",
     details: "Pulls the public events stream for a configurable list of repos. " +
              "Renders each commit as a card with author, message, and timestamp." }),
-  app("identity", { category: "core", tint: "lilac",   icon: "User",
-    details: "Holds your contact card and beams a copy to a peer badge over IR " +
-             "when they tap A on the matching screen." }),
+
   app("gamepad",  { category: "tool", tint: "primary", icon: "Gamepad2",
     details: "HID Gamepad over BLE — your laptop sees the badge as a generic " +
              "gamepad. Maps the badge buttons to standard XInput buttons." }),

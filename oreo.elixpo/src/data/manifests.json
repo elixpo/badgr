@@ -73,14 +73,7 @@
     "icon": "settings_icon.png",
     "author": "Circuit-Overtime"
   },
-  "identity": {
-    "name": "Identity",
-    "description": "Your name, handle, and contact card — share over IR.",
-    "type": "app",
-    "version": "0.1",
-    "icon": "identity_icon.png",
-    "author": "Circuit-Overtime"
-  },
+
   "launcher": {
     "name": "Apps",
     "description": "App drawer. Categorised grid of installed apps.",

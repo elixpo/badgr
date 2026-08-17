@@ -152,7 +152,7 @@ class Home(oreoOS.App):
         if btn == api.BTN_A:
             self.os.launch("__appmenu__")
         elif btn == api.BTN_B:
-            self.os.launch("identity")
+            self.os.launch("badge")
 
     def update(self, dt):
         _h, m, s, *_ = timeutil.now()
@@ -195,7 +195,7 @@ class Home(oreoOS.App):
 
             self._draw_status_bar(d, h, m)
             self._draw_clock_area(d, h, m, wd, day, mon, yr)
-            widgets.draw_hint(d, "A=apps  B=id  C=notif")
+            widgets.draw_hint(d, "A=apps  B=Badge  C=notif")
             self._dirty = False
             self._clock_dirty = False
             self._status_dirty = False
