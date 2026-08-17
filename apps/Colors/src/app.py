@@ -162,6 +162,8 @@ class App(oreoOS.App):
     # ── lifecycle ──────────────────────────────────────────────────────────
     def on_enter(self, os):
         self._os = os
+        self._orig_theme = theme.CURRENT_THEME
+        self._applied = False
         spec = _try_load_spectrum()
         if spec:
             src, sw, sh = spec
@@ -189,6 +191,7 @@ class App(oreoOS.App):
         self._saved_msg = "Theme Applied!"
         self._hold_t = {api.BTN_LEFT: 0.0, api.BTN_RIGHT: 0.0, api.BTN_UP: 0.0, api.BTN_DOWN: 0.0}
         self._sample_color()
+        self.hints = [("arrows", "pick"), ("B", "slot"), ("C", "preset"), ("A", "apply")]
         self._dirty = True
 
     # ── input ──────────────────────────────────────────────────────────────
@@ -227,7 +230,7 @@ class App(oreoOS.App):
             self._saved_flash = 1.0
             self._dirty = True
         elif btn == api.BTN_C:
-            # Cycle curated presets
+            # Cycle curated presets in PREVIEW mode (does NOT persist)
             keys = [k for k in theme.PRESET_KEYS if k != "custom"]
             self._preset_idx = (getattr(self, "_preset_idx", -1) + 1) % len(keys)
             self._active_preset_id = keys[self._preset_idx]
@@ -238,11 +241,13 @@ class App(oreoOS.App):
             self._slots["CARD"] = preset.card_rgb
             self._slots["SEC"] = preset.teal_rgb
             self._slots["ACC"] = preset.gold_rgb
+            # Live preview the theme without saving to disk
+            theme.apply_theme(preset, save=False)
             self._saved_msg = "Preview: %s" % preset.name
             self._saved_flash = 1.5
             self._dirty = True
         elif btn == api.BTN_A:
-            # Save the active multi-slot theme configuration
+            # Apply and save the active multi-slot theme configuration
             if getattr(self, "_active_preset_id", None):
                 theme.set_preset(self._active_preset_id, save=True)
                 preset = theme.PRESETS[self._active_preset_id]
@@ -299,6 +304,8 @@ class App(oreoOS.App):
                 except Exception:
                     pass
                 self._saved_msg = "Theme Applied!"
+            self._applied = True
+            self._orig_theme = theme.CURRENT_THEME
             self._saved_flash = 1.5
             self._dirty = True
 
@@ -475,7 +482,12 @@ class App(oreoOS.App):
         d.rect(cx - 1, cy - 1, 3, 3, api.WHITE, fill=False)
 
     def on_exit(self):
-        """Free color splash buffers and sweep GC on exit."""
+        """Restore initial theme if not applied, free color splash buffers, and sweep GC."""
+        if not getattr(self, "_applied", False) and getattr(self, "_orig_theme", None):
+            try:
+                theme.apply_theme(self._orig_theme, save=False)
+            except Exception:
+                pass
         self._splash_data = None
         self._bg = None
         try:

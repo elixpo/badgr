@@ -222,7 +222,7 @@ def draw_hint(d, hints):
     d.rect(0, y, SW, 1, theme.MUTED2, fill=True)
 
     if isinstance(hints, str):
-        tx = (SW - len(hints) * 8) // 2
+        tx = max(4, (SW - len(hints) * 8) // 2)
         d.text(hints, tx, y + 4, theme.TEXT_DIM)
     else:
         total_chars = 0
@@ -231,7 +231,7 @@ def draw_hint(d, hints):
             if i < len(hints) - 1:
                 total_chars += 2  # 2 spaces between hints
 
-        tx = (SW - total_chars * 8) // 2
+        tx = max(4, (SW - total_chars * 8) // 2)
         for btn, act in hints:
             d.text(btn, tx, y + 4, theme.PRIMARY)
             tx += len(btn) * 8
