@@ -155,7 +155,7 @@ SLOT_TITLES = {
 
 
 class App(oreoOS.App):
-    name = "Color"
+    name = "Colors"
     SHOW_LOADING = True  # ~300 ms upscale at entry — hidden by the panel
     NO_HEADER = True  # Custom header with live color swatch & format readout
     CONSUMES_C = True  # Uses C button to cycle curated OS theme presets
