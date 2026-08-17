@@ -108,6 +108,7 @@ class App(oreoOS.App):
         from oreoOS import config
 
         self._user = config.get("GITHUB_USER")
+        self._designation = config.get("DESIGNATION", "")
         self._avatar = _try_avatar()
 
         # 1) Load whatever's on disk so the card renders immediately.
@@ -225,6 +226,17 @@ class App(oreoOS.App):
             lw = len(ln) * 8
             d.text(ln, (SW - lw) // 2, name_y, theme.TEAL)
             name_y += 10
+
+        designation = getattr(self, "_designation", "")
+        if not designation:
+            from oreoOS import config
+
+            designation = config.get("DESIGNATION", "")
+
+        if designation:
+            desig = designation[:32]
+            desig_w = len(desig) * 8
+            d.text(desig, (SW - desig_w) // 2, name_y + 4, theme.TEXT_DIM)
 
         # ── stats row at the bottom of the card ──────────────────────
         stats_y = cy + ch - 30
