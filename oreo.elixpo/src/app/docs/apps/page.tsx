@@ -141,15 +141,19 @@ __all__ = ["App"]`}
             <pre className="overflow-x-auto rounded-md border border-border
                             bg-bg p-4 text-xs leading-relaxed text-text">
 {`{
-  "name":     "Snake",
-  "author":   "Circuit-Overtime",
-  "version":  "1.0.0",
-  "category": "game",
-  "icon":     "snake"
+  "name":        "Snake",
+  "description": "The original grid-based Snake game.",
+  "type":        "app",
+  "author":      "Circuit-Overtime",
+  "version":     "1.0.0",
+  "category":    "game",
+  "icon":        "snake"
 }`}
             </pre>
             <ul className="mt-4 max-w-3xl space-y-2 text-sm text-text-dim">
               <li><b className="text-text">name</b> — display name in the drawer (under the tile).</li>
+              <li><b className="text-text">description</b> — short blurb shown on the website and store.</li>
+              <li><b className="text-text">type</b> — set to <code>app</code>.</li>
               <li><b className="text-text">author</b> — GitHub handle shown on the about screen.</li>
               <li><b className="text-text">version</b> — semver; bumped by your PR.</li>
               <li><b className="text-text">category</b> — <code>game</code> / <code>tool</code> / <code>system</code>. Affects drawer grouping.</li>
@@ -200,8 +204,6 @@ from . import game, render, highscore
 
 
 class App(oreoOS.App):
-    name = "Snake"
-
     def on_enter(self, os):
         self._os    = os
         self._state = game.INTRO
