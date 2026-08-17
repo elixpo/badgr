@@ -47,39 +47,16 @@ def _copy_tree(src, dst):
 
 
 def bootstrap_badge_apps():
-    """Ensure badge_data/apps/ is initialized with stock default apps on first boot."""
+    """Ensure badge_data/ directory structure is initialized."""
     try:
-        from oreoOS.config import BADGE_DATA_DIR, ensure_state_dirs
+        from oreoOS.config import ensure_state_dirs
 
         ensure_state_dirs()
-        apps_target = BADGE_DATA_DIR + "/apps"
-
-        stock_dir = "apps"
-        try:
-            stock_entries = _os.listdir(stock_dir)
-        except OSError:
-            stock_entries = []
-
-        for item in stock_entries:
-            if item.startswith(".") or item.startswith("_"):
-                continue
-            s_item = stock_dir + "/" + item
-            d_item = apps_target + "/" + item
-
-            # If the app's manifest is missing (e.g. from a partial wipe), copy it over.
-            needs_copy = False
-            try:
-                _os.stat(d_item + "/manifest.json")
-            except OSError:
-                needs_copy = True
-
-            if needs_copy:
-                _copy_tree(s_item, d_item)
     except Exception:
         pass
 
 
-# Ensure badge apps are bootstrapped on module load
+# Ensure badge state dirs are bootstrapped on module load
 bootstrap_badge_apps()
 
 APPS_DIR = "badge_data/apps"
@@ -96,57 +73,62 @@ def invalidate_apps_cache():
 def list_apps():
     """Return [{'dir':..., 'name':..., 'type':...}, ...]  sorted alphabetically by name."""
     apps = []
-    try:
-        entries = _os.listdir(APPS_DIR)
-    except OSError:
-        return apps
-    for entry in entries:
-        if entry.startswith(".") or entry.startswith("_"):
-            continue
+    seen = set()
+    for search_dir in ("apps", APPS_DIR):
         try:
-            with open("%s/%s/manifest.json" % (APPS_DIR, entry)) as f:
-                manifest = json.loads(f.read())
-            apps.append(
-                {
-                    "dir": entry,
-                    "name": manifest.get("name", entry),
-                    "type": manifest.get("type", "app"),
-                    "color": manifest.get("color", None),
-                    "icon": manifest.get("icon", None),
-                    "author": manifest.get("author", None),
-                    "description": manifest.get("description", ""),
-                    "version": manifest.get("version", "1.0.0"),
-                    "category": manifest.get("category", "General"),
-                }
-            )
-        except (OSError, ValueError):
+            entries = _os.listdir(search_dir)
+        except OSError:
             continue
+        for entry in entries:
+            if entry.startswith(".") or entry.startswith("_") or entry in seen:
+                continue
+            manifest_path = "%s/%s/manifest.json" % (search_dir, entry)
+            try:
+                with open(manifest_path) as f:
+                    manifest = json.loads(f.read())
+                seen.add(entry)
+                apps.append(
+                    {
+                        "dir": entry,
+                        "name": manifest.get("name", entry),
+                        "type": manifest.get("type", "app"),
+                        "color": manifest.get("color", None),
+                        "icon": manifest.get("icon", None),
+                        "author": manifest.get("author", None),
+                        "description": manifest.get("description", ""),
+                        "version": manifest.get("version", "1.0.0"),
+                        "category": manifest.get("category", "General"),
+                    }
+                )
+            except (OSError, ValueError):
+                continue
     apps = [a for a in apps if a["type"] == "app"]
     apps.sort(key=lambda a: (a.get("name") or a.get("dir", "")).lower())
     return apps
 
 
 def load_app(app_dir):
-    module_path = "badge_data.apps.%s.main" % app_dir
     try:
-        mod = __import__(module_path, None, None, ["App"])
-    except ImportError:
         mod = __import__("apps.%s.main" % app_dir, None, None, ["App"])
+    except ImportError:
+        mod = __import__("badge_data.apps.%s.main" % app_dir, None, None, ["App"])
 
     app = mod.App()
     app.dir = app_dir
     # Pull manifest metadata (name, author, version) and stamp onto app instance
-    try:
-        manifest_path = "%s/%s/manifest.json" % (APPS_DIR, app_dir)
-        with open(manifest_path) as f:
-            manifest = json.loads(f.read())
-        if manifest.get("author"):
-            app.author = manifest["author"]
-        if manifest.get("name"):
-            app.name = manifest["name"]
-        app.manifest = manifest
-    except (OSError, ValueError):
-        pass
+    for search_dir in ("apps", APPS_DIR):
+        try:
+            manifest_path = "%s/%s/manifest.json" % (search_dir, app_dir)
+            with open(manifest_path) as f:
+                manifest = json.loads(f.read())
+            if manifest.get("author"):
+                app.author = manifest["author"]
+            if manifest.get("name"):
+                app.name = manifest["name"]
+            app.manifest = manifest
+            break
+        except (OSError, ValueError):
+            pass
     return app
 
 
