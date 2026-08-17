@@ -29,7 +29,12 @@ PLAY_TOP = widgets.HEADER_H
 PLAY_BOT = SH - widgets.HINT_H
 PLAY_H = PLAY_BOT - PLAY_TOP  # 196
 PLAY_W = SW  # full width
-STATE_PATH = "state_color.txt"
+try:
+    from oreoOS.config import get_state_path
+
+    STATE_PATH = get_state_path("state_color.txt")
+except Exception:
+    STATE_PATH = "badge_data/state_color.txt"
 
 # Movement tuning. Tap = 1 px nudge; hold for ACCEL_AFTER seconds and the
 # cursor steps by FAST_PX_PER_FRAME each frame for fast traversal.

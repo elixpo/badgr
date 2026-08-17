@@ -268,9 +268,29 @@ class App(oreoOS.App):
             self._dirty = True
         else:
             try:
-                from oreoOS import config, storage
+                from oreoOS import config, storage, theme
 
+                # Wipe state directory
                 storage.rm_tree(config.get_state_path())
+
+                # Wipe any legacy root state files if present
+                for legacy_file in (
+                    "state_color.txt",
+                    "state_theme.json",
+                    "settings.json",
+                    "bonds.json",
+                ):
+                    try:
+                        import os
+
+                        if os.path.exists(legacy_file):
+                            os.remove(legacy_file)
+                    except Exception:
+                        pass
+
+                # Reset runtime theme to default celebration
+                theme.set_preset("celebration", save=False)
+
                 import machine
 
                 machine.reset()
