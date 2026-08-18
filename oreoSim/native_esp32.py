@@ -90,7 +90,7 @@ def normalize_sim_path(path):
 def _calculate_project_used_bytes():
     """Calculate realistic disk usage by summing project files."""
     total_used = 0
-    target_dirs = ["oreoOS", "apps", "apps_market", "assets"]
+    target_dirs = ["oreoOS", "apps", "assets"]
     for d in target_dirs:
         dp = os.path.join(REPO_ROOT, d)
         if os.path.exists(dp):
@@ -254,6 +254,10 @@ def setup_hardware_emulation():
         "oreoSim",
         "tools",
         "oreo.elixpo",
+        "apps_market",
+        "docs",
+        "raw",
+        "transparent",
     }
 
     def mock_listdir(path="."):

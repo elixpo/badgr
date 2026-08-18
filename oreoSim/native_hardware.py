@@ -4,10 +4,11 @@ Provides high-performance desktop emulation for:
   • ST7789V 320x240 RGB565 IPS LCD with pre-baked 65536-entry color LUT
   • Zero-latency chroma-key (0xF81F) transparency sprite blitter
   • D-Pad, tactile push buttons, capacitive touch (C & HOME) with WASD / Arrow keys
-  • F11 dynamic window zoom (2x / 3x scale)
+  • F11 dynamic window zoom (1x / 2x scale)
   • Robust coordinate bounds protection
 """
 
+import os
 import sys
 import time
 
@@ -16,7 +17,7 @@ import pygame
 from oreoOS import api
 
 # Default scale factor
-ZOOM = 2
+ZOOM = 1
 
 pygame.init()
 _screen = pygame.display.set_mode((api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM))
@@ -193,7 +194,7 @@ class Display(api.Display):
 
 def toggle_zoom():
     global ZOOM, _screen
-    ZOOM = 3 if ZOOM == 2 else 2
+    ZOOM = 2 if ZOOM == 1 else 1
     _screen = pygame.display.set_mode((api.SCREEN_W * ZOOM, api.SCREEN_H * ZOOM))
     pygame.display.set_caption(f"OreoOS Native Simulator (oreoSim - {ZOOM}x)")
 
@@ -229,6 +230,17 @@ class Buttons:
         self._press_time = {b: 0 for b in api.BUTTONS}
         self._time = time
 
+    def reset(self):
+        """Cleanly release all keys and reset edge detection states (for transitions & hot-reload)."""
+        for b in api.BUTTONS:
+            self._curr[b] = 0
+            self._prev[b] = 0
+            self._press_time[b] = 0
+        try:
+            pygame.event.pump()
+        except Exception:
+            pass
+
     def update(self):
         self._prev = self._curr.copy()
 
@@ -239,6 +251,14 @@ class Buttons:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F11:
                     toggle_zoom()
+            elif event.type in (
+                getattr(pygame, "WINDOWFOCUSLOST", 32785),
+                getattr(pygame, "WINDOWMINIMIZED", 32786),
+                getattr(pygame, "ACTIVEEVENT", 1),
+            ):
+                # Release keys when window focus shifts
+                for b in api.BUTTONS:
+                    self._curr[b] = 0
 
         keys = pygame.key.get_pressed()
         now = self._time.time() * 1000
@@ -268,9 +288,16 @@ class Buttons:
 
 
 def reboot():
-    print("[oreoSim] Reboot requested!")
-    pygame.quit()
-    sys.exit(0)
+    print("\n\033[96m[oreoSim] Reboot requested — restarting emulator...\033[0m\n")
+    try:
+        pygame.display.quit()
+        pygame.quit()
+    except Exception:
+        pass
+    entry_cmd = getattr(sys, "_oreosim_entry_cmd", None) or (
+        [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
+    )
+    os.execv(entry_cmd[0], entry_cmd)
 
 
 class Pin:
@@ -321,7 +348,18 @@ class OS(api.OS):
         self._quit_requested = True
 
     def settings_get(self, key, default=None):
-        return self._settings.get(key, default)
+        try:
+            from oreoOS import settings
+
+            return settings.get(key, default)
+        except Exception:
+            return self._settings.get(key, default)
 
     def settings_set(self, key, value):
         self._settings[key] = value
+        try:
+            from oreoOS import settings
+
+            settings.set(key, value)
+        except Exception:
+            pass
