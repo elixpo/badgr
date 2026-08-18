@@ -86,7 +86,7 @@ def normalize_sim_path(path):
     return path
 
 
-# ── Storage Emulation (LittleFS 8MB Partition) ──────────────────────────────────
+# ── Storage Emulation (LittleFS 12MB Partition) ──────────────────────────────────
 def _calculate_project_used_bytes():
     """Calculate realistic disk usage by summing project files."""
     total_used = 0
@@ -111,7 +111,7 @@ def _calculate_project_used_bytes():
 
 
 def mock_statvfs(path="/"):
-    """Simulate MicroPython os.statvfs('/') on ESP32-S3 8MB LittleFS partition."""
+    """Simulate MicroPython os.statvfs('/') on ESP32-S3 12MB LittleFS partition."""
     used_bytes = _calculate_project_used_bytes()
     free_bytes = max(0, FLASH_TOTAL_BYTES - used_bytes)
     free_blocks = free_bytes // FLASH_BLOCK_SIZE
@@ -131,7 +131,7 @@ def mock_statvfs(path="/"):
     )
 
 
-# ── Memory & Heap Emulation (4MB PSRAM MicroPython Heap) ──────────────────────
+# ── Memory & Heap Emulation (8MB PSRAM MicroPython Heap) ──────────────────────
 _allocated_heap = BASE_OS_HEAP
 
 
