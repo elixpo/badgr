@@ -36,7 +36,7 @@ if not _env:
 # The literal MUST stay on its own line as `VERSION = "vN.N.N"` — the
 # deploy regex relies on that exact format to rewrite in place.
 VERSION = "v1.4.103"
-STORE_REF = "feat/spotify-cloud-relay-identity-oreosim"
+STORE_REF = "main"
 # ISO-date stamp of the current VERSION. Updated by tools/release.py
 # (or by hand for hot-fix builds). Shown on the Updates page as the
 # "Latest stable as of …" line when no newer release is available.
