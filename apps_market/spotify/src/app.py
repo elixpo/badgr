@@ -276,7 +276,7 @@ class App(oreoOS.App):
         self._qr_poll_t = _ticks_ms()
         # Compute relay display hostname once, not every frame inside draw
         try:
-            _relay_raw = oreoOS.config.get("SPOTIFY_RELAY_URL", "oreo.elixpo.com")
+            _relay_raw = oreoOS.config.spotify.RELAY_URL
         except Exception:
             _relay_raw = "oreo.elixpo.com"
         _relay_raw = _relay_raw.replace("https://", "").replace("http://", "").rstrip("/")

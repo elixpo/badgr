@@ -324,12 +324,28 @@ def setup_hardware_emulation():
     # 5. Patch machine module
     mock_m = sys.modules.get("machine") or types.ModuleType("machine")
     sys.modules["machine"] = mock_m
+
+    def _sim_reset():
+        """Simulate hardware reset by cleanly restarting the emulator process."""
+        print("\n\033[96m[oreoSim] machine.reset() called — rebooting OreoOS...\033[0m\n")
+        try:
+            import pygame
+
+            pygame.display.quit()
+            pygame.quit()
+        except Exception:
+            pass
+        entry_cmd = getattr(sys, "_oreosim_entry_cmd", None) or (
+            [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
+        )
+        os.execv(entry_cmd[0], entry_cmd)
+
     mock_m.freq = lambda: CPU_FREQ_HZ
-    mock_m.reset = lambda: sys.exit(0)
+    mock_m.reset = _sim_reset
     mock_m.reset_cause = lambda: 0
     mock_m.idle = lambda: time.sleep(0.001)
     mock_m.lightsleep = lambda ms=0: time.sleep(ms / 1000.0)
-    mock_m.deepsleep = lambda ms=0: sys.exit(0)
+    mock_m.deepsleep = lambda ms=0: _sim_reset()
     mock_m.unique_id = lambda: b"\x24\x6f\x28\xab\xcd\xef"
     mock_m.BROWNOUT_RESET = 1
     mock_m.DEEPSLEEP_RESET = 2
@@ -391,7 +407,7 @@ def setup_hardware_emulation():
             return 32768
 
         def read_uv(self):
-            return 1800000
+            return 1950000
 
         def atten(self, val):
             self.atten_val = val
@@ -572,11 +588,19 @@ def setup_hardware_emulation():
     mock_esp32.hall_sensor = lambda: 0
 
     # 7. Patch time module MicroPython ticks functions
-    time.ticks_ms = lambda: int(time.time() * 1000)
-    time.ticks_us = lambda: int(time.time() * 1000000)
-    time.ticks_cpu = lambda: int(time.time() * CPU_FREQ_HZ)
-    time.ticks_diff = lambda a, b: a - b
-    time.ticks_add = lambda a, b: a + b
+    # MicroPython on ESP32 uses 30-bit ticks that wrap around.
+    # ticks_diff handles this 30-bit wrapping with signed arithmetic.
+    _SIM_START_TIME = time.time()
+    time.ticks_ms = lambda: int((time.time() - _SIM_START_TIME) * 1000) & 0x3FFFFFFF
+    time.ticks_us = lambda: int((time.time() - _SIM_START_TIME) * 1000000) & 0x3FFFFFFF
+    time.ticks_cpu = lambda: int((time.time() - _SIM_START_TIME) * CPU_FREQ_HZ) & 0x3FFFFFFF
+
+    def _ticks_diff(a, b):
+        diff = (a - b) & 0x3FFFFFFF
+        return diff if diff < 0x20000000 else diff - 0x40000000
+
+    time.ticks_diff = _ticks_diff
+    time.ticks_add = lambda a, b: (a + b) & 0x3FFFFFFF
     time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
     time.sleep_us = lambda us: time.sleep(us / 1000000.0)
 

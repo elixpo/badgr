@@ -151,7 +151,7 @@ def _get_relay_url(endpoint=""):
     try:
         from oreoOS import config
 
-        base = config.get("SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app").rstrip("/")
+        base = config.spotify.RELAY_URL.rstrip("/")
     except Exception:
         base = "https://oreo-delta.vercel.app"
     return base + ("/" + endpoint.lstrip("/") if endpoint else "")
@@ -161,7 +161,7 @@ def _get_auth_url():
     try:
         from oreoOS import config
 
-        return config.get("SPOTIFY_AUTH_URL", _get_relay_url("spotify"))
+        return config.spotify.AUTH_URL
     except Exception:
         return _get_relay_url("spotify")
 

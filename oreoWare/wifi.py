@@ -81,13 +81,13 @@ def _apply_power_cap(wlan):
     """
     from oreoOS import config
 
-    tx_dbm = config.get("WIFI_TX_DBM", "")
+    tx_dbm = config.wifi.TX_DBM
     if tx_dbm:
         try:
             wlan.config(txpower=int(tx_dbm))
         except Exception:
             pass
-    if config.get("WIFI_POWERSAVE", True):
+    if config.wifi.POWERSAVE:
         try:
             wlan.config(pm=wlan.PM_POWERSAVE)
         except Exception:

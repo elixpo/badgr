@@ -49,9 +49,9 @@ def _copy_tree(src, dst):
 def bootstrap_badge_apps():
     """Ensure badge_data/ directory structure is initialized."""
     try:
-        from oreoOS.config import ensure_state_dirs
+        from oreoOS import config
 
-        ensure_state_dirs()
+        config.storage.ensure_dirs()
     except Exception:
         pass
 
@@ -59,12 +59,16 @@ def bootstrap_badge_apps():
 # Ensure badge state dirs are bootstrapped on module load
 bootstrap_badge_apps()
 
-APPS_DIR = "badge_data/apps"
+try:
+    from oreoOS import config
 
-
-def invalidate_apps_cache():
-    """Invalidate any cached application rosters across the system."""
-    pass
+    APPS_DIR = config.storage.APPS_DIR
+    VERSION = config.system.VERSION
+    get_version_string = config.system.get_version_string
+except ImportError:
+    APPS_DIR = "badge_data/apps"
+    VERSION = "v1.4.103"
+    get_version_string = lambda: VERSION
 
 
 # ── app discovery ─────────────────────────────────────────────────────────────
@@ -108,6 +112,20 @@ def list_apps():
 
 
 def load_app(app_dir):
+    try:
+        import sys
+
+        for k in list(sys.modules.keys()):
+            if (
+                k == "apps.%s" % app_dir
+                or k.startswith("apps.%s." % app_dir)
+                or k == "badge_data.apps.%s" % app_dir
+                or k.startswith("badge_data.apps.%s." % app_dir)
+            ):
+                sys.modules.pop(k, None)
+    except Exception:
+        pass
+
     try:
         mod = __import__("apps.%s.main" % app_dir, None, None, ["App"])
     except ImportError:
@@ -220,7 +238,12 @@ def run_app(os_obj, app):
         except Exception:
             pass
 
+    os_obj._quit_requested = False
+    if hasattr(os_obj.buttons, "reset"):
+        os_obj.buttons.reset()
+
     app.on_enter(os_obj)
+
     last = time.ticks_ms()
     try:
         while not os_obj._quit_requested:
@@ -478,6 +501,20 @@ def run_app(os_obj, app):
                 _hs.tick()
             except Exception:
                 pass
+
+            # In-process Hot Reload check (oreoSim)
+            if getattr(sys, "_hot_reload_signal", False):
+                sys._hot_reload_signal = False
+                if hasattr(os_obj.buttons, "reset"):
+                    os_obj.buttons.reset()
+                app_target = getattr(app, "dir", getattr(app, "name", None))
+                from oreoOS.home import Home
+
+                if app_target and not isinstance(app, Home) and str(app_target).lower() != "home":
+                    os_obj._launch_request = app_target
+                else:
+                    os_obj._launch_request = None
+                return
 
             elapsed = time.ticks_diff(time.ticks_ms(), now)
             if elapsed < FRAME_MIN_MS:
@@ -758,7 +795,7 @@ def boot():
     wifi_ok_to_try = True
     from oreoOS import config
 
-    if not config.get("WIFI_AUTO_CONNECT", True):
+    if not config.wifi.AUTO_CONNECT:
         wifi_ok_to_try = False
     try:
         import machine

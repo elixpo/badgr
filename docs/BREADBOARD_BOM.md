@@ -78,9 +78,9 @@ Wiring: each button connects GPIO ↔ GND, with internal pull-up enabled in soft
 | 4.2.1 | TSAL6400 IR LED, 940nm | 2 | Buy spares — they're the same body as visible LEDs and easy to mix up. |
 | 4.2.2 | 2N2222 NPN transistor (TO-92) | 1 | Or 2N3904 / BC547 — any small-signal NPN. |
 | 4.2.3 | 100Ω ¼W resistor | 1 | IR LED current limit (~30mA peak through 2N2222 from 3V3). |
-| 4.2.4 | 4.7kΩ ¼W resistor | 1 | Base resistor for 2N2222 from GPIO48. |
+| 4.2.4 | 4.7kΩ ¼W resistor | 1 | Base resistor for 2N2222 from GPIO2. |
 
-Wiring: GPIO48 → 4.7k → base; emitter → GND; collector → IR LED cathode; LED anode → 100Ω → 3V3.
+Wiring: GPIO2 → 4.7k → base; emitter → GND; collector → IR LED cathode; LED anode → 100Ω → 3V3.
 
 ---
 

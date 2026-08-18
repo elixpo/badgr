@@ -648,7 +648,7 @@ def _start_advertising(ble):
     interval_us = 200_000  # was 500_000 — too slow for iOS opportunistic scans
     from oreoOS import config
 
-    adv_ms = config.get("BT_ADV_INTERVAL_MS", "")
+    adv_ms = config.wifi.BT_ADV_INTERVAL_MS
     if adv_ms:
         try:
             interval_us = int(adv_ms) * 1000

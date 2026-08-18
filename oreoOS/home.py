@@ -180,7 +180,7 @@ class Home(oreoOS.App):
                 import time as _t
 
                 _draw_start = _t.ticks_ms()
-                if config.DEBUG:
+                if config.system.DEBUG:
                     print("[home] full draw begin")
             except Exception:
                 _draw_start = None
@@ -201,7 +201,7 @@ class Home(oreoOS.App):
             self._status_dirty = False
 
             try:
-                if _draw_start is not None and config.DEBUG:
+                if _draw_start is not None and config.system.DEBUG:
                     print(
                         "[home] full draw done in %d ms" % _t.ticks_diff(_t.ticks_ms(), _draw_start)
                     )

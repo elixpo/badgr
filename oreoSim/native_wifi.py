@@ -18,10 +18,10 @@ def _get_config_ssid():
     try:
         from oreoOS import config
 
-        if getattr(config, "WIFI_NETWORKS", None):
-            return config.WIFI_NETWORKS[0]["ssid"]
-        if getattr(config, "WIFI_SSID", None):
-            return config.WIFI_SSID
+        if getattr(config, "wifi", None) and getattr(config.wifi, "NETWORKS", None):
+            return config.wifi.NETWORKS[0]["ssid"]
+        if getattr(config, "wifi", None) and getattr(config.wifi, "SSIDS", None):
+            return config.wifi.SSIDS[0] if config.wifi.SSIDS else ""
     except Exception:
         pass
     return "HostNetwork"
@@ -31,8 +31,8 @@ def _get_config_networks():
     try:
         from oreoOS import config
 
-        if getattr(config, "WIFI_NETWORKS", None):
-            return config.WIFI_NETWORKS
+        if getattr(config, "wifi", None) and getattr(config.wifi, "NETWORKS", None):
+            return config.wifi.NETWORKS
     except Exception:
         pass
     return [{"ssid": _get_config_ssid(), "password": "password", "priority": 1, "metered": False}]
