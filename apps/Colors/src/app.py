@@ -258,54 +258,11 @@ class App(oreoOS.App):
                 preset = theme.PRESETS[self._active_preset_id]
                 self._saved_msg = "%s Applied!" % preset.name
             else:
-                pri = self._slots["PRI"]
-                bg = self._slots["BG"]
-                card = self._slots["CARD"]
-                sec = self._slots["SEC"]
-                acc = self._slots["ACC"]
-
-                bg_lum = theme.get_perceived_luminance(*bg)
-                is_dark = bg_lum < 100
-
-                text_bright = (245, 245, 250) if is_dark else (24, 24, 32)
-                text_dim = (180, 180, 200) if is_dark else (100, 80, 70)
-                muted = (130, 130, 155) if is_dark else (160, 120, 100)
-                muted2 = (60, 60, 85) if is_dark else (200, 160, 140)
-
-                pri_lum = theme.get_perceived_luminance(*pri)
-                status_text = (24, 24, 32) if pri_lum >= 170 else (255, 255, 255)
-
-                custom_th = theme.Theme(
-                    id="custom",
-                    name="Custom Palette",
-                    bg=bg,
-                    card=card,
-                    primary=pri,
-                    teal=sec,
-                    gold=acc,
-                    text_bright=text_bright,
-                    text_dim=text_dim,
-                    muted=muted,
-                    muted2=muted2,
-                    status_bg=pri,
-                    status_text=status_text,
-                    status_accent=acc,
-                    dock_bg=card,
-                    dock_sel=(
-                        min(255, card[0] + 15),
-                        min(255, card[1] + 15),
-                        min(255, card[2] + 15),
-                    ),
-                    sel_border=pri,
-                    sel_text=pri
-                    if (not is_dark and pri_lum < 170) or (is_dark and pri_lum > 80)
-                    else text_bright,
-                    is_dark=is_dark,
-                )
+                custom_th = self._get_custom_theme()
                 theme.apply_theme(custom_th, save=True)
-                _save_state(self._cx, self._cy, pri)
+                _save_state(self._cx, self._cy, self._slots["PRI"])
                 try:
-                    self._os.settings_set("color_picker_rgb", pri)
+                    self._os.settings_set("color_picker_rgb", self._slots["PRI"])
                 except Exception:
                     pass
                 self._saved_msg = "Theme Applied!"
@@ -313,6 +270,52 @@ class App(oreoOS.App):
             self._orig_theme = theme.CURRENT_THEME
             self._saved_flash = 1.5
             self._dirty = True
+
+    def _get_custom_theme(self):
+        pri = self._slots["PRI"]
+        bg = self._slots["BG"]
+        card = self._slots["CARD"]
+        sec = self._slots["SEC"]
+        acc = self._slots["ACC"]
+
+        bg_lum = theme.get_perceived_luminance(*bg)
+        is_dark = bg_lum < 100
+
+        text_bright = (245, 245, 250) if is_dark else (24, 24, 32)
+        text_dim = (180, 180, 200) if is_dark else (100, 80, 70)
+        muted = (130, 130, 155) if is_dark else (160, 120, 100)
+        muted2 = (60, 60, 85) if is_dark else (200, 160, 140)
+
+        pri_lum = theme.get_perceived_luminance(*pri)
+        status_text = (24, 24, 32) if pri_lum >= 170 else (255, 255, 255)
+
+        return theme.Theme(
+            id="custom",
+            name="Custom Palette",
+            bg=bg,
+            card=card,
+            primary=pri,
+            teal=sec,
+            gold=acc,
+            text_bright=text_bright,
+            text_dim=text_dim,
+            muted=muted,
+            muted2=muted2,
+            status_bg=pri,
+            status_text=status_text,
+            status_accent=acc,
+            dock_bg=card,
+            dock_sel=(
+                min(255, card[0] + 15),
+                min(255, card[1] + 15),
+                min(255, card[2] + 15),
+            ),
+            sel_border=pri,
+            sel_text=pri
+            if (not is_dark and pri_lum < 170) or (is_dark and pri_lum > 80)
+            else text_bright,
+            is_dark=is_dark,
+        )
 
     def update(self, dt):
         moved = False
@@ -379,6 +382,10 @@ class App(oreoOS.App):
             self._slots["CARD"] = derived.card_rgb
             self._slots["SEC"] = derived.teal_rgb
             self._slots["ACC"] = derived.gold_rgb
+
+        # Live preview logic
+        if not getattr(self, "_active_preset_id", None):
+            theme.apply_theme(self._get_custom_theme(), save=False)
 
     # ── render ────────────────────────────────────────────────────────────
     def draw(self, d):
