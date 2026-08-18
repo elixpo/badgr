@@ -100,7 +100,7 @@ def _walk(root):
     while stack:
         cur = stack.pop()
         try:
-            entries = os.listdir(cur if cur else ".")
+            entries = os.listdir(cur if cur else "/")
         except OSError:
             continue
         for name in entries:
@@ -241,4 +241,40 @@ def atomic_write(path, data):
             os.remove(tmp)
         except OSError:
             pass
+        return False
+
+
+def _resolve_state_path(path):
+    """Normalize path into badge_data/ state tree if not already qualified."""
+    if path.startswith("badge_data/") or path.startswith("/"):
+        return path
+    try:
+        from oreoOS import config
+
+        return config.storage.get_path(rel=path)
+    except Exception:
+        return "badge_data/" + path.lstrip("/")
+
+
+def load_json(rel_path, default=None):
+    """Safely load JSON from badge_data/<rel_path> (or direct path) with fallback."""
+    import json
+
+    p = _resolve_state_path(rel_path)
+    try:
+        with open(p, "r") as f:
+            return json.load(f)
+    except Exception:
+        return default if default is not None else {}
+
+
+def save_json(rel_path, data):
+    """Safely write JSON to badge_data/<rel_path> (or direct path) via atomic write."""
+    import json
+
+    p = _resolve_state_path(rel_path)
+    try:
+        text = json.dumps(data)
+        return atomic_write(p, text)
+    except Exception:
         return False
