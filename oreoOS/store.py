@@ -831,7 +831,20 @@ def _install_internal(name):
                 return False
         if _exists(tmp_root + "/main.py"):
             _rm_tree(target_root)
-            _os.rename(tmp_root, target_root)
+            try:
+                _os.rename(tmp_root, target_root)
+            except Exception:
+                try:
+                    import shutil
+
+                    shutil.rmtree(target_root, ignore_errors=True)
+                except Exception:
+                    pass
+                try:
+                    _os.rename(tmp_root, target_root)
+                except Exception:
+                    _rm_tree(tmp_root)
+                    return False
         ok = is_installed(name)
         if ok:
             _invalidate_launcher_cache()
@@ -935,12 +948,23 @@ def _install_internal(name):
             _os.rename(tmp_root, target_root)
         except Exception as e:
             try:
-                from oreoOS import config
+                import shutil
 
-                if getattr(config, "DEBUG", True):
-                    print("[store] rename error:", e)
+                shutil.rmtree(target_root, ignore_errors=True)
             except Exception:
                 pass
+            try:
+                _os.rename(tmp_root, target_root)
+            except Exception:
+                _rm_tree(tmp_root)
+                try:
+                    from oreoOS import config
+
+                    if getattr(config, "DEBUG", True):
+                        print("[store] rename error:", e)
+                except Exception:
+                    pass
+                return False
 
     ok = is_installed(name)
     if ok:
