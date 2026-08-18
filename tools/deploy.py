@@ -106,6 +106,34 @@ _VERSION_PATTERN = re.compile(
     re.MULTILINE,
 )
 
+_STORE_REF_PATTERN = re.compile(
+    r'^(STORE_REF\s*=\s*")(.*?)(")',
+    re.MULTILINE,
+)
+
+def sync_store_ref():
+    """Dynamically set STORE_REF in oreoOS/config.py to the current git branch."""
+    if not CONFIG_PATH.exists():
+        return None
+    try:
+        branch = subprocess.check_output(["git", "branch", "--show-current"]).decode().strip()
+    except Exception:
+        return None
+    if not branch:
+        return None
+
+    text = CONFIG_PATH.read_text()
+    m = _STORE_REF_PATTERN.search(text)
+    if not m:
+        return None
+
+    old_branch = m.group(2)
+    if old_branch == branch:
+        return branch
+
+    new_line = "%s%s%s" % (m.group(1), branch, m.group(3))
+    CONFIG_PATH.write_text(text[: m.start()] + new_line + text[m.end() :])
+    return branch
 
 def bump_patch_version():
     """Rewrite the VERSION literal in oreoOS/config.py, +1 to the patch.
@@ -589,6 +617,10 @@ def main():
             print("Version: %s → %s" % (old, new))
         else:
             print("Version: could not locate VERSION line in %s — skipping bump" % CONFIG_PATH)
+
+        store_branch = sync_store_ref()
+        if store_branch:
+            print("Store Ref: synced to %s" % store_branch)
     print("Deploying Oreo Badge OS → %s\n" % PORT)
 
     # Verify device reachable
