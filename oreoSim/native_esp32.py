@@ -2,8 +2,8 @@
 
 Accurately emulates:
   • Target Frame Rate: 30 FPS (~33.3ms budget, matching ST7789 SPI bus bandwidth).
-  • Memory Model: ESP32-S3 8MB Octal PSRAM with 4.0 MB MicroPython heap pool.
-  • Storage Model: 16MB SPI Flash with 8.0 MB LittleFS partition (4KB block size).
+  • Memory Model: ESP32-S3 8MB Octal PSRAM with 8.0 MB MicroPython heap pool.
+  • Storage Model: 16MB SPI Flash with 12.0 MB LittleFS partition (4KB block size).
   • MicroPython Runtime: gc.mem_free(), gc.mem_alloc(), gc.collect(), uos.statvfs, uos.uname, uos.ilistdir.
   • Hardware Clock: 240 MHz dual-core Xtensa LX7 (machine.freq() == 240000000).
   • Universal Path Normalization: Transparently maps LittleFS root paths (/apps, /oreoOS, etc.) to local repo.
@@ -23,12 +23,12 @@ TARGET_FPS = 30  # Real ST7789 SPI LCD transfer frame rate
 FRAME_BUDGET_MS = 1000.0 / TARGET_FPS  # 33.33ms per frame
 CPU_FREQ_HZ = 240_000_000  # 240 MHz Xtensa LX7
 
-# Memory: 4.0 MB MicroPython Heap Pool on ESP32-S3 PSRAM
-TOTAL_HEAP_BYTES = 4 * 1024 * 1024  # 4,194,304 bytes
+# Memory: 8.0 MB MicroPython Heap Pool on ESP32-S3 PSRAM
+TOTAL_HEAP_BYTES = 8 * 1024 * 1024  # 8,388,608 bytes
 BASE_OS_HEAP = 850 * 1024  # Core OS, fonts, theme base footprint
 
-# Flash: 16 MB Flash with 8.0 MB LittleFS User Partition
-FLASH_TOTAL_BYTES = 8 * 1024 * 1024  # 8,388,608 bytes
+# Flash: 16 MB Flash with 12.0 MB LittleFS User Partition
+FLASH_TOTAL_BYTES = 12 * 1024 * 1024  # 12,582,912 bytes
 FLASH_BLOCK_SIZE = 4096  # 4 KB LittleFS block size
 FLASH_TOTAL_BLOCKS = FLASH_TOTAL_BYTES // FLASH_BLOCK_SIZE  # 2048 blocks
 
