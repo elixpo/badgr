@@ -246,31 +246,29 @@ class Buttons:
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
+                try:
+                    pygame.display.quit()
+                    pygame.quit()
+                except Exception:
+                    pass
                 sys.exit(0)
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F11:
                     toggle_zoom()
-            elif event.type in (
-                getattr(pygame, "WINDOWFOCUSLOST", 32785),
-                getattr(pygame, "WINDOWMINIMIZED", 32786),
-                getattr(pygame, "ACTIVEEVENT", 1),
-            ):
-                # Release keys when window focus shifts
-                for b in api.BUTTONS:
-                    self._curr[b] = 0
 
-        keys = pygame.key.get_pressed()
         now = self._time.time() * 1000
-
         for b in api.BUTTONS:
             self._curr[b] = 0
 
-        for key, btn in _KEYMAP:
-            if keys[key]:
-                if not self._curr[btn]:
-                    self._press_time[btn] = now
-                self._curr[btn] = 1
+        # Only process keys if the window actually has input focus
+        if pygame.key.get_focused():
+            keys = pygame.key.get_pressed()
+            for key, btn in _KEYMAP:
+                if keys[key]:
+                    if not self._curr[btn]:
+                        if not self._prev.get(btn, 0):
+                            self._press_time[btn] = now
+                    self._curr[btn] = 1
 
     def is_pressed(self, btn):
         return self._curr.get(btn, 0) == 1
