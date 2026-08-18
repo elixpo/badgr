@@ -96,7 +96,10 @@ def _calculate_project_used_bytes():
         if os.path.exists(dp):
             for root, dirs, files in os.walk(dp):
                 dirs[:] = [
-                    dr for dr in dirs if dr not in ("__pycache__", ".venv", ".git", "node_modules")
+                    dr
+                    for dr in dirs
+                    if dr
+                    not in ("__pycache__", ".venv", ".git", "node_modules", "raw", "transparent")
                 ]
                 for f in files:
                     fp = os.path.join(root, f)
