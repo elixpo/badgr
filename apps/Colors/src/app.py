@@ -172,9 +172,14 @@ class App(oreoOS.App):
         spec = _try_load_spectrum()
         if spec:
             src, sw, sh = spec
+            self._src_bg = src
+            self._src_w = sw
+            self._src_h = sh
             self._bg = _upscale_4x(src, sw, sh, PLAY_W, PLAY_H)
             self._bg_w, self._bg_h = PLAY_W, PLAY_H
         else:
+            self._src_bg = None
+            self._src_w = self._src_h = 0
             self._bg = None
             self._bg_w = self._bg_h = 0
 
@@ -233,6 +238,10 @@ class App(oreoOS.App):
             cur_slot = SLOT_KEYS[self._slot_idx]
             self._saved_msg = "Slot: %s" % SLOT_TITLES[cur_slot]
             self._saved_flash = 1.0
+
+            # Snap crosshair to the closest color matching this slot
+            self._cx, self._cy = self._find_closest_pos(self._slots[cur_slot])
+            self._sample_color()
             self._dirty = True
         elif btn == api.BTN_C:
             # Cycle curated presets in PREVIEW mode (does NOT persist)
@@ -386,6 +395,41 @@ class App(oreoOS.App):
         # Live preview logic
         if not getattr(self, "_active_preset_id", None):
             theme.apply_theme(self._get_custom_theme(), save=False)
+
+    def _find_closest_pos(self, target_rgb):
+        if not self._src_bg:
+            return PLAY_W / 2.0, PLAY_H / 2.0
+
+        tr, tg, tb = target_rgb
+        best_dist = 999999999
+        best_x = self._src_w // 2
+        best_y = self._src_h // 2
+
+        sw = self._src_w
+        sh = self._src_h
+        src = self._src_bg
+
+        for y in range(sh):
+            row_off = y * sw * 2
+            for x in range(sw):
+                i = row_off + x * 2
+                v = (src[i] << 8) | src[i + 1]
+                r = ((v >> 11) & 0x1F) << 3
+                g = ((v >> 5) & 0x3F) << 2
+                b = (v & 0x1F) << 3
+
+                dist = (r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2
+                if dist < best_dist:
+                    best_dist = dist
+                    best_x = x
+                    best_y = y
+                    if dist == 0:
+                        break
+            if best_dist == 0:
+                break
+
+        # Scale 4x to match the upscaled spectrum buffer, adding 2 to center the crosshair
+        return float(best_x * 4 + 2), float(best_y * 4 + 2)
 
     # ── render ────────────────────────────────────────────────────────────
     def draw(self, d):
