@@ -20,9 +20,10 @@ Usage:
 """
 
 import sys
-from pathlib import Path
-from PIL import Image
 from collections import deque
+from pathlib import Path
+
+from PIL import Image
 
 
 def _parse(argv):

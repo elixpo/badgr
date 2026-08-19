@@ -14,9 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _common import call_llm, github_rest, parse_llm_json
 from ci_config import *
-from _common import github_rest, call_llm, parse_llm_json
-
 
 DEFAULT_REVIEWER = "Circuit-Overtime"
 

@@ -10,16 +10,14 @@ Usage:
     python tools/_gen_splash.py --seed 7
 """
 
-import struct
 import sys
 from pathlib import Path
 
 # Re-use the project's generator helpers (handles auth + retries).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tools.generate_assets import _read_prompt, download_to
-
 from PIL import Image
 
+from tools.generate_assets import _read_prompt, download_to
 
 RAW_PATH = Path("assets/sprites/raw/splash_bg.png")
 OPT_PATH = Path("assets/sprites/optimized/splash_bg.py")

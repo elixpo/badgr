@@ -25,11 +25,10 @@ The pixel-size is the rendering box height in pixels; widths are auto-
 fit per-glyph but capped at `--max-width` (default 16).
 """
 
-import sys
 import argparse
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
 
+from PIL import Image, ImageDraw, ImageFont
 
 ASCII_START = 0x20  # space
 ASCII_END = 0x7E  # tilde

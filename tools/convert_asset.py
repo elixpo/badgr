@@ -17,7 +17,6 @@ Tolerance --tol controls how close to bg colour counts as transparent.
 """
 
 import argparse
-import os
 import struct
 from pathlib import Path
 
@@ -51,7 +50,6 @@ def convert(src: Path, dst: Path, size: tuple[int, int], bg=(255, 255, 255), tol
 
     dst.parent.mkdir(parents=True, exist_ok=True)
     # Write as Python module with embedded bytes
-    name = dst.stem.replace("-", "_")
     lines = [
         '"""Auto-generated bitmap — do not edit. Re-run tools/convert_asset.py."""',
         "W = %d" % w,

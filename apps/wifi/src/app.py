@@ -100,7 +100,7 @@ class App(oreoOS.App):
         except Exception as e:
             from oreoOS import config
 
-            if config.DEBUG:
+            if config.system.DEBUG:
                 print("wifi init err:", e)
             self._wifi = None
 
@@ -155,7 +155,7 @@ class App(oreoOS.App):
         except OSError as e:
             from oreoOS import config
 
-            if config.DEBUG:
+            if config.system.DEBUG:
                 print("wifi info err:", e)
             return {"connected": False}
 
@@ -254,7 +254,7 @@ class App(oreoOS.App):
                 except OSError as e:
                     from oreoOS import config
 
-                    if config.DEBUG:
+                    if config.system.DEBUG:
                         print("wifi radio_off err:", e)
             else:
                 # The credentials live in secrets.py / wifi.json — we
@@ -276,12 +276,12 @@ class App(oreoOS.App):
                     except OSError as e:
                         from oreoOS import config
 
-                        if config.DEBUG:
+                        if config.system.DEBUG:
                             print("wifi connect err:", e)
                 except OSError as e:
                     from oreoOS import config
 
-                    if config.DEBUG:
+                    if config.system.DEBUG:
                         print("wifi connect err:", e)
                 # NOTE: we deliberately do NOT drop the radio when
                 # connect_from_config returns False. The previous
@@ -413,7 +413,7 @@ class App(oreoOS.App):
         except OSError as e:
             from oreoOS import config
 
-            if config.DEBUG:
+            if config.system.DEBUG:
                 print("wifi connect saved err:", e)
         self._snap = self._read()
         self._reload_nets()

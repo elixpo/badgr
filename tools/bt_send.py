@@ -20,10 +20,10 @@ until DONE (0x02) or any error byte.
 
 import argparse
 import asyncio
+import binascii
 import struct
 import sys
 import zlib
-import binascii
 from pathlib import Path
 
 try:
@@ -130,7 +130,7 @@ async def _send(path, type_byte):
         try:
             await asyncio.wait_for(done.wait(), timeout=15.0)
         except asyncio.TimeoutError:
-            raise SystemExit("badge did not acknowledge transfer in 15 s")
+            raise SystemExit("badge did not acknowledge transfer in 15 s") from None
 
     code = last_status["code"]
     if code != 0x02:

@@ -208,10 +208,10 @@ class App(oreoOS.App):
         self._os = os
         from oreoOS import config
 
-        self._lat = float(config.get("WEATHER_LAT", 22.57) or 22.57)
-        self._lon = float(config.get("WEATHER_LON", 88.36) or 88.36)
-        self._key = config.get("OWM_API_KEY", "")
-        self._city_name = config.get("WEATHER_NAME", "")
+        self._lat = config.weather.LAT
+        self._lon = config.weather.LON
+        self._key = config.weather.API_KEY
+        self._city_name = config.weather.CITY
 
         play_h = SH - widgets.HEADER_H - widgets.HINT_H
 

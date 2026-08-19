@@ -34,7 +34,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG = REPO_ROOT / "oreoOS" / "config.py"
 VERSION_RE = re.compile(r'(VERSION\s*=\s*")v\d+\.\d+\.\d+(")')

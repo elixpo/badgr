@@ -328,15 +328,18 @@ class App(oreoOS.App):
         d.text(line, (SW - len(line) * 16) // 2, LOAD_Y + 6, theme.TEAL, scale=2)
 
     def _draw_beta(self, d):
-        # Pink BETA badge — device is running AHEAD of the latest
-        # stable release on GitHub (dev / hotfix build).
-        d.text("BETA", (SW - 4 * 16) // 2, LOAD_Y - 2, theme.PRIMARY, scale=2)
-        line = "ahead of stable"
-        d.text(line, (SW - len(line) * 8) // 2, LOAD_Y + 24, theme.MUTED, scale=1)
+        # Pink DEV / BETA badge — device is running a development / beta build.
+        cur = self._current_version()
+        tag = "DEV BUILD" if "-dev" in cur else "BETA"
+        d.text(tag, (SW - len(tag) * 16) // 2, LOAD_Y - 2, theme.PRIMARY, scale=2)
         rel = self._release or {}
-        ver = rel.get("version", "?")
-        sub = "Latest stable: " + ver
-        d.text(sub, (SW - len(sub) * 8) // 2, LOAD_Y + 38, theme.TEXT_DIM, scale=1)
+        ver = rel.get("version", "")
+        if ver:
+            sub = "Upstream stable: " + ver
+            d.text(sub, (SW - len(sub) * 8) // 2, LOAD_Y + 26, theme.MUTED, scale=1)
+        else:
+            line = "local development build"
+            d.text(line, (SW - len(line) * 8) // 2, LOAD_Y + 26, theme.MUTED, scale=1)
 
     def _draw_available(self, d):
         rel = self._release or {}
@@ -453,18 +456,18 @@ class App(oreoOS.App):
     @staticmethod
     def _current_version():
         try:
-            from oreoOS.config import VERSION
+            from oreoOS import api
 
-            return VERSION
+            return api.get_version()
         except Exception:
-            return "?"
+            return "v1.4.103-dev"
 
     @staticmethod
     def _release_date():
         try:
-            from oreoOS.config import RELEASE_DATE
+            from oreoOS import config
 
-            return RELEASE_DATE
+            return config.system.RELEASE_DATE
         except Exception:
             return "—"
 

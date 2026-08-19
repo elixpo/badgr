@@ -27,6 +27,7 @@ optimize_assets.PER_APP_SIZES so it isn't accidentally squashed to 32×32.
 
 import sys
 from pathlib import Path
+
 from PIL import Image
 
 

@@ -235,14 +235,13 @@ class App(oreoOS.App):
 
     @staticmethod
     def _os_version():
-        """Pull the live VERSION constant from the launcher so the Settings
-        row stays in sync with the actual deployed OS — no double bookkeeping."""
+        """Pull canonical OS version string."""
         try:
-            from oreoOS import launcher
+            from oreoOS import api
 
-            return getattr(launcher, "VERSION", "?")
+            return api.get_version()
         except Exception:
-            return "?"
+            return "v1.4.103-dev"
 
     # ── Updates page launcher ───────────────────────────────────────────
     # All version / OTA actions live in apps/updates/ now. Settings just
@@ -271,7 +270,7 @@ class App(oreoOS.App):
                 from oreoOS import config, storage, theme
 
                 # Wipe state directory
-                storage.rm_tree(config.get_state_path())
+                storage.rm_tree(config.storage.ROOT_DIR)
 
                 # Wipe any legacy root state files if present
                 for legacy_file in (
@@ -299,12 +298,11 @@ class App(oreoOS.App):
 
     def _open_storage(self):
         try:
-            self._os.launch("manager")
-        except Exception:
-            try:
-                self._os.launch("storage")
-            except Exception:
-                pass
+            self._os.launch("storage")
+        except Exception as e:
+            from oreoOS import api
+
+            api.log_debug("SETTINGS", "Failed to launch storage", e)
 
     # ── time sync ───────────────────────────────────────────────────────
     # Manual NTP re-sync. The boot path runs this once when WiFi comes up;

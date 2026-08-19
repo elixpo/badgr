@@ -1,9 +1,9 @@
 {
-  "name": "System Monitor",
-  "description": "Monitor flash storage allocation and real-time MicroPython heap / RAM usage.",
-  "type": "app",
-  "category": "System",
-  "version": "1.0",
-  "icon": "storage_icon.png",
-  "author": "Circuit-Overtime"
+    "name": "System Monitor",
+    "description": "Monitor flash storage allocation and real-time MicroPython heap / RAM usage.",
+    "type": "app",
+    "category": "System",
+    "version": "1.0.0",
+    "icon": "storage_icon.png",
+    "author": "Circuit-Overtime"
 }

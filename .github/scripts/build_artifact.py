@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """build_artifact.py — builds .elixpo-context/context.md for AI CI grounding."""
 
-import os, sys, time
+import os
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 

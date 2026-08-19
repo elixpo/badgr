@@ -74,13 +74,18 @@ except ImportError:
     _hashlib = None
 
 
-# ── tunables ────────────────────────────────────────────────────────────────
+try:
+    from oreoOS import config
 
-OTA_REPO = "elixpo/oreo"  # owner/repo on GitHub
+    OTA_REPO = config.github.OTA_REPO
+except Exception:
+    OTA_REPO = "elixpo/oreo"
+
 STAGE_DIR = "/_ota"
 MANIFEST_NAME = "manifest.json"
 DEFAULT_CHANNEL = "stable"
 USER_AGENT = "OreoBadge-OTA"
+
 
 # Chunk size for download writes. Big enough to amortise FS overhead but
 # small enough not to OOM the heap when downloading a 100 KB sprite.
@@ -180,26 +185,32 @@ def _hex(b):
 
 def _current_version():
     try:
-        from oreoOS.config import VERSION
+        from oreoOS import config
 
-        return VERSION
+        return config.system.get_version_string()
     except Exception:
         return "v0.0.0"
 
 
 def _parse_version(s):
-    """'v1.2.3' -> (1, 2, 3). Bad input -> (0, 0, 0)."""
+    """Parse 'v1.2.3', '1.2.3-dev', '0.1' into (major, minor, patch).
+    Non-numeric pre-release suffixes (-dev, -rc, +build) are stripped safely."""
     if not s:
         return (0, 0, 0)
-    if s.startswith("v"):
+    s = str(s).strip()
+    if s.startswith("v") or s.startswith("V"):
         s = s[1:]
-    try:
-        parts = [int(x) for x in s.split(".")]
-        while len(parts) < 3:
+    # Strip pre-release & build metadata
+    s = s.split("-")[0].split("+")[0]
+    parts = []
+    for x in s.split("."):
+        try:
+            parts.append(int(x))
+        except (ValueError, TypeError):
             parts.append(0)
-        return tuple(parts[:3])
-    except (TypeError, ValueError):
-        return (0, 0, 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
 
 
 def _newer(a, b):
@@ -252,9 +263,20 @@ def latest_version(channel=DEFAULT_CHANNEL):
     prefix = channel + "/"
     for t in data:
         tag = t.get("name", "")
-        if not (tag == channel or tag.startswith(prefix)):
+        matched = False
+        ver = tag
+        if tag.startswith(prefix):
+            ver = tag[len(prefix) :]
+            matched = True
+        elif tag == channel or (
+            channel == "stable" and (tag.startswith("v") or (tag and tag[0].isdigit()))
+        ):
+            ver = tag
+            matched = True
+
+        if not matched:
             continue
-        ver = tag[len(prefix) :] if tag.startswith(prefix) else tag
+
         manifest_url = "https://github.com/%s/releases/download/%s/%s" % (
             OTA_REPO,
             tag,

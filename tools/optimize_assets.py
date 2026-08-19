@@ -16,9 +16,10 @@ Run from project root:
     python tools/optimize_assets.py --app flappy    # all sprites in apps/flappy/assets/raw
 """
 
-import sys
 import struct
+import sys
 from pathlib import Path
+
 from PIL import Image
 
 # ── config ────────────────────────────────────────────────────────────────────
@@ -280,8 +281,9 @@ def optimize_status_svgs():
     regardless of the original SVG fill colour.
     """
     try:
-        import cairosvg
         from io import BytesIO
+
+        import cairosvg
     except ImportError:
         print("cairosvg not installed — run: pip install cairosvg")
         return

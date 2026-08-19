@@ -30,6 +30,33 @@ except AttributeError:
         return a - b
 
 
+def log_debug(tag, msg, err=None):
+    """Conditional debug logger. Emits only when config.system.DEBUG is True."""
+    try:
+        from oreoOS import config
+
+        if config.system.DEBUG:
+            if err is not None:
+                print("[%s] %s: %s" % (tag, msg, err))
+            else:
+                print("[%s] %s" % (tag, msg))
+    except Exception:
+        pass
+
+
+def get_version():
+    """Return canonical OS version string."""
+    try:
+        from oreoOS import config
+
+        return config.system.get_version_string()
+    except Exception:
+        return "v1.4.103-dev"
+
+
+VERSION = "v1.4.103"
+
+
 # ---------- Display geometry ----------
 SCREEN_W = 320  # landscape 320×240
 SCREEN_H = 240

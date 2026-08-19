@@ -20,13 +20,11 @@ Usage:
 
 import argparse
 import io
-import struct
 import sys
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 from PIL import Image
-
 
 OUT_PATH = Path("apps/badge/assets/optimized/avatar.py")
 DEFAULT_SIZE = 64

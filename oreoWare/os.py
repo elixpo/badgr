@@ -31,7 +31,18 @@ class OS(api.OS):
         self._quit_requested = True
 
     def settings_get(self, key, default=None):
-        return self._settings.get(key, default)
+        try:
+            from oreoOS import settings
+
+            return settings.get(key, default)
+        except Exception:
+            return self._settings.get(key, default)
 
     def settings_set(self, key, value):
         self._settings[key] = value
+        try:
+            from oreoOS import settings
+
+            settings.set(key, value)
+        except Exception:
+            pass

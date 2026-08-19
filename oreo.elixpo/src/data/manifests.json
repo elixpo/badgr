@@ -15,7 +15,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "about_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
   "badge": {
     "name": "Badge",
@@ -23,7 +24,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "badge_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Tools"
   },
   "bt": {
     "name": "Bluetooth",
@@ -31,7 +33,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "bluetooth_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
   "commits": {
     "name": "Commits",
@@ -39,7 +42,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "commits_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "GitHub"
   },
   "flappy": {
     "name": "Flappy Oreo",
@@ -47,7 +51,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "flappy_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Games"
   },
   "gallery": {
     "name": "Gallery",
@@ -55,7 +60,8 @@
     "type": "app",
     "version": "0.2",
     "icon": "gallery_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Utils"
   },
   "gamepad": {
     "name": "Gamepad",
@@ -63,7 +69,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "gamepad_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Tools"
   },
   "gestures": {
     "name": "Gestures",
@@ -71,25 +78,26 @@
     "type": "app",
     "version": "0.1",
     "icon": "settings_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
-
   "launcher": {
     "name": "Apps",
     "description": "App drawer. Categorised grid of installed apps.",
     "type": "app",
     "version": "0.1",
     "icon": "apps_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
-
   "quest": {
     "name": "IR Quest",
     "description": "Find other badges over IR and trade quest tokens.",
     "type": "app",
     "version": "0.1",
     "icon": "IR_Quest_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Games"
   },
   "racer": {
     "name": "Racer",
@@ -97,7 +105,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "racer_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Games"
   },
   "reader": {
     "name": "Reader",
@@ -105,7 +114,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "reader_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Utils"
   },
   "settings": {
     "name": "Settings",
@@ -113,15 +123,17 @@
     "type": "app",
     "version": "0.1",
     "icon": "settings_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
   "snake": {
     "name": "Snake",
-    "description": "Classic Snake — eat the dot, don't bite yourself.",
+    "description": "Classic Snake \u2014 eat the dot, don't bite yourself.",
     "type": "app",
     "version": "0.1",
     "icon": "snake_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Games"
   },
   "storage": {
     "name": "System Monitor",
@@ -139,7 +151,8 @@
     "type": "app",
     "version": "0.2",
     "icon": "store_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
   "updates": {
     "name": "Updates",
@@ -147,7 +160,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "settings_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
   "weather": {
     "name": "Weather",
@@ -155,7 +169,8 @@
     "type": "app",
     "version": "0.1",
     "icon": "wallpaper_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "Utils"
   },
   "wifi": {
     "name": "WiFi",
@@ -163,11 +178,12 @@
     "type": "app",
     "version": "0.1",
     "icon": "wifi_icon.png",
-    "author": "Circuit-Overtime"
+    "author": "Circuit-Overtime",
+    "category": "System"
   },
   "Oreo Pet": {
     "name": "Oreo Pet",
-    "description": "Tamagotchi panda. Feed, play, sleep — care daily.",
+    "description": "Tamagotchi panda. Feed, play, sleep \u2014 care daily.",
     "type": "app",
     "version": "0.1",
     "icon": "elixpo_pet_icon.png",

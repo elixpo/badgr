@@ -237,7 +237,7 @@ class App(oreoOS.App):
         self._os = os
         from oreoOS import config
 
-        self._user = config.get("GITHUB_USER") or "Circuit-Overtime"
+        self._user = config.github.USER or "Circuit-Overtime"
         self._fetching = False
         try:
             import _thread
@@ -312,7 +312,7 @@ class App(oreoOS.App):
         except Exception as e:
             from oreoOS import config
 
-            if config.DEBUG:
+            if config.system.DEBUG:
                 print("Commits fetch err:", e)
         finally:
             self._fetching = False

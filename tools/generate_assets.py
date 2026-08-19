@@ -18,10 +18,11 @@ Theme reference: prompts/THEME.md
 
 import os
 import sys
-import urllib.request
-import urllib.parse
 import time
+import urllib.parse
+import urllib.request
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()

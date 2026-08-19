@@ -75,7 +75,7 @@ def _save_state(h, hp, hl):
 
 
 def _clamp(v):
-    return max(0, min(100, int(v)))
+    return max(0, min(100, float(v)))
 
 
 def _upscale_sprite_2x(data, w, h):

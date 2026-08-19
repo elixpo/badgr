@@ -14,11 +14,9 @@ import argparse
 import shutil
 import struct
 import subprocess
-import sys
 from pathlib import Path
 
 from PIL import Image
-
 
 W = 180
 H = 135

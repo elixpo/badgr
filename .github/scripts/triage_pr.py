@@ -18,15 +18,15 @@ import sys
 # ── Config import ──────────────────────────────────────────────────────────
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ci_config import *  # noqa: F401,F403
 from _common import (
-    github_rest,
-    github_graphql,
-    call_llm,
-    parse_llm_json,
-    ensure_label,
     add_labels,
+    call_llm,
+    ensure_label,
+    github_graphql,
+    github_rest,
+    parse_llm_json,
 )
+from ci_config import *
 
 # ── Environment ────────────────────────────────────────────────────────────
 AGENT_TOKEN = os.environ["AGENT_TOKEN"]

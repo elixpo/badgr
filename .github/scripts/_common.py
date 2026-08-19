@@ -23,7 +23,7 @@ import urllib.request
 
 # Make ci_config importable when this module is imported from a script.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from ci_config import LLM_API_URL  # noqa: E402
+from ci_config import LLM_API_URL
 
 # ── Constants ─────────────────────────────────────────────────────────────
 USER_AGENT = "elixpo-ci/1.0"
@@ -68,7 +68,7 @@ def _with_retry(fn, *, label: str = "request"):
                 f"[retry] {label} network error (attempt {attempt}/{MAX_RETRIES}): {exc.reason}",
                 file=sys.stderr,
             )
-        except Exception as exc:
+        except Exception:
             # Any other exception — let the caller handle it.
             raise
         if attempt < MAX_RETRIES:

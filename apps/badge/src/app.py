@@ -112,15 +112,15 @@ def _format_url(val):
 def _load_identity(os_obj=None):
     from oreoOS import config
 
-    gh_user = config.get("GITHUB_USER", "")
-    name = config.get("DISPLAY_NAME") or gh_user or "Badge Holder"
-    desig = config.get("DESIGNATION", "")
+    gh_user = config.identity.GITHUB
+    name = config.identity.DISPLAY_NAME or gh_user or "Badge Holder"
+    desig = config.identity.DESIGNATION
 
     channels = []
     seen = set()
 
     for key, label, tmpl in STANDARD_LINKS:
-        val = str(config.get(key) or "").strip()
+        val = config.get_str(key)
         if not val:
             continue
         val_clean = val.lstrip("@")
@@ -128,20 +128,11 @@ def _load_identity(os_obj=None):
         channels.append({"name": label, "url": _format_url(url)})
         seen.add(label.lower())
 
-    env_dict = getattr(config, "_env", {})
-    for k, val in env_dict.items():
-        val = str(val or "").strip()
-        if not val:
-            continue
-        k_upper = k.upper().strip()
-        if k_upper.startswith(("LINK_", "SOCIAL_")):
-            raw_name = k_upper.split("_", 1)[1]
-            label = (
-                " ".join(w.capitalize() for w in raw_name.replace("-", "_").split("_")) or "Link"
-            )
-            if label.lower() not in seen:
-                channels.append({"name": label, "url": _format_url(val)})
-                seen.add(label.lower())
+    for link in config.get_custom_links():
+        label = link["name"]
+        if label.lower() not in seen:
+            channels.append({"name": label, "url": _format_url(link["url"])})
+            seen.add(label.lower())
 
     if not channels:
         channels.append({"name": "Website", "url": "https://oreo.elixpo.com"})

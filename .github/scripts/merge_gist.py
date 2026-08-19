@@ -16,8 +16,8 @@ from datetime import datetime, timezone
 # ── Config import ──────────────────────────────────────
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ci_config import *  # noqa: F401, F403
-from _common import github_rest, call_llm
+from _common import call_llm, github_rest
+from ci_config import *
 
 # ── Environment ────────────────────────────────────────
 AGENT_TOKEN = os.environ["AGENT_TOKEN"]

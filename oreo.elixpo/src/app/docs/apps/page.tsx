@@ -155,7 +155,9 @@ __all__ = ["App"]`}
               <li><b className="text-text">type</b> — set to <code>app</code>.</li>
               <li><b className="text-text">author</b> — GitHub handle shown on the about screen.</li>
               <li><b className="text-text">version</b> — semver; bumped by your PR.</li>
-              <li><b className="text-text">category</b> — any string (e.g. <code>game</code>, <code>tool</code>, <code>media</code>). The launcher dynamically creates a drawer tab for each unique category it discovers across installed apps.</li>
+              <li>
+                <b className="text-text">category</b> — a string to group the app in the launcher's category view. The OS natively maps specific categories to custom icons: <code>Games</code>, <code>Tools</code>, <code>System</code>, <code>Utils</code>, and <code>GitHub</code>. Other values will be grouped together but use a generic icon.
+              </li>
               <li><b className="text-text">icon</b> — stem of a sprite in <code>assets/icons/optimized/</code> (e.g. <code>"snake"</code> → <code>snake.py</code>).</li>
             </ul>
           </section>

@@ -13,6 +13,7 @@ assets/sprites/optimized/color_splash.py.
 """
 
 from pathlib import Path
+
 from PIL import Image
 
 W, H = 80, 49

@@ -114,9 +114,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # MicroPython app code: allow star imports and some patterns unavailable on device
-"apps/**"        = ["F401", "F403", "F811", "E402"]
-"apps_market/**" = ["F401", "F403", "F811", "E402"]
-"oreoSim/**"     = ["F401", "E402"]
+"apps/**"           = ["F401", "F403", "F811", "E402"]
+"apps_market/**"    = ["F401", "F403", "F811", "E402"]
+"oreoSim/**"        = ["F401", "E402"]
+".github/scripts/**" = ["F401", "F403", "F405"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["oreoOS", "oreoWare", "apps", "apps_market", "oreoSim"]

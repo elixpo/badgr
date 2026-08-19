@@ -25,12 +25,10 @@ Usage:
   python tools/flash_uart_repl.py /dev/ttyUSB0
 """
 
-import io
 import struct
 import subprocess
 import sys
 from pathlib import Path
-
 
 BOOT_PY = (
     "# Auto-installed by tools/flash_uart_repl.py.\n"
@@ -101,7 +99,7 @@ def find_lfs_partition(pt_bytes):
         entry = pt_bytes[i : i + 32]
         if len(entry) < 32:
             break
-        magic, ptype, subtype, off, size = struct.unpack("<HBBII", entry[:12])
+        magic, _ptype, subtype, off, size = struct.unpack("<HBBII", entry[:12])
         if magic != PT_MAGIC:
             # entries after the end of the table read as 0xFF — stop here
             break

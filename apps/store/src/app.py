@@ -133,8 +133,9 @@ class App(oreoOS.App):
         self._dirty = True
 
     def _toggle_install(self, name_dir):
-        """Install or uninstall the app in focus on the details page."""
+        """Install, update, or uninstall the app in focus on the details page."""
         installed = store.is_installed(name_dir)
+        update_avail = bool(self._detail and self._detail.get("update_available"))
         self._busy = name_dir
         self._msg = ""
         self._dirty = True
@@ -143,12 +144,28 @@ class App(oreoOS.App):
             self._os.display.present()
         except Exception:
             pass
-        if installed:
+
+        if update_avail:
+            ok = store.install(name_dir)
+            self._msg = "Updated" if ok else "Update failed"
+        elif installed:
             ok = store.uninstall(name_dir)
             self._msg = "Uninstalled" if ok else "Uninstall failed"
         else:
             ok = store.install(name_dir)
             self._msg = "Installed" if ok else "Install failed"
+
+        # Refresh local detail view and catalogue entry state
+        self._detail = store.get_details(name_dir)
+        for e in self._items:
+            if e["dir"] == name_dir:
+                inst_ver = store.get_installed_version(name_dir)
+                e["installed"] = store.is_installed(name_dir)
+                e["installed_version"] = inst_ver
+                store_ver = e.get("version", "1.0.0")
+                e["update_available"] = bool(
+                    e["installed"] and inst_ver and store.check_app_update(name_dir, store_ver)
+                )
 
         self._busy = None
         self._dirty = True
@@ -332,9 +349,17 @@ class App(oreoOS.App):
         # badge (not a button) so the user can see at a glance which
         # apps are already on the badge, plus a chevron to hint the
         # row is interactive.
+        # List view tag: UPDATE badge (if update available) or checkmark (if installed)
         right_x = SW - ROW_PAD_X
         chev_x = right_x - 14
-        if item.get("installed"):
+        if item.get("update_available"):
+            tag = "UPD"
+            tag_w = 26
+            tag_x = chev_x - tag_w - 6
+            tag_y = y + (CARD_H - 16) // 2
+            d.rect(tag_x, tag_y, tag_w, 16, theme.PRIMARY, fill=True)
+            d.text(tag, tag_x + 3, tag_y + 4, api.WHITE, scale=1)
+        elif item.get("installed"):
             tag = "✓"
             tag_w = 12
             tag_x = chev_x - tag_w - 6
@@ -383,7 +408,7 @@ class App(oreoOS.App):
     # ── details page ───────────────────────────────────────────────────
     def _draw_details_page(self, d):
         """Per-app detail screen — name + author + description + size,
-        with a single Install / Uninstall button at the bottom."""
+        with a single Install / Update / Uninstall button at the bottom."""
         if not self._detail or not self._detail.get("ok"):
             # Loading / error case — header card placeholder. The
             # bottom status line (self._msg) carries the explanation.
@@ -404,36 +429,42 @@ class App(oreoOS.App):
                 d.text(line, ROW_PAD_X, body_y + i * 12, theme.TEXT_DIM, scale=1)
 
         stats_y = body_y + 5 * 12 + 4
-        if store.is_installed(self._detail_for):
+        store_ver = det.get("version") or "1.0.0"
+        inst_ver = det.get("installed_version")
+        update_avail = bool(det.get("update_available"))
+        installed = store.is_installed(self._detail_for)
+
+        if update_avail:
+            stats = "Update v%s available (installed: v%s)" % (store_ver, inst_ver or "?")
+        elif installed:
             sz = store.installed_size(self._detail_for)
-            if sz >= 10 * 1024:
-                stats = "Installed · %d KB on flash" % (sz // 1024)
-            else:
-                stats = "Installed · %d B on flash" % sz
+            sz_str = "%d KB" % (sz // 1024) if sz >= 10 * 1024 else "%d B" % sz
+            stats = "v%s · %s on flash" % (inst_ver or store_ver, sz_str)
         else:
             sz = det.get("bytes", 0)
-            if sz >= 10 * 1024:
-                stats = "Download size: %d KB" % (sz // 1024)
-            elif sz > 0:
-                stats = "Download size: %d B" % sz
-            else:
-                stats = "Tap install to download"
+            sz_str = "%d KB" % (sz // 1024) if sz >= 10 * 1024 else ("%d B" % sz if sz > 0 else "")
+            stats = (
+                ("v%s · Download: %s" % (store_ver, sz_str))
+                if sz_str
+                else ("v%s · Tap to install" % store_ver)
+            )
         d.text(stats, ROW_PAD_X, stats_y, theme.MUTED, scale=1)
 
-        # Install / Uninstall button — bottom of the play area, full
+        # Install / Update / Uninstall button — bottom of the play area, full
         # width, dim while busy.
-        installed = store.is_installed(self._detail_for)
         busy = self._busy == self._detail_for
         btn_h = 28
         btn_y = SH - widgets.HINT_H - btn_h - 14
         if busy:
             label, fill, ink = "Working...", theme.MUTED2, theme.TEXT_BRIGHT
+        elif update_avail:
+            label, fill, ink = "Update to v%s" % store_ver, theme.PRIMARY, api.WHITE
         elif installed:
             label, fill, ink = "Uninstall", theme.CARD, theme.PRIMARY
         else:
             label, fill, ink = "Install on badge", theme.PRIMARY, api.WHITE
         d.rect(ROW_PAD_X, btn_y, SW - 2 * ROW_PAD_X, btn_h, fill, fill=True)
-        if installed and not busy:
+        if installed and not busy and not update_avail:
             d.rect(ROW_PAD_X, btn_y, SW - 2 * ROW_PAD_X, 1, theme.PRIMARY, fill=True)
             d.rect(ROW_PAD_X, btn_y + btn_h - 1, SW - 2 * ROW_PAD_X, 1, theme.PRIMARY, fill=True)
             d.rect(ROW_PAD_X, btn_y, 1, btn_h, theme.PRIMARY, fill=True)

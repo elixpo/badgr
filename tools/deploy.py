@@ -20,11 +20,11 @@ Usage:
 Must be run from the project root.
 """
 
-import sys
-import re
-import json
 import hashlib
+import json
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 PYTHON = sys.executable or "python3"
@@ -534,7 +534,7 @@ def write_secrets_local():
 # ── build directory set ────────────────────────────────────────────────────────
 
 remote_dirs = set()
-for local, remote in DEPLOY:
+for _local, remote in DEPLOY:
     # Include every ancestor. After --clean the top-level apps/ directory no
     # longer exists, so trying os.mkdir("apps/about") first just raises ENOENT.
     # The old code ignored that error and the batch later failed misleadingly

@@ -70,10 +70,10 @@ def _http_get(url, accept_raw=False, timeout_s=4):
 
     auth_hdr = ""
     try:
-        from oreoOS.config import GH_TOKEN as _TOK
+        from oreoOS import config
 
-        if _TOK and "api.github.com" in host:
-            auth_hdr = "Authorization: Bearer " + _TOK + "\r\n"
+        if config.github.TOKEN and "api.github.com" in host:
+            auth_hdr = "Authorization: Bearer " + config.github.TOKEN + "\r\n"
     except Exception:
         pass
 
@@ -225,25 +225,25 @@ def _dechunk(body):
 
 # ── tunables ────────────────────────────────────────────────────────────
 
-STORE_REPO = "elixpo/oreo"
-# Branch/tag/sha on the repo to pull the catalogue from. Defaults to
-# `main`; override via oreoOS/config.py `STORE_REF = "feat/app-market"`
-# while apps_market/ hasn't landed on main yet, otherwise the API
-# returns 404 and the page shows an empty catalogue.
 try:
-    from oreoOS.config import STORE_REF as _CFG_REF
+    from oreoOS import config
 
-    STORE_REF = _CFG_REF
+    STORE_REPO = config.github.STORE_REPO
+    STORE_REF = config.github.STORE_REF
+    APPS_DIR = config.storage.APPS_DIR
+    CACHE_PATH = config.storage.CACHE_DIR + "/store_cache.json"
 except Exception:
+    STORE_REPO = "elixpo/oreo"
     STORE_REF = "main"
+    APPS_DIR = "badge_data/apps"
+    CACHE_PATH = "badge_data/cache/store_cache.json"
+
 MARKET_PATH = "apps_market"
-CACHE_PATH = "badge_data/cache/store_cache.json"
 
 T_API = 6  # seconds — GitHub Contents API call
 T_FILE = 25  # seconds — raw-file download (per file)
 
 USER_AGENT = "OreoBadge-Store"
-APPS_DIR = "badge_data/apps"
 
 
 # In-memory mirror of the catalogue. Loaded lazily on first access.
@@ -599,6 +599,7 @@ def refresh(force=False):
                 "icon": icon_file or None,
                 "author": manifest.get("author") or None,
                 "description": manifest.get("description", "") or "",
+                "version": manifest.get("version", "1.0.0"),
                 "path": app_path,
             }
         )
@@ -606,7 +607,13 @@ def refresh(force=False):
     _catalogue = fresh
     _last_refresh_ok = True
     for e in _catalogue:
+        inst_ver = get_installed_version(e["dir"])
         e["installed"] = is_installed(e["dir"])
+        e["installed_version"] = inst_ver
+        store_ver = e.get("version", "1.0.0")
+        e["update_available"] = bool(
+            e["installed"] and inst_ver and check_app_update(e["dir"], store_ver)
+        )
     _invalidate_details()
     try:
         live = {e["dir"] + ".py" for e in _catalogue}
@@ -676,6 +683,8 @@ def get_details(name_dir):
         _details_cache[name_dir] = disk
         return disk
 
+    inst_ver = get_installed_version(name_dir)
+    store_ver = entry.get("version", "1.0.0")
     files = _walk(entry["path"])
     total_bytes = sum(f.get("size", 0) for f in files) if files else 0
 
@@ -684,6 +693,11 @@ def get_details(name_dir):
         "icon": entry.get("icon") or None,
         "author": entry.get("author") or None,
         "description": entry.get("description") or "",
+        "version": store_ver,
+        "installed_version": inst_ver,
+        "update_available": bool(
+            is_installed(name_dir) and inst_ver and check_app_update(name_dir, store_ver)
+        ),
         "files": files,
         "bytes": total_bytes,
         "ok": True,
@@ -694,9 +708,9 @@ def get_details(name_dir):
 
 
 # ── disk persistence for the per-app details cache ─────────────────────
-# One small JSON file per app under /store_details/. Survives reboots
+# One small JSON file per app under badge_data/cache/store_details/. Survives reboots
 # so opening Store + tapping an app is instant after the first time.
-_DETAILS_DIR = "store_details"
+_DETAILS_DIR = "badge_data/cache/store_details"
 
 
 def _details_disk_path(name_dir):
@@ -738,17 +752,52 @@ def _invalidate_details():
     _details_disk_clear()
 
 
+def get_installed_version(app_dir):
+    """Return the installed version string from manifest.json, or None if missing."""
+    for search_dir in (APPS_DIR, "apps"):
+        m_path = search_dir + "/" + app_dir + "/manifest.json"
+        if _exists(m_path) and _json is not None:
+            try:
+                with open(m_path) as f:
+                    m = _json.loads(f.read())
+                return m.get("version", "1.0.0")
+            except Exception:
+                pass
+    return None
+
+
+def check_app_update(app_dir, store_version):
+    """Return True iff store_version is strictly newer than the installed version."""
+    inst_ver = get_installed_version(app_dir)
+    if not inst_ver or not store_version:
+        return False
+    from oreoOS.ota import compare_version
+
+    return compare_version(store_version, inst_ver) > 0
+
+
 def list_market():
     """Read-only listing for the UI. Returns the in-memory catalogue
     (loading the disk cache on first call) and tags each entry with
-    its current install state."""
+    its current install state and update availability."""
     global _catalogue
     if _catalogue is None:
         if not _load_cache_from_disk():
             _catalogue = []
     for e in _catalogue:
+        inst_ver = get_installed_version(e["dir"])
         e["installed"] = is_installed(e["dir"])
+        e["installed_version"] = inst_ver
+        store_ver = e.get("version", "1.0.0")
+        e["update_available"] = bool(
+            e["installed"] and inst_ver and check_app_update(e["dir"], store_ver)
+        )
     return _catalogue
+
+
+def update_app(name):
+    """Update an already installed app to the latest store version."""
+    return install(name)
 
 
 def cache_age_ms():

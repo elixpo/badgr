@@ -112,7 +112,6 @@ def make_transparent(in_path, out_path, tolerance):
     else:
         # Pure-Pillow fallback. Slower (~5–15 s for 1024²) but always works.
         px_rgb = rgb.load()
-        alpha = im.split()[3].load() if im.mode == "RGBA" else None
         im_out = im.copy()
         px_out = im_out.load()
         for y in range(h):

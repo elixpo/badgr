@@ -32,13 +32,13 @@ def _kb(b):
 
 
 def _os_version():
-    """Single source of truth for the OS version string lives in launcher.VERSION."""
+    """Single source of truth for the OS version string."""
     try:
-        from oreoOS.launcher import VERSION
+        from oreoOS import api
 
-        return VERSION
+        return api.get_version()
     except Exception:
-        return "v?.?.?"
+        return "v1.4.103-dev"
 
 
 class App(oreoOS.App):
@@ -47,7 +47,7 @@ class App(oreoOS.App):
         self._os = os
         self._dirty = True
         self._mascot = _load_mascot()
-        self._boot_ms = time.ticks_ms()
+        self._boot_ms = api.ticks_ms()
         self._last_s = -1
         self._scroll = 0
         self._max_scroll = 0
@@ -66,7 +66,7 @@ class App(oreoOS.App):
             self._pf_body = None
 
     def update(self, dt):
-        s = time.ticks_diff(time.ticks_ms(), self._boot_ms) // 1000
+        s = api.ticks_diff(api.ticks_ms(), self._boot_ms) // 1000
         if s != self._last_s:
             self._last_s = s
             self._dirty = True
@@ -88,7 +88,7 @@ class App(oreoOS.App):
                 pass
 
     def _info_rows(self):
-        secs = self._last_s
+        secs = max(0, api.ticks_diff(api.ticks_ms(), self._boot_ms) // 1000)
         # OTA status comes from the Settings → Check Update flow.
         # 'up-to-date' / 'downloading' / 'ready' / 'download-failed' / None
         ota_status = None
@@ -106,15 +106,67 @@ class App(oreoOS.App):
             if ota_status
             else "—"
         )
+        os_name = "Oreo OS"
+        codename = "—"
+        try:
+            from oreoOS import config
+
+            os_name = config.system.OS_NAME
+            codename = config.system.CODENAME
+        except Exception:
+            pass
+
+        is_sim = (
+            "oreoSim" in sys.modules
+            or not hasattr(sys, "implementation")
+            or getattr(sys.implementation, "name", "") != "micropython"
+        )
+        board_label = "ESP32-S3 (Sim)" if is_sim else "ESP32-S3"
+        try:
+            import uos
+
+            if hasattr(uos, "uname"):
+                u = uos.uname()
+                mach = getattr(u, "machine", "")
+                if mach:
+                    board_label = mach[:18]
+        except Exception:
+            pass
+
+        try:
+            if is_sim:
+                runtime_label = "CPython %d.%d.%d" % tuple(sys.version_info[:3])
+            else:
+                runtime_label = "MicroPython %d.%d.%d" % tuple(sys.implementation.version[:3])
+        except Exception:
+            runtime_label = "MicroPython"
+
+        mem_free = None
+        if hasattr(gc, "mem_free"):
+            try:
+                mem_free = gc.mem_free()
+            except Exception:
+                pass
+        mem_str = (_kb(mem_free) + " free") if mem_free is not None else "—"
+
+        display_label = "%dx%d" % (SW, SH)
+        try:
+            from oreoWare import display
+
+            drv = getattr(display, "DRIVER_NAME", "ST7789")
+            display_label = "%s  %dx%d" % (drv, SW, SH)
+        except Exception:
+            pass
+
         return [
-            ("OS", "Oreo OS"),
+            ("OS", os_name),
             ("Version", _os_version()),
             ("Update", ota_label),
-            ("Codename", "Sweet Sandwich"),
-            ("Board", "ESP32-S3"),
-            ("Memory", _kb(gc.mem_free()) + " free"),
-            ("Display", "ST7789  320x240"),
-            ("Runtime", "MicroPython %d.%d.%d" % tuple(sys.implementation.version[:3])),
+            ("Codename", codename),
+            ("Board", board_label),
+            ("Memory", mem_str),
+            ("Display", display_label),
+            ("Runtime", runtime_label),
             ("IP", self._ip[:18]),
             ("Uptime", "%02d:%02d:%02d" % (secs // 3600, (secs % 3600) // 60, secs % 60)),
         ]

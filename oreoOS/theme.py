@@ -4,8 +4,6 @@ Provides cohesive design tokens, curated theme presets, dynamic harmonic palette
 derivation from arbitrary custom accents, and automatic text/icon contrast inversion.
 """
 
-import json
-
 from oreoOS import api
 
 # ── Color Utilities ──────────────────────────────────────────────────────────
@@ -630,31 +628,26 @@ def get_current_name():
 
 # ── Persistence Engine ──────────────────────────────────────────────────────
 
-try:
-    from oreoOS.config import get_state_path
-
-    THEME_STATE_PATH = get_state_path("state_theme.json")
-except Exception:
-    THEME_STATE_PATH = "badge_data/state_theme.json"
-
-LEGACY_STATE_PATH = "state_color.txt"
-
 
 def save_theme_state():
     """Persist current active theme configuration to disk inside badge_data/."""
     try:
+        from oreoOS import storage
+
         data = {"preset_id": CURRENT_THEME.id, "primary_rgb": CURRENT_THEME.primary_rgb}
-        with open(THEME_STATE_PATH, "w") as f:
-            json.dump(data, f)
-    except Exception:
-        pass
+        return storage.save_json("state_theme.json", data)
+    except Exception as e:
+        api.log_debug("THEME", "Failed saving theme", e)
+        return False
 
 
 def load_custom_theme():
     """Load persisted theme from state_theme.json with legacy state_color.txt migration."""
     try:
-        with open(THEME_STATE_PATH, "r") as f:
-            data = json.load(f)
+        from oreoOS import storage
+
+        data = storage.load_json("state_theme.json")
+        if data:
             preset_id = data.get("preset_id")
             if preset_id in LEGACY_PRESET_MAP:
                 preset_id = LEGACY_PRESET_MAP[preset_id]
@@ -665,12 +658,12 @@ def load_custom_theme():
                 r, g, b = data["primary_rgb"]
                 apply_theme(derive_custom_theme(r, g, b), save=False)
                 return
-    except Exception:
-        pass
+    except Exception as e:
+        api.log_debug("THEME", "Failed loading custom theme", e)
 
     # Legacy state_color.txt fallback & auto-migration
     try:
-        with open(LEGACY_STATE_PATH, "r") as f:
+        with open("state_color.txt", "r") as f:
             parts = f.read().strip().split(",")
             if len(parts) == 5:
                 r, g, b = int(parts[2]), int(parts[3]), int(parts[4])

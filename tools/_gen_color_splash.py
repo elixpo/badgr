@@ -12,7 +12,6 @@ shape), then bake it with:
     python tools/optimize_assets.py --app color_picker
 """
 
-import sys
 from pathlib import Path
 
 from PIL import Image
