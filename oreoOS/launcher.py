@@ -112,19 +112,20 @@ def list_apps():
 
 
 def load_app(app_dir):
-    try:
-        import sys
+    if app_dir != "launcher":
+        try:
+            import sys
 
-        for k in list(sys.modules.keys()):
-            if (
-                k == "apps.%s" % app_dir
-                or k.startswith("apps.%s." % app_dir)
-                or k == "badge_data.apps.%s" % app_dir
-                or k.startswith("badge_data.apps.%s." % app_dir)
-            ):
-                sys.modules.pop(k, None)
-    except Exception:
-        pass
+            for k in list(sys.modules.keys()):
+                if (
+                    k == "apps.%s" % app_dir
+                    or k.startswith("apps.%s." % app_dir)
+                    or k == "badge_data.apps.%s" % app_dir
+                    or k.startswith("badge_data.apps.%s." % app_dir)
+                ):
+                    sys.modules.pop(k, None)
+        except Exception:
+            pass
 
     try:
         mod = __import__("apps.%s.main" % app_dir, None, None, ["App"])
