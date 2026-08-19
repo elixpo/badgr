@@ -67,7 +67,9 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     # `auth` arg overrides if the caller wants something custom.
     if auth is None and "api.github.com" in host:
         try:
-            from oreoOS.config import GH_TOKEN as _TOK
+            from oreoOS import config
+
+            _TOK = getattr(config.github, "TOKEN", "")
 
             if _TOK:
                 auth = "Bearer " + _TOK

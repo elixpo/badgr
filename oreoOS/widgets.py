@@ -227,16 +227,17 @@ def draw_hint(d, hints):
     else:
         total_chars = 0
         for i, (btn, act) in enumerate(hints):
-            total_chars += len(btn) + 1 + len(act)
+            total_chars += (len(btn) + 1 if btn else 0) + len(act)
             if i < len(hints) - 1:
                 total_chars += 2  # 2 spaces between hints
 
         tx = max(4, (SW - total_chars * 8) // 2)
         for btn, act in hints:
-            d.text(btn, tx, y + 4, theme.PRIMARY)
-            tx += len(btn) * 8
-            d.text("=", tx, y + 4, theme.MUTED2)
-            tx += 8
+            if btn:
+                d.text(btn, tx, y + 4, theme.PRIMARY)
+                tx += len(btn) * 8
+                d.text("=", tx, y + 4, theme.MUTED2)
+                tx += 8
             d.text(act, tx, y + 4, theme.TEXT_DIM)
             tx += (len(act) + 2) * 8
 
