@@ -64,6 +64,9 @@ except Exception:
 
 _PER_NET_TIMEOUT = 10000
 
+_SAVED_PATH = "/wifi.json"
+_PER_NET_TIMEOUT = 10000
+
 
 def _get_wlan():
     global _wlan

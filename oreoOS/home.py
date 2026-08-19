@@ -94,6 +94,13 @@ def _get_scaled_bg():
     if not bg:
         _scaled_bg_cache = False
         return None
+    try:
+        import time as _t
+
+        _bg_start_ms = _t.ticks_ms()
+        print("[home] scaled_bg precompute begin")
+    except Exception:
+        _bg_start_ms = None
 
     import struct
 

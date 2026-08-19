@@ -274,6 +274,15 @@ def run_app(os_obj, app):
                             pair_pp.handle_button(b)
                             continue
 
+                        # Pair-confirm prompt has top priority — when an
+                        # SMP numeric comparison is in flight, NOTHING
+                        # else gets the button. Eats every key including
+                        # C and HOME so the user can't accidentally
+                        # accept a stranger's pair attempt by hitting C.
+                        if pair_pp.is_active():
+                            pair_pp.handle_button(b)
+                            continue
+
                         # Global C hotkey → toggle the notification panel
                         # unless the active app explicitly declares CONSUMES_C = True.
                         if b == api.BTN_C and not getattr(app, "CONSUMES_C", False):
