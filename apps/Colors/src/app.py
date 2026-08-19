@@ -183,7 +183,6 @@ class App(oreoOS.App):
             self._bg = None
             self._bg_w = self._bg_h = 0
 
-        self._cx, self._cy, self._rgb = _load_state()
         self._slot_idx = 0  # active palette slot (0: PRI, 1: BG, 2: CARD, 3: SEC, 4: ACC)
         self._auto_harmonize = True
 
@@ -197,10 +196,12 @@ class App(oreoOS.App):
             "ACC": th.gold_rgb,
         }
 
+        self._cx, self._cy = self._find_closest_pos(self._slots["PRI"])
+        self._rgb = self._slots["PRI"]
+
         self._saved_flash = 0.0
         self._saved_msg = "Theme Applied!"
         self._hold_t = {api.BTN_LEFT: 0.0, api.BTN_RIGHT: 0.0, api.BTN_UP: 0.0, api.BTN_DOWN: 0.0}
-        self._sample_color()
         self.hints = [("arrows", "pick"), ("B", "slot"), ("C", "preset"), ("A", "apply")]
         self._dirty = True
 
@@ -255,6 +256,10 @@ class App(oreoOS.App):
             self._slots["CARD"] = preset.card_rgb
             self._slots["SEC"] = preset.teal_rgb
             self._slots["ACC"] = preset.gold_rgb
+
+            cur_slot = SLOT_KEYS[self._slot_idx]
+            self._cx, self._cy = self._find_closest_pos(self._slots[cur_slot])
+
             # Live preview the theme without saving to disk
             theme.apply_theme(preset, save=False)
             self._saved_msg = "Preview: %s" % preset.name
