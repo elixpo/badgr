@@ -153,7 +153,7 @@ def _get_relay_url(endpoint=""):
 
         base = config.spotify.RELAY_URL.rstrip("/")
     except Exception:
-        base = "https://oreo-delta.vercel.app"
+        base = "https://oreo.elixpo.com"
     return base + ("/" + endpoint.lstrip("/") if endpoint else "")
 
 

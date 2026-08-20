@@ -188,8 +188,8 @@ github = _GitHubConfig()
 
 class _SpotifyConfig:
     CLIENT_ID = get_str("SPOTIFY_CLIENT_ID", "")
-    RELAY_URL = get_str("SPOTIFY_RELAY_URL", "https://oreo-delta.vercel.app")
-    AUTH_URL = get_str("SPOTIFY_AUTH_URL", "https://oreo-delta.vercel.app/spotify")
+    RELAY_URL = get_str("SPOTIFY_RELAY_URL", "https://oreo.elixpo.com")
+    AUTH_URL = get_str("SPOTIFY_AUTH_URL", "https://oreo.elixpo.com/spotify")
 
 
 spotify = _SpotifyConfig()
