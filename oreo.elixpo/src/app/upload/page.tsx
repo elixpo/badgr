@@ -144,7 +144,7 @@ export default function UploadPage() {
       setError(`"${h}" isn't a valid hostname or IP.`);
       return;
     }
-    try { localStorage.setItem("oreo-badge-host", h); } catch {}
+    try { localStorage.setItem("oreo-badge-host", h); } catch { /* ignore */ }
 
     // Canonicalize the destination URL from a strictly validated host.
     const normalizedHost = host.trim().toLowerCase();

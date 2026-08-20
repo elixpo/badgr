@@ -56,9 +56,9 @@ export default function AppDocsPage() {
               </h2>
             </div>
             <p className="mb-6 max-w-3xl text-sm text-text-dim">
-              Every app lives in <code className="text-text">apps/&lt;name&gt;/</code>.
-              The launcher imports{" "}
-              <code className="text-text">apps.&lt;name&gt;.main</code> and
+              During development, your app lives in <code className="text-text">apps/&lt;name&gt;/</code> or <code className="text-text">apps_market/&lt;name&gt;/</code>.
+              When running on the badge, it is installed into the unified state directory at <code className="text-text">badge_data/apps/&lt;name&gt;/</code>.
+              The launcher imports <code className="text-text">badge_data.apps.&lt;name&gt;.main</code> and
               reads <code className="text-text">App</code> off it — so{" "}
               <code className="text-text">main.py</code> is required, but
               it's a 2-line shim. Your actual code lives under{" "}
@@ -73,7 +73,6 @@ export default function AppDocsPage() {
 ├── assets/           optional — sprites, fonts, optimised images
 │   ├── raw/          source images (host-only, never on flash)
 │   └── optimized/    .py modules baked by tools/optimize_assets.py
-├── hiscore.txt       optional — written by the app at runtime
 └── src/              your code, split however you like
     ├── __init__.py
     ├── app.py        App class — lifecycle hooks only
@@ -141,18 +140,24 @@ __all__ = ["App"]`}
             <pre className="overflow-x-auto rounded-md border border-border
                             bg-bg p-4 text-xs leading-relaxed text-text">
 {`{
-  "name":     "Snake",
-  "author":   "Circuit-Overtime",
-  "version":  "1.0.0",
-  "category": "game",
-  "icon":     "snake"
+  "name":        "Snake",
+  "description": "The original grid-based Snake game.",
+  "type":        "app",
+  "author":      "Circuit-Overtime",
+  "version":     "1.0.0",
+  "category":    "game",
+  "icon":        "snake"
 }`}
             </pre>
             <ul className="mt-4 max-w-3xl space-y-2 text-sm text-text-dim">
               <li><b className="text-text">name</b> — display name in the drawer (under the tile).</li>
+              <li><b className="text-text">description</b> — short blurb shown on the website and store.</li>
+              <li><b className="text-text">type</b> — set to <code>app</code>.</li>
               <li><b className="text-text">author</b> — GitHub handle shown on the about screen.</li>
               <li><b className="text-text">version</b> — semver; bumped by your PR.</li>
-              <li><b className="text-text">category</b> — <code>game</code> / <code>tool</code> / <code>system</code>. Affects drawer grouping.</li>
+              <li>
+                <b className="text-text">category</b> — a string to group the app in the launcher's category view. The OS natively maps specific categories to custom icons: <code>Games</code>, <code>Tools</code>, <code>System</code>, <code>Utils</code>, and <code>GitHub</code>. Other values will be grouped together but use a generic icon.
+              </li>
               <li><b className="text-text">icon</b> — stem of a sprite in <code>assets/icons/optimized/</code> (e.g. <code>"snake"</code> → <code>snake.py</code>).</li>
             </ul>
           </section>
@@ -200,8 +205,6 @@ from . import game, render, highscore
 
 
 class App(oreoOS.App):
-    name = "Snake"
-
     def on_enter(self, os):
         self._os    = os
         self._state = game.INTRO
@@ -297,9 +300,9 @@ class App(oreoOS.App):
               <li>
                 <b className="text-text">Plain files</b> — for larger or
                 custom data, just{" "}
-                <code className="text-text">open()</code> a file under your
-                app dir. Snake's hi-score lives at{" "}
-                <code className="text-text">apps/snake/hiscore.txt</code>.
+                <code className="text-text">open()</code> a file under the <code className="text-text">badge_data/saves/</code> directory.
+                Snake's hi-score lives at{" "}
+                <code className="text-text">badge_data/saves/snake_hiscore.txt</code>.
                 Wrap I/O in <code className="text-text">try</code> blocks
                 so a full or read-only flash doesn't crash the app.
               </li>

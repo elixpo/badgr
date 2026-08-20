@@ -11,19 +11,16 @@ that and points the user at the WiFi transfer page.
 import oreoOS
 from oreoOS import api, theme, widgets
 
-
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
 
 class App(oreoOS.App):
-    name         = "Bluetooth"
-    author       = "Circuit-Overtime"
     SHOW_LOADING = False
 
     def on_enter(self, os_):
         super().on_enter(os_)
-        self._os    = os_
+        self._os = os_
         self._dirty = True
 
     def on_button_press(self, btn):
@@ -35,8 +32,8 @@ class App(oreoOS.App):
             return
         self._dirty = False
         d.clear(theme.BG)
-        widgets.draw_header(d, "BLUETOOTH")
-        widgets.draw_hint(d, "B / HOME to back out")
+        self.title = "BLUETOOTH"
+        self.hints = [("", "B / HOME to back out")]
 
         cy = SH // 2
 

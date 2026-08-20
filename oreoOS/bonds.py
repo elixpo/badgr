@@ -22,8 +22,13 @@ except ImportError:
     time = None
 
 
-BOND_FILE  = "bonds.json"
-BOND_CAP   = 3
+try:
+    from oreoOS.config import get_state_path
+
+    BOND_FILE = get_state_path("bonds.json")
+except Exception:
+    BOND_FILE = "badge_data/bonds.json"
+BOND_CAP = 3
 
 
 # Cached copy of the on-flash store. Loaded lazily on first access.
@@ -74,10 +79,16 @@ def _load():
             data = json.loads(f.read())
         if not isinstance(data, dict):
             raise ValueError
-        data.setdefault("bonds",   [])
+        data.setdefault("bonds", [])
         data.setdefault("secrets", {})
         _state = data
     except Exception:
+        try:
+            import os
+
+            os.rename(BOND_FILE, BOND_FILE + ".bak")
+        except Exception:
+            pass
         _state = _empty()
     return _state
 
@@ -85,15 +96,13 @@ def _load():
 def _flush():
     if json is None:
         return False
-    try:
-        with open(BOND_FILE, "w") as f:
-            f.write(json.dumps(_state))
-        return True
-    except Exception:
-        return False
+    from oreoOS import storage
+
+    return storage.atomic_write(BOND_FILE, json.dumps(_state))
 
 
 # ── bond list ───────────────────────────────────────────────────────────
+
 
 def list_bonds():
     """Return the live list (mutate via add/remove only)."""
@@ -125,19 +134,21 @@ def add(mac, name, kind="other"):
     for b in bonds:
         if b.get("mac", "").upper() == mac:
             b["last_seen_ts"] = _now()
-            b["name"]         = name or b.get("name", "")
-            b["kind"]         = kind or b.get("kind", "other")
+            b["name"] = name or b.get("name", "")
+            b["kind"] = kind or b.get("kind", "other")
             _flush()
             return True
     if len(bonds) >= BOND_CAP:
         return False
-    bonds.append({
-        "mac":          mac,
-        "name":         name or "",
-        "kind":         kind or "other",
-        "added_ts":     _now(),
-        "last_seen_ts": _now(),
-    })
+    bonds.append(
+        {
+            "mac": mac,
+            "name": name or "",
+            "kind": kind or "other",
+            "added_ts": _now(),
+            "last_seen_ts": _now(),
+        }
+    )
     _flush()
     return True
 
@@ -181,6 +192,7 @@ def touch(mac):
 # Called from bt._irq on _IRQ_SET_SECRET / _IRQ_GET_SECRET. Without
 # persisting these, every reconnect after a reboot has to re-pair.
 
+
 def _key(sec_type, key):
     return "%d:%s" % (int(sec_type), _hex(key) or "")
 
@@ -202,8 +214,8 @@ def set_secret(sec_type, key, value):
 
 def get_secret(sec_type, index, key):
     """Two lookup forms:
-      key is None  → return the index-th secret of this sec_type (iter)
-      key is bytes → return the value for that exact key, or None.
+    key is None  → return the index-th secret of this sec_type (iter)
+    key is bytes → return the value for that exact key, or None.
     """
     secs = _load()["secrets"]
     if key is None:
@@ -215,8 +227,7 @@ def get_secret(sec_type, index, key):
                 continue
             if i == index:
                 # Return (key_bytes, value_bytes)
-                return (_unhex(stored_key[len(prefix):]),
-                        _unhex(stored_val))
+                return (_unhex(stored_key[len(prefix) :]), _unhex(stored_val))
             i += 1
         return None
     k = _key(sec_type, key)

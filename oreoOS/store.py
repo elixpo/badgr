@@ -6,9 +6,13 @@ try:
     import json as _json
 except ImportError:
     _json = None
+
+from oreoOS import storage
+
 try:
     import socket as _socket
-    import ssl    as _ssl
+    import ssl as _ssl
+
     _RAW_OK = True
 except ImportError:
     _RAW_OK = False
@@ -35,7 +39,7 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     # Parse https://host[:port]/path
     if not url.startswith("https://"):
         return None
-    rest = url[len("https://"):]
+    rest = url[len("https://") :]
     slash = rest.find("/")
     if slash < 0:
         host, path = rest, "/"
@@ -44,38 +48,64 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     port = 443
     if ":" in host:
         host, p = host.split(":", 1)
-        try: port = int(p)
-        except ValueError: port = 443
+        try:
+            port = int(p)
+        except ValueError:
+            port = 443
 
-    accept = ("application/vnd.github.raw" if accept_raw
-              else "application/vnd.github+json")
+    if "api.github.com" in host:
+        accept = "application/vnd.github.raw" if accept_raw else "application/vnd.github+json"
+    else:
+        accept = "*/*"
 
     s = None
     raw = None
     deadline = None
     try:
         import time as _t
+
         deadline = _t.ticks_add(_t.ticks_ms(), int(timeout_s * 1000) + 500)
     except Exception:
         pass
 
     auth_hdr = ""
     try:
-        from oreoOS.config import GH_TOKEN as _TOK
-        if _TOK:
-            auth_hdr = "Authorization: Bearer " + _TOK + "\r\n"
+        from oreoOS import config
+
+        if config.github.TOKEN and "api.github.com" in host:
+            auth_hdr = "Authorization: Bearer " + config.github.TOKEN + "\r\n"
     except Exception:
         pass
 
     try:
         _bc("  dns " + host)
-        addr = _socket.getaddrinfo(host, port)[0][-1]
-        _bc("  connect " + host + ":" + str(port))
-        raw = _socket.socket()
+        raw = None
+        for res in _socket.getaddrinfo(host, port):
+            af, socktype, proto, _, sa = res
+            try:
+                raw = _socket.socket(af, socktype, proto)
+                raw.settimeout(min(3.5, timeout_s))
+                raw.connect(sa)
+                break
+            except Exception:
+                if raw is not None:
+                    try:
+                        raw.close()
+                    except Exception:
+                        pass
+                raw = None
+
+        if raw is None:
+            _bc("connect FAIL " + host)
+            return None
+
         raw.settimeout(timeout_s)
-        raw.connect(addr)
         _bc("  ssl handshake")
-        s = _ssl.wrap_socket(raw, server_hostname=host)
+        if hasattr(_ssl, "create_default_context"):
+            ctx = _ssl.create_default_context()
+            s = ctx.wrap_socket(raw, server_hostname=host)
+        else:
+            s = _ssl.wrap_socket(raw, server_hostname=host)
         try:
             s.settimeout(timeout_s)
         except Exception:
@@ -95,13 +125,15 @@ def _http_get(url, accept_raw=False, timeout_s=4):
 
         _bc("  read body")
         buf = bytearray()
+        expected_len = None
+        head_end = -1
         while True:
             # Wallclock check — if we've blown our budget, bail no
             # matter what settimeout says.
             try:
                 import time as _t2
-                if deadline is not None and \
-                   _t2.ticks_diff(deadline, _t2.ticks_ms()) <= 0:
+
+                if deadline is not None and _t2.ticks_diff(deadline, _t2.ticks_ms()) <= 0:
                     _bc("  read deadline blown after %d bytes" % len(buf))
                     break
             except Exception:
@@ -114,6 +146,23 @@ def _http_get(url, accept_raw=False, timeout_s=4):
             if not chunk:
                 break
             buf.extend(chunk)
+
+            if head_end < 0 and b"\r\n\r\n" in buf:
+                head_end = buf.find(b"\r\n\r\n")
+                if head_end >= 0:
+                    head_lower = bytes(buf[:head_end]).lower()
+                    cl_idx = head_lower.find(b"\r\ncontent-length: ")
+                    if cl_idx >= 0:
+                        cl_val = head_lower[cl_idx + 18 :].split(b"\r\n", 1)[0]
+                        try:
+                            expected_len = int(cl_val)
+                        except ValueError:
+                            pass
+
+            if head_end >= 0 and expected_len is not None:
+                if len(buf) - (head_end + 4) >= expected_len:
+                    break
+
             if len(buf) > 256 * 1024:
                 break
     except Exception as e:
@@ -132,15 +181,17 @@ def _http_get(url, accept_raw=False, timeout_s=4):
     if head_end < 0:
         return None
     head = bytes(buf[:head_end])
-    body = bytes(buf[head_end + 4:])
+    body = bytes(buf[head_end + 4 :])
 
     # Parse the status line for breadcrumbs + 200-check.
     status = 0
-    line0  = head.split(b"\r\n", 1)[0]
-    parts  = line0.split(b" ", 2)
+    line0 = head.split(b"\r\n", 1)[0]
+    parts = line0.split(b" ", 2)
     if len(parts) >= 2:
-        try: status = int(parts[1])
-        except ValueError: status = 0
+        try:
+            status = int(parts[1])
+        except ValueError:
+            status = 0
     if status != 200:
         _bc("http_get %s -> HTTP %d" % (host, status))
         return None
@@ -155,7 +206,7 @@ def _http_get(url, accept_raw=False, timeout_s=4):
 
 def _dechunk(body):
     out = bytearray()
-    i   = 0
+    i = 0
     while i < len(body):
         nl = body.find(b"\r\n", i)
         if nl < 0:
@@ -167,45 +218,48 @@ def _dechunk(body):
         i = nl + 2
         if n == 0:
             break
-        out.extend(body[i:i + n])
+        out.extend(body[i : i + n])
         i += n + 2
     return bytes(out)
 
 
 # ── tunables ────────────────────────────────────────────────────────────
 
-STORE_REPO   = "elixpo/oreo"
-# Branch/tag/sha on the repo to pull the catalogue from. Defaults to
-# `main`; override via oreoOS/config.py `STORE_REF = "feat/app-market"`
-# while apps_market/ hasn't landed on main yet, otherwise the API
-# returns 404 and the page shows an empty catalogue.
 try:
-    from oreoOS.config import STORE_REF as _CFG_REF
-    STORE_REF = _CFG_REF
+    from oreoOS import config
+
+    STORE_REPO = config.github.STORE_REPO
+    STORE_REF = config.github.STORE_REF
+    APPS_DIR = config.storage.APPS_DIR
+    CACHE_PATH = config.storage.CACHE_DIR + "/store_cache.json"
 except Exception:
+    STORE_REPO = "elixpo/oreo"
     STORE_REF = "main"
-MARKET_PATH  = "apps_market"
-CACHE_PATH   = "/store_cache.json"
+    APPS_DIR = "badge_data/apps"
+    CACHE_PATH = "badge_data/cache/store_cache.json"
 
-T_API        = 6        # seconds — GitHub Contents API call
-T_FILE       = 25       # seconds — raw-file download (per file)
+MARKET_PATH = "apps_market"
 
-USER_AGENT   = "OreoBadge-Store"
-APPS_DIR     = "apps"
+T_API = 6  # seconds — GitHub Contents API call
+T_FILE = 25  # seconds — raw-file download (per file)
+
+USER_AGENT = "OreoBadge-Store"
 
 
 # In-memory mirror of the catalogue. Loaded lazily on first access.
-_catalogue       = None
-_cache_ms        = 0      # ticks_ms at last successful refresh
-_last_refresh_ok = None   # True / False / None — never-tried | succeeded | failed
-_last_error      = ""     # human-readable summary for the page
+_catalogue = None
+_cache_ms = 0  # ticks_ms at last successful refresh
+_last_refresh_ok = None  # True / False / None — never-tried | succeeded | failed
+_last_error = ""  # human-readable summary for the page
 
 
 # ── filesystem helpers ──────────────────────────────────────────────────
 
+
 def _exists(path):
     try:
-        _os.stat(path); return True
+        _os.stat(path)
+        return True
     except OSError:
         return False
 
@@ -232,22 +286,11 @@ def _ensure_dir(path):
 
 
 def _rm_tree(path):
-    """rm -rf — swallows errors so a partial uninstall doesn't hang."""
-    try:
-        for f in _os.listdir(path):
-            child = path + "/" + f
-            if _isdir(child):
-                _rm_tree(child)
-            else:
-                try: _os.remove(child)
-                except OSError: pass
-        try: _os.rmdir(path)
-        except OSError: pass
-    except OSError:
-        pass
+    return storage.rm_tree(path)
 
 
 # ── GitHub API wrappers ─────────────────────────────────────────────────
+
 
 def _api(path):
     """GET https://api.github.com/repos/<repo>/contents/<path>?ref=<ref>.
@@ -260,8 +303,7 @@ def _api(path):
     if not _RAW_OK or _json is None:
         _last_error = "no socket / json"
         return None
-    url = ("https://api.github.com/repos/%s/contents/%s?ref=%s"
-           % (STORE_REPO, _q(path), STORE_REF))
+    url = "https://api.github.com/repos/%s/contents/%s?ref=%s" % (STORE_REPO, _q(path), STORE_REF)
     _bc("API GET " + path + "@" + STORE_REF)
     body = _http_get(url, accept_raw=False, timeout_s=T_API)
     if body is None:
@@ -272,8 +314,7 @@ def _api(path):
     except Exception as e:
         _last_error = "api parse: " + str(e)[:32]
         return None
-    _bc("API OK %s (%d entries)" %
-        (path, len(data) if isinstance(data, list) else 1))
+    _bc("API OK %s (%d entries)" % (path, len(data) if isinstance(data, list) else 1))
     return data
 
 
@@ -281,6 +322,31 @@ def _walk(path):
     """Recursive list of every FILE under `path` in the repo. Returns
     [{path, download_url, size}] — used at install time."""
     out = []
+
+    # 1. Local fallback for development/offline testing
+    if _exists(path) and _isdir(path):
+        try:
+            for item in _os.listdir(path):
+                p = path + "/" + item
+                if _isdir(p):
+                    out.extend(_walk(p))
+                else:
+                    try:
+                        sz = _os.stat(p)[6]
+                    except Exception:
+                        sz = 0
+                    out.append(
+                        {
+                            "path": p,
+                            "download_url": "",
+                            "size": sz,
+                        }
+                    )
+            return out
+        except Exception:
+            pass
+
+    # 2. GitHub API
     items = _api(path)
     if not isinstance(items, list):
         return out
@@ -288,15 +354,17 @@ def _walk(path):
         if it.get("type") == "dir":
             out.extend(_walk(it["path"]))
         elif it.get("type") == "file":
-            out.append({
-                "path":         it["path"],
-                "download_url": it.get("download_url") or "",
-                "size":         it.get("size", 0),
-            })
+            out.append(
+                {
+                    "path": it["path"],
+                    "download_url": it.get("download_url") or "",
+                    "size": it.get("size", 0),
+                }
+            )
     return out
 
 
-_STORE_ICONS_DIR = "/store_icons"
+_STORE_ICONS_DIR = "badge_data/cache/store_icons"
 
 
 def _q(path):
@@ -309,21 +377,32 @@ def _q(path):
 
 
 def _fetch_store_icon(name_dir, app_path, icon_filename):
-    """Best-effort download of an app's optimized icon .py from GitHub
-    so the Store card can render the real icon BEFORE the app is
-    installed. Source path follows the project convention:
-        apps_market/<dir>/assets/optimized/<icon_stem>.py
-    Cached to /store_icons/<name_dir>.py. Silently no-ops on failure —
-    the UI falls back to a letter glyph in that case.
-    """
+    """Download or copy an app's optimized icon .py so the Store card can
+    render the real icon before the app is installed."""
     if not icon_filename:
         return False
     stem = icon_filename.rsplit(".", 1)[0].replace("-", "_")
-    dst  = _STORE_ICONS_DIR + "/" + name_dir + ".py"
+    dst = _STORE_ICONS_DIR + "/" + name_dir + ".py"
     if _exists(dst):
         return True
-    url = ("https://raw.githubusercontent.com/%s/%s/%s/assets/optimized/%s.py"
-           % (STORE_REPO, STORE_REF, _q(app_path), stem))
+
+    # Check local apps_market first (e.g. apps_market/<name_dir>/assets/optimized/<stem>.py)
+    local_icon = app_path + "/assets/optimized/" + stem + ".py"
+    if _exists(local_icon):
+        _ensure_dir(_STORE_ICONS_DIR)
+        try:
+            with open(local_icon, "rb") as sf, open(dst, "wb") as df:
+                df.write(sf.read())
+            return True
+        except Exception:
+            pass
+
+    url = "https://raw.githubusercontent.com/%s/%s/%s/assets/optimized/%s.py" % (
+        STORE_REPO,
+        STORE_REF,
+        _q(app_path),
+        stem,
+    )
     _bc("icon GET " + name_dir)
     body = _http_get(url, accept_raw=True, timeout_s=T_API)
     if body is None:
@@ -353,7 +432,7 @@ def load_store_icon(name_dir):
 
 
 def installed_size(name_dir):
-    """Sum of file sizes under /apps/<name>/, in bytes. 0 if not
+    """Sum of file sizes under badge_data/apps/<name>/, in bytes. 0 if not
     installed. Walks the dir each call — cheap on the tiny app trees
     we ship, and avoids stale cached numbers."""
     root = APPS_DIR + "/" + name_dir
@@ -380,11 +459,21 @@ def installed_size(name_dir):
 
 
 def _fetch_manifest(app_path):
-    """Read the manifest.json for a single market app via the API."""
+    """Read the manifest.json for a single market app (local first, then API)."""
+    local_manifest = app_path + "/manifest.json"
+    if _exists(local_manifest) and _json is not None:
+        try:
+            with open(local_manifest) as f:
+                return _json.loads(f.read())
+        except Exception:
+            pass
     if _json is None:
         return {}
-    url = ("https://api.github.com/repos/%s/contents/%s/manifest.json?ref=%s"
-           % (STORE_REPO, _q(app_path), STORE_REF))
+    url = "https://api.github.com/repos/%s/contents/%s/manifest.json?ref=%s" % (
+        STORE_REPO,
+        _q(app_path),
+        STORE_REF,
+    )
     _bc("manifest GET " + app_path)
     body = _http_get(url, accept_raw=True, timeout_s=T_API)
     if body is None:
@@ -397,6 +486,7 @@ def _fetch_manifest(app_path):
 
 # ── catalogue lifecycle ─────────────────────────────────────────────────
 
+
 def _load_cache_from_disk():
     """Re-hydrate _catalogue from the on-flash JSON cache, if any."""
     global _catalogue, _cache_ms
@@ -406,7 +496,7 @@ def _load_cache_from_disk():
         with open(CACHE_PATH) as f:
             blob = _json.loads(f.read())
         _catalogue = blob.get("apps", []) or []
-        _cache_ms  = int(blob.get("fetched_ms", 0))
+        _cache_ms = int(blob.get("fetched_ms", 0))
         return True
     except Exception:
         return False
@@ -415,14 +505,15 @@ def _load_cache_from_disk():
 def _save_cache_to_disk():
     if _json is None:
         return
-    try:
-        with open(CACHE_PATH, "w") as f:
-            f.write(_json.dumps({
+    storage.atomic_write(
+        CACHE_PATH,
+        _json.dumps(
+            {
                 "fetched_ms": _cache_ms,
-                "apps":       _catalogue or [],
-            }))
-    except Exception:
-        pass
+                "apps": _catalogue or [],
+            }
+        ),
+    )
 
 
 def refresh(force=False):
@@ -448,11 +539,12 @@ def refresh(force=False):
     # only thing we can show.
     try:
         from oreoWare import wifi
+
         if not wifi.is_connected():
             if _catalogue is None:
                 _load_cache_from_disk()
             _last_refresh_ok = False
-            _last_error      = "wifi down"
+            _last_error = "wifi down"
             return _catalogue or []
     except Exception:
         pass
@@ -460,6 +552,27 @@ def refresh(force=False):
     _last_error = ""
     listing = _api(MARKET_PATH)
     if not isinstance(listing, list):
+        listing = []
+
+    # Merge local apps_market entries if they exist on disk (for local development & offline testing)
+    if _exists(MARKET_PATH) and _isdir(MARKET_PATH):
+        seen_dirs = {it.get("name") for it in listing if isinstance(it, dict)}
+        try:
+            for loc_dir in _os.listdir(MARKET_PATH):
+                if loc_dir not in seen_dirs and _exists(
+                    MARKET_PATH + "/" + loc_dir + "/manifest.json"
+                ):
+                    listing.append(
+                        {
+                            "type": "dir",
+                            "name": loc_dir,
+                            "path": MARKET_PATH + "/" + loc_dir,
+                        }
+                    )
+        except Exception:
+            pass
+
+    if not listing:
         if _catalogue is None:
             _load_cache_from_disk()
         _last_refresh_ok = False
@@ -479,26 +592,37 @@ def refresh(force=False):
         # back to the letter glyph in _draw_card.
         if icon_file:
             _fetch_store_icon(name_dir, app_path, icon_file)
-        fresh.append({
-            "dir":          name_dir,
-            "name":         manifest.get("name", name_dir) or name_dir,
-            "icon":         icon_file or None,
-            "author":       manifest.get("author") or None,
-            "description":  manifest.get("description", "") or "",
-            "path":         app_path,
-        })
+        fresh.append(
+            {
+                "dir": name_dir,
+                "name": manifest.get("name", name_dir) or name_dir,
+                "icon": icon_file or None,
+                "author": manifest.get("author") or None,
+                "description": manifest.get("description", "") or "",
+                "version": manifest.get("version", "1.0.0"),
+                "path": app_path,
+            }
+        )
 
-    _catalogue       = fresh
+    _catalogue = fresh
     _last_refresh_ok = True
     for e in _catalogue:
+        inst_ver = get_installed_version(e["dir"])
         e["installed"] = is_installed(e["dir"])
+        e["installed_version"] = inst_ver
+        store_ver = e.get("version", "1.0.0")
+        e["update_available"] = bool(
+            e["installed"] and inst_ver and check_app_update(e["dir"], store_ver)
+        )
     _invalidate_details()
     try:
         live = {e["dir"] + ".py" for e in _catalogue}
         for f in _os.listdir(_STORE_ICONS_DIR):
             if f.endswith(".py") and f not in live:
-                try: _os.remove(_STORE_ICONS_DIR + "/" + f)
-                except OSError: pass
+                try:
+                    _os.remove(_STORE_ICONS_DIR + "/" + f)
+                except OSError:
+                    pass
     except OSError:
         pass
     try:
@@ -559,18 +683,24 @@ def get_details(name_dir):
         _details_cache[name_dir] = disk
         return disk
 
-    # No network call — refresh() already enriched the catalogue entry
-    # with everything we need for the details page. The file-tree walk
-    # is deferred to install() so opening details is instant after the
-    # first catalogue load.
+    inst_ver = get_installed_version(name_dir)
+    store_ver = entry.get("version", "1.0.0")
+    files = _walk(entry["path"])
+    total_bytes = sum(f.get("size", 0) for f in files) if files else 0
+
     out = {
-        "name":         entry.get("name")        or name_dir,
-        "icon":         entry.get("icon")        or None,
-        "author":       entry.get("author")      or None,
-        "description":  entry.get("description") or "",
-        "files":        None,    # populated lazily by install()
-        "bytes":        None,
-        "ok":           True,
+        "name": entry.get("name") or name_dir,
+        "icon": entry.get("icon") or None,
+        "author": entry.get("author") or None,
+        "description": entry.get("description") or "",
+        "version": store_ver,
+        "installed_version": inst_ver,
+        "update_available": bool(
+            is_installed(name_dir) and inst_ver and check_app_update(name_dir, store_ver)
+        ),
+        "files": files,
+        "bytes": total_bytes,
+        "ok": True,
     }
     _details_cache[name_dir] = out
     _details_disk_save(name_dir, out)
@@ -578,9 +708,9 @@ def get_details(name_dir):
 
 
 # ── disk persistence for the per-app details cache ─────────────────────
-# One small JSON file per app under /store_details/. Survives reboots
+# One small JSON file per app under badge_data/cache/store_details/. Survives reboots
 # so opening Store + tapping an app is instant after the first time.
-_DETAILS_DIR = "/store_details"
+_DETAILS_DIR = "badge_data/cache/store_details"
 
 
 def _details_disk_path(name_dir):
@@ -601,18 +731,16 @@ def _details_disk_save(name_dir, payload):
     if _json is None:
         return
     _ensure_dir(_DETAILS_DIR)
-    try:
-        with open(_details_disk_path(name_dir), "w") as f:
-            f.write(_json.dumps(payload))
-    except Exception:
-        pass
+    storage.atomic_write(_details_disk_path(name_dir), _json.dumps(payload))
 
 
 def _details_disk_clear():
     try:
         for f in _os.listdir(_DETAILS_DIR):
-            try: _os.remove(_DETAILS_DIR + "/" + f)
-            except OSError: pass
+            try:
+                _os.remove(_DETAILS_DIR + "/" + f)
+            except OSError:
+                pass
     except Exception:
         pass
 
@@ -624,17 +752,52 @@ def _invalidate_details():
     _details_disk_clear()
 
 
+def get_installed_version(app_dir):
+    """Return the installed version string from manifest.json, or None if missing."""
+    for search_dir in (APPS_DIR, "apps"):
+        m_path = search_dir + "/" + app_dir + "/manifest.json"
+        if _exists(m_path) and _json is not None:
+            try:
+                with open(m_path) as f:
+                    m = _json.loads(f.read())
+                return m.get("version", "1.0.0")
+            except Exception:
+                pass
+    return None
+
+
+def check_app_update(app_dir, store_version):
+    """Return True iff store_version is strictly newer than the installed version."""
+    inst_ver = get_installed_version(app_dir)
+    if not inst_ver or not store_version:
+        return False
+    from oreoOS.ota import compare_version
+
+    return compare_version(store_version, inst_ver) > 0
+
+
 def list_market():
     """Read-only listing for the UI. Returns the in-memory catalogue
     (loading the disk cache on first call) and tags each entry with
-    its current install state."""
+    its current install state and update availability."""
     global _catalogue
     if _catalogue is None:
         if not _load_cache_from_disk():
             _catalogue = []
     for e in _catalogue:
+        inst_ver = get_installed_version(e["dir"])
         e["installed"] = is_installed(e["dir"])
+        e["installed_version"] = inst_ver
+        store_ver = e.get("version", "1.0.0")
+        e["update_available"] = bool(
+            e["installed"] and inst_ver and check_app_update(e["dir"], store_ver)
+        )
     return _catalogue
+
+
+def update_app(name):
+    """Update an already installed app to the latest store version."""
+    return install(name)
 
 
 def cache_age_ms():
@@ -650,26 +813,95 @@ def cache_age_ms():
 
 # ── install / uninstall ─────────────────────────────────────────────────
 
+
 def is_installed(name):
-    """An app is 'installed' iff /apps/<name>/main.py exists."""
+    """An app is 'installed' iff badge_data/apps/<name>/main.py exists."""
     return _exists(APPS_DIR + "/" + name + "/main.py")
 
 
-def install(name):
-    """Download every file under `apps_market/<name>/` on GitHub and
-    write it to `apps/<name>/<relative>`. Returns True iff main.py
-    landed cleanly.
+def _invalidate_launcher_cache():
+    # Try all possible module paths for the launcher app depending on where
+    # it was loaded from (badge_data vs apps template vs legacy main.py)
+    modules = [
+        "badge_data.apps.launcher.src.app",
+        "badge_data.apps.launcher.main",
+        "apps.launcher.src.app",
+        "apps.launcher.main",
+    ]
+    for mod_path in modules:
+        try:
+            mod = __import__(mod_path, None, None, ["invalidate_apps_cache"])
+            mod.invalidate_apps_cache()
+        except Exception:
+            pass
 
-    Network and storage errors are non-fatal per-file; the function
-    keeps going so the user gets a partial install rather than a
-    nothing-at-all failure (they can hit A again to retry).
-    """
+
+def install(name):
+    import sys
+
+    sys._store_installing = True
+    try:
+        return _install_internal(name)
+    finally:
+        sys._store_installing = False
+
+
+def _install_internal(name):
+    """Install an app into `badge_data/apps/<name>/`. Checks local `apps_market/<name>/`
+    first (for local dev/offline testing), otherwise downloads every file
+    from GitHub. Returns True iff main.py landed cleanly."""
+    target_root = APPS_DIR + "/" + name
+    tmp_root = APPS_DIR + "/.tmp_" + name
+
+    # 1. Fast local install if the app directory exists on disk under apps_market/
+    local_src = MARKET_PATH + "/" + name
+    if _exists(local_src + "/manifest.json") and _exists(local_src + "/main.py"):
+        _rm_tree(tmp_root)
+        _ensure_dir(tmp_root)
+        stack = [local_src]
+        while stack:
+            curr_dir = stack.pop()
+            rel_dir = curr_dir[len(local_src) :].lstrip("/")
+            dst_dir = tmp_root + ("/" + rel_dir if rel_dir else "")
+            _ensure_dir(dst_dir)
+            try:
+                for item in _os.listdir(curr_dir):
+                    if item.startswith(".") or item == "__pycache__":
+                        continue
+                    src_item = curr_dir + "/" + item
+                    dst_item = dst_dir + "/" + item
+                    if _isdir(src_item):
+                        stack.append(src_item)
+                    else:
+                        with open(src_item, "rb") as sf, open(dst_item, "wb") as df:
+                            df.write(sf.read())
+            except Exception:
+                _rm_tree(tmp_root)
+                return False
+        if _exists(tmp_root + "/main.py"):
+            _rm_tree(target_root)
+            try:
+                _os.rename(tmp_root, target_root)
+            except Exception:
+                try:
+                    import shutil
+
+                    shutil.rmtree(target_root, ignore_errors=True)
+                except Exception:
+                    pass
+                try:
+                    _os.rename(tmp_root, target_root)
+                except Exception:
+                    _rm_tree(tmp_root)
+                    return False
+        ok = is_installed(name)
+        if ok:
+            _invalidate_launcher_cache()
+        return ok
+
+    # 2. Remote GitHub download
     if not _RAW_OK:
         return False
-    # Find the catalogue entry first so we know the GitHub path. We
-    # walk lazily here (NOT in get_details) so opening the details
-    # page is cheap (one API call) — install is the user's explicit
-    # "I want this" so the heavier walk is acceptable.
     cat = list_market()
     entry = None
     for e in cat:
@@ -678,39 +910,60 @@ def install(name):
             break
     if not entry:
         return False
-    files = _walk(entry["path"])
-    if not files:
+
+    det = get_details(name)
+    if not det or not det.get("files"):
         return False
+    files = det["files"]
+    total_bytes = det.get("bytes", 0)
+
+    # Storage check
+    try:
+        st = _os.statvfs("/")
+        free_bytes = st[0] * st[3]
+        if total_bytes > free_bytes:
+            _bc("install FAIL: not enough storage (need %d, have %d)" % (total_bytes, free_bytes))
+            global _last_error
+            _last_error = "Not enough storage space"
+            return False
+    except Exception:
+        pass
 
     root_prefix = entry["path"] + "/"
-    target_root = APPS_DIR + "/" + name
+    _rm_tree(tmp_root)
 
     for f in files:
         rel = f["path"]
         if not rel.startswith(root_prefix):
             continue
-        rel = rel[len(root_prefix):]
-        dst = target_root + "/" + rel
+        rel = rel[len(root_prefix) :]
+        dst = tmp_root + "/" + rel
         parent = dst.rsplit("/", 1)[0] if "/" in dst else ""
         if parent:
             _ensure_dir(parent)
-        _bc("install GET " + rel)
-        body = _http_get(f["download_url"], accept_raw=False,
-                         timeout_s=T_FILE)
-        if body is None:
+        if f.get("size") == 0:
+            try:
+                with open(dst, "wb") as out:
+                    pass
+            except Exception:
+                pass
             continue
+
+        _bc("install GET " + rel)
+        body = _http_get(f["download_url"], accept_raw=False, timeout_s=T_FILE)
+        if body is None:
+            _rm_tree(tmp_root)
+            return False
         try:
             with open(dst, "wb") as out:
                 out.write(body)
         except Exception:
-            pass
+            _rm_tree(tmp_root)
+            return False
         gc.collect()
 
-    # Post-install integrity check: the launcher's drawer skips any
-    # app whose manifest.json is missing or unparseable, so a silent
-    # failure here surfaces as "the app vanished from the drawer".
-    # Verify and try to re-fetch once if the file is bad.
-    mf_path = target_root + "/manifest.json"
+    # Post-install integrity check: verify manifest.json
+    mf_path = tmp_root + "/manifest.json"
     if _json is not None:
         ok_mf = False
         try:
@@ -721,22 +974,63 @@ def install(name):
             ok_mf = False
         if not ok_mf:
             _bc("install manifest invalid, retrying")
-            url = ("https://raw.githubusercontent.com/%s/%s/%s/manifest.json"
-                   % (STORE_REPO, STORE_REF, _q(entry["path"])))
+            url = "https://raw.githubusercontent.com/%s/%s/%s/manifest.json" % (
+                STORE_REPO,
+                STORE_REF,
+                _q(entry["path"]),
+            )
             body = _http_get(url, accept_raw=True, timeout_s=T_FILE)
             if body is not None:
                 try:
                     with open(mf_path, "wb") as out:
                         out.write(body)
+                    ok_mf = True
                 except Exception:
                     pass
+            if not ok_mf:
+                _rm_tree(tmp_root)
+                return False
 
-    return is_installed(name)
+    if _exists(tmp_root + "/main.py"):
+        _rm_tree(target_root)
+        try:
+            _os.rename(tmp_root, target_root)
+        except Exception as e:
+            try:
+                import shutil
+
+                shutil.rmtree(target_root, ignore_errors=True)
+            except Exception:
+                pass
+            try:
+                _os.rename(tmp_root, target_root)
+            except Exception:
+                _rm_tree(tmp_root)
+                try:
+                    from oreoOS import config
+
+                    if getattr(config, "DEBUG", True):
+                        print("[store] rename error:", e)
+                except Exception:
+                    pass
+                return False
+
+    ok = is_installed(name)
+    if ok:
+        _invalidate_launcher_cache()
+    else:
+        _rm_tree(tmp_root)
+    return ok
 
 
 def uninstall(name):
+    """Uninstall an app from badge_data/apps/<name>/."""
     dst = APPS_DIR + "/" + name
     if not _exists(dst):
+        _invalidate_launcher_cache()
         return True
     _rm_tree(dst)
-    return not _exists(dst)
+    ok = not _exists(dst)
+    if ok:
+        _invalidate_launcher_cache()
+    return ok

@@ -1,10 +1,12 @@
 """issue_description.py — auto-fill vague/empty issue bodies using repo context."""
-import os, sys
+
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _common import call_llm, github_rest
 from ci_config import *
-from _common import github_rest, call_llm
 
 MIN_BODY_CHARS = 30
 CONTEXT_MAX_CHARS = 9000

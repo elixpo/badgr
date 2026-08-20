@@ -54,7 +54,7 @@ function renderMarkdown(src: string): string {
   const lines = src.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let inCode = false;
-  let codeLang = "";
+  let _codeLang = "";
   let codeBuf: string[] = [];
   let listType: "ul" | "ol" | null = null;
   let para: string[] = [];
@@ -69,7 +69,7 @@ function renderMarkdown(src: string): string {
     }
   };
 
-  for (let raw of lines) {
+  for (const raw of lines) {
     // ── fenced code blocks ──
     const fence = raw.match(/^```(\w*)\s*$/);
     if (fence) {
@@ -81,11 +81,11 @@ function renderMarkdown(src: string): string {
         );
         inCode = false;
         codeBuf = [];
-        codeLang = "";
+        _codeLang = "";
       } else {
         flushPara(); closeList();
         inCode = true;
-        codeLang = fence[1] || "";
+        _codeLang = fence[1] || "";
       }
       continue;
     }

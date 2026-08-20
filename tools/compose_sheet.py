@@ -27,6 +27,7 @@ optimize_assets.PER_APP_SIZES so it isn't accidentally squashed to 32×32.
 
 import sys
 from pathlib import Path
+
 from PIL import Image
 
 
@@ -44,7 +45,7 @@ def _pop(args, flag, conv=str):
     if i + 1 >= len(args):
         raise SystemExit("%s expects a value" % flag)
     v = args[i + 1]
-    del args[i: i + 2]
+    del args[i : i + 2]
     return conv(v)
 
 
@@ -65,8 +66,8 @@ def main(argv):
         raise SystemExit("--cell WxH is required")
     cw, ch = cell
 
-    bg     = _pop(args, "--bg") or "transparent"
-    app    = _pop(args, "--app")     # if given, resolve frames under apps/<app>/assets/raw/
+    bg = _pop(args, "--bg") or "transparent"
+    app = _pop(args, "--app")  # if given, resolve frames under apps/<app>/assets/raw/
     margin = _pop(args, "--margin", int) or 0
 
     # Whatever remains is the list of frame filenames.
@@ -90,17 +91,19 @@ def main(argv):
 
     sheet_w = cols * cw + (cols + 1) * margin
     sheet_h = rows * ch + (rows + 1) * margin
-    sheet   = Image.new("RGBA", (sheet_w, sheet_h), bg_rgba)
+    sheet = Image.new("RGBA", (sheet_w, sheet_h), bg_rgba)
 
-    print("Composing sheet %dx%d (cells %dx%d, %d/%d filled) → %s"
-          % (sheet_w, sheet_h, cw, ch, len(frames), cols * rows, out_path))
+    print(
+        "Composing sheet %dx%d (cells %dx%d, %d/%d filled) → %s"
+        % (sheet_w, sheet_h, cw, ch, len(frames), cols * rows, out_path)
+    )
 
     placed = skipped = 0
     for idx, name in enumerate(frames):
         col = idx % cols
         row = idx // cols
-        x   = margin + col * (cw + margin)
-        y   = margin + row * (ch + margin)
+        x = margin + col * (cw + margin)
+        y = margin + row * (ch + margin)
 
         if name in ("_", "--empty"):
             print("  [%d, %d]  (empty)" % (col, row))

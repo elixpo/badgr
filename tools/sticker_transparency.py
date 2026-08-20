@@ -35,6 +35,7 @@ except ImportError:
 # image. We fall back to a pure-Python loop if numpy isn't around.
 try:
     import numpy as np
+
     _HAS_NUMPY = True
 except ImportError:
     _HAS_NUMPY = False
@@ -51,27 +52,32 @@ def parse_args():
     p = argparse.ArgumentParser(
         description="Make sticker backgrounds transparent via corner flood-fill.",
     )
-    p.add_argument("names", nargs="*",
-                   help="sticker stems to process (omit = all PNGs in stickers/)")
-    p.add_argument("--tolerance", type=int, default=45,
-                   help="floodfill colour tolerance (default 45). Higher = "
-                        "more aggressive bg removal but more risk of eating "
-                        "the panda's edge.")
-    p.add_argument("--out", default=None,
-                   help="output directory (default: overwrite in place)")
-    p.add_argument("--in-dir", default=str(STICKER_DIR),
-                   help="input directory (default: stickers/)")
+    p.add_argument(
+        "names", nargs="*", help="sticker stems to process (omit = all PNGs in stickers/)"
+    )
+    p.add_argument(
+        "--tolerance",
+        type=int,
+        default=45,
+        help="floodfill colour tolerance (default 45). Higher = "
+        "more aggressive bg removal but more risk of eating "
+        "the panda's edge.",
+    )
+    p.add_argument("--out", default=None, help="output directory (default: overwrite in place)")
+    p.add_argument(
+        "--in-dir", default=str(STICKER_DIR), help="input directory (default: stickers/)"
+    )
     return p.parse_args()
 
 
 def collect(in_dir, names):
-    files = sorted(p for p in in_dir.glob("*.png")
-                   if p.name != "sheet.png" and not p.name.startswith("."))
+    files = sorted(
+        p for p in in_dir.glob("*.png") if p.name != "sheet.png" and not p.name.startswith(".")
+    )
     if names:
         wanted = set(names)
         # Accept either bare stems (01_hello) or filenames (01_hello.png).
-        files = [f for f in files
-                 if f.stem in wanted or f.name in wanted]
+        files = [f for f in files if f.stem in wanted or f.name in wanted]
         missing = wanted - {f.stem for f in files} - {f.name for f in files}
         for m in missing:
             print(f"  ! not found: {m}")
@@ -96,9 +102,9 @@ def make_transparent(in_path, out_path, tolerance):
         # Vectorised path — ~100x faster on a 1024² sticker.
         arr = np.array(rgb)
         bg_mask = (
-            (arr[:, :, 0] == SENTINEL[0]) &
-            (arr[:, :, 1] == SENTINEL[1]) &
-            (arr[:, :, 2] == SENTINEL[2])
+            (arr[:, :, 0] == SENTINEL[0])
+            & (arr[:, :, 1] == SENTINEL[1])
+            & (arr[:, :, 2] == SENTINEL[2])
         )
         rgba = np.array(im)
         rgba[bg_mask, 3] = 0
@@ -106,7 +112,6 @@ def make_transparent(in_path, out_path, tolerance):
     else:
         # Pure-Pillow fallback. Slower (~5–15 s for 1024²) but always works.
         px_rgb = rgb.load()
-        alpha = im.split()[3].load() if im.mode == "RGBA" else None
         im_out = im.copy()
         px_out = im_out.load()
         for y in range(h):
@@ -133,8 +138,10 @@ def main():
     if out_dir:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"transparency pass on {len(files)} sticker(s)  "
-          f"[tolerance={args.tolerance}, numpy={'on' if _HAS_NUMPY else 'off'}]")
+    print(
+        f"transparency pass on {len(files)} sticker(s)  "
+        f"[tolerance={args.tolerance}, numpy={'on' if _HAS_NUMPY else 'off'}]"
+    )
     for fp in files:
         out = (out_dir / fp.name) if out_dir else fp
         try:

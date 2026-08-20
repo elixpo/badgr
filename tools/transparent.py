@@ -20,9 +20,10 @@ Usage:
 """
 
 import sys
-from pathlib import Path
-from PIL import Image
 from collections import deque
+from pathlib import Path
+
+from PIL import Image
 
 
 def _parse(argv):
@@ -32,18 +33,23 @@ def _parse(argv):
     while i < len(args):
         a = args[i]
         if a == "--app" and i + 1 < len(args):
-            opts["app"] = args[i + 1]; i += 2
+            opts["app"] = args[i + 1]
+            i += 2
         elif a == "--tolerance" and i + 1 < len(args):
-            opts["tol"] = int(args[i + 1]); i += 2
+            opts["tol"] = int(args[i + 1])
+            i += 2
         elif a == "--feather" and i + 1 < len(args):
-            opts["feather"] = int(args[i + 1]); i += 2
+            opts["feather"] = int(args[i + 1])
+            i += 2
         elif a == "--rembg":
-            opts["rembg"] = True; i += 1
+            opts["rembg"] = True
+            i += 1
         elif a.startswith("--"):
             print("Unknown flag:", a)
             sys.exit(2)
         else:
-            opts["names"].append(a); i += 1
+            opts["names"].append(a)
+            i += 1
     if not opts["app"]:
         print("Usage: transparent.py --app <name> [stem ...] [--tolerance N] [--rembg]")
         sys.exit(2)
@@ -56,15 +62,14 @@ def _flood_strip(img, tol):
     w, h = img.size
     px = img.load()
 
-    visited = bytearray(w * h)              # 0=unseen, 1=bg
-    starts  = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
-    seeds   = [px[x, y][:3] for x, y in starts]
+    visited = bytearray(w * h)  # 0=unseen, 1=bg
+    starts = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
+    seeds = [px[x, y][:3] for x, y in starts]
+
     # Use an "any seed close enough" predicate so dithered edges still match.
     def is_bg(c):
         for s in seeds:
-            if (abs(c[0] - s[0]) <= tol and
-                abs(c[1] - s[1]) <= tol and
-                abs(c[2] - s[2]) <= tol):
+            if abs(c[0] - s[0]) <= tol and abs(c[1] - s[1]) <= tol and abs(c[2] - s[2]) <= tol:
                 return True
         return False
 
@@ -75,7 +80,7 @@ def _flood_strip(img, tol):
         x, y = q.popleft()
         c = px[x, y][:3]
         if not is_bg(c):
-            visited[y * w + x] = 0    # not actually bg — release
+            visited[y * w + x] = 0  # not actually bg — release
             continue
         for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
             if 0 <= nx < w and 0 <= ny < h and not visited[ny * w + nx]:
@@ -84,7 +89,7 @@ def _flood_strip(img, tol):
 
     # Build the alpha mask
     out = img.copy()
-    op  = out.load()
+    op = out.load()
     cleared = 0
     for y in range(h):
         for x in range(w):
@@ -100,6 +105,7 @@ def _feather(img, radius):
     if radius <= 0:
         return img
     from PIL import ImageFilter
+
     a = img.split()[3].filter(ImageFilter.GaussianBlur(radius))
     rgba = list(img.split())
     rgba[3] = a
@@ -108,13 +114,14 @@ def _feather(img, radius):
 
 def _rembg_strip(img):
     from rembg import remove
+
     return remove(img.convert("RGBA"))
 
 
 def main():
     opts = _parse(sys.argv[1:])
-    raw  = Path("apps") / opts["app"] / "assets" / "raw"
-    out  = Path("apps") / opts["app"] / "assets" / "transparent"
+    raw = Path("apps") / opts["app"] / "assets" / "raw"
+    out = Path("apps") / opts["app"] / "assets" / "transparent"
     if not raw.exists():
         print("No raw directory at %s" % raw)
         return
@@ -146,8 +153,7 @@ def main():
 
         dst = out / src.name
         result.save(dst, format="PNG", optimize=True)
-        print("  %-25s  %dx%d  →  %s   [%s]" %
-              (src.stem, img.size[0], img.size[1], dst.name, note))
+        print("  %-25s  %dx%d  →  %s   [%s]" % (src.stem, img.size[0], img.size[1], dst.name, note))
 
     print("\nDone. Run:  python tools/optimize_assets.py --app %s" % opts["app"])
 

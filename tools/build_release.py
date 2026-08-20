@@ -31,7 +31,6 @@ import sys
 import tarfile
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -102,13 +101,17 @@ SHIP_GLOBS = [
     "apps/*/assets/__init__.py",
     "apps/*/assets/optimized/__init__.py",
     "apps/*/assets/optimized/*.py",
+    "oreoOS/mascot.png",
+    "apps/*/src/**",
+    "apps/gallery/assets/optimized/*.rv565",
 ]
 
 
 def _collect_paths():
     """Return [(local_path, remote_path)] for every shipping file, sorted."""
     seen = set()
-    out  = []
+    out = []
+
     def _add(p):
         rel = str(p.relative_to(REPO_ROOT))
         if rel in seen:
@@ -147,26 +150,35 @@ def _read_version():
     if "oreoOS.config" in sys.modules:
         del sys.modules["oreoOS.config"]
     from oreoOS.config import VERSION
+
     return VERSION
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--version", help="override the version string (default: read config.py)")
-    ap.add_argument("--channel", default="stable",
-                    help="release channel; tag will be <channel>/<version> (default: stable)")
-    ap.add_argument("--notes",   default="",
-                    help="release notes (free text; usually filled in by CI from the commit msg)")
-    ap.add_argument("--asset-base-url", default="",
-                    help="prefix prepended to each file's url field in the manifest. "
-                         "GitHub Releases assets land at "
-                         "https://github.com/<owner>/<repo>/releases/download/<tag>/<name>; "
-                         "set this so OTA clients can find them. Empty = placeholder.")
-    ap.add_argument("--out",     default="dist",
-                    help="output directory root (default: dist/)")
+    ap.add_argument(
+        "--channel",
+        default="stable",
+        help="release channel; tag will be <channel>/<version> (default: stable)",
+    )
+    ap.add_argument(
+        "--notes",
+        default="",
+        help="release notes (free text; usually filled in by CI from the commit msg)",
+    )
+    ap.add_argument(
+        "--asset-base-url",
+        default="",
+        help="prefix prepended to each file's url field in the manifest. "
+        "GitHub Releases assets land at "
+        "https://github.com/<owner>/<repo>/releases/download/<tag>/<name>; "
+        "set this so OTA clients can find them. Empty = placeholder.",
+    )
+    ap.add_argument("--out", default="dist", help="output directory root (default: dist/)")
     args = ap.parse_args()
 
-    version  = args.version or _read_version()
+    version = args.version or _read_version()
     out_root = REPO_ROOT / args.out / version
     out_root.mkdir(parents=True, exist_ok=True)
     files_dir = out_root / "files"
@@ -190,7 +202,7 @@ def main():
         if dest.stat().st_size == 0:
             dest.write_bytes(b"\n")
 
-        sha  = _sha256(dest)
+        sha = _sha256(dest)
         size = dest.stat().st_size
 
         # GitHub Releases assets are stored at one URL per file, named to
@@ -198,19 +210,21 @@ def main():
         # download URL while keeping the original `path` in the manifest.
         flat_name = remote.replace("/", "_")
         url = (args.asset_base_url + flat_name) if args.asset_base_url else flat_name
-        files.append({
-            "path":   remote,
-            "url":    url,
-            "size":   size,
-            "sha256": sha,
-        })
+        files.append(
+            {
+                "path": remote,
+                "url": url,
+                "size": size,
+                "sha256": sha,
+            }
+        )
 
     manifest = {
-        "version":  version,
-        "channel":  args.channel,
-        "tag":      "%s/%s" % (args.channel, version),
-        "notes":    args.notes,
-        "files":    files,
+        "version": version,
+        "channel": args.channel,
+        "tag": "%s/%s" % (args.channel, version),
+        "notes": args.notes,
+        "files": files,
         "manifest_format": 1,
     }
 

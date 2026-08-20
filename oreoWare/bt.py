@@ -40,34 +40,34 @@ Usage:
 """
 
 DEVICE_NAME = "Oreo"
-IMAGE_MAX   = 250 * 1024    # 250 KB hard cap on incoming images.
+IMAGE_MAX = 250 * 1024  # 250 KB hard cap on incoming images.
 
-GALLERY_DIR  = "apps/gallery/assets/raw"
+GALLERY_DIR = "apps/gallery/assets/raw"
 DOCUMENTS_DIR = "documents"
 
-_STATUS_START_OK         = b"\x01"
-_STATUS_DONE             = b"\x02"
-_STATUS_TOO_LARGE        = b"\xE1"
-_STATUS_BAD_CRC          = b"\xE2"
-_STATUS_BAD_TYPE         = b"\xE3"
-_STATUS_DECOMPRESS_FAIL  = b"\xE4"
-_STATUS_WRITE_FAIL       = b"\xE5"
+_STATUS_START_OK = b"\x01"
+_STATUS_DONE = b"\x02"
+_STATUS_TOO_LARGE = b"\xe1"
+_STATUS_BAD_CRC = b"\xe2"
+_STATUS_BAD_TYPE = b"\xe3"
+_STATUS_DECOMPRESS_FAIL = b"\xe4"
+_STATUS_WRITE_FAIL = b"\xe5"
 
 
-_ble        = None
-_rx_handle  = None
-_tx_handle  = None
-_conn       = None    # current central connection handle
-_rx_state   = None    # active reassembler, if any
-_conn_started_ms = None    # ticks_ms at the last CENTRAL_CONNECT, used
-                           # to log how long the link survived on a
-                           # subsequent CENTRAL_DISCONNECT
-_conn_addr_type  = None    # addr_type from the live CENTRAL_CONNECT —
-                           # needed so we can bond inbound pairs
-_conn_addr_bytes = None    # raw addr bytes from the live CENTRAL_CONNECT
+_ble = None
+_rx_handle = None
+_tx_handle = None
+_conn = None  # current central connection handle
+_rx_state = None  # active reassembler, if any
+_conn_started_ms = None  # ticks_ms at the last CENTRAL_CONNECT, used
+# to log how long the link survived on a
+# subsequent CENTRAL_DISCONNECT
+_conn_addr_type = None  # addr_type from the live CENTRAL_CONNECT —
+# needed so we can bond inbound pairs
+_conn_addr_bytes = None  # raw addr bytes from the live CENTRAL_CONNECT
 
-_HEADER_LEN = 5       # type (1) + length (4)
-_CRC_LEN    = 4
+_HEADER_LEN = 5  # type (1) + length (4)
+_CRC_LEN = 4
 
 
 # ── discovery state (BLE central-role scan) ─────────────────────────────
@@ -76,25 +76,35 @@ _CRC_LEN    = 4
 # below; consumed by apps/bt for the Nearby list.
 
 _scan_results = {}
-_scan_active  = False
+_scan_active = False
 
 # Appearance ranges we DROP from the Nearby list. Bluetooth appearance is
 # a 16-bit field laid out as 10-bit category + 6-bit subtype, so each
 # 0x40-wide window is one category.
 _FILTERED_APPEARANCES = (
-    (0x0840, 0x087F),   # Audio Sink (speakers, soundbars)
-    (0x0880, 0x08BF),   # Audio Source
-    (0x0940, 0x097F),   # Wearable Audio (earbuds, headphones)
-    (0x0980, 0x09BF),   # Hearing aid
-    (0x09C0, 0x09FF),   # Microphone subcategory
+    (0x0840, 0x087F),  # Audio Sink (speakers, soundbars)
+    (0x0880, 0x08BF),  # Audio Source
+    (0x0940, 0x097F),  # Wearable Audio (earbuds, headphones)
+    (0x0980, 0x09BF),  # Hearing aid
+    (0x09C0, 0x09FF),  # Microphone subcategory
 )
 
 # Service-UUID blocklist (16-bit profiles) — secondary filter for devices
 # that don't advertise an appearance.
 _AUDIO_SERVICE_UUIDS = (
-    0x110A, 0x110B, 0x110C, 0x110D, 0x110E,   # A2DP / AVRCP
-    0x1108, 0x111E, 0x1112,                    # Headset / HFP
-    0x184E, 0x184F, 0x1850, 0x1851, 0x1852,   # LE Audio profiles
+    0x110A,
+    0x110B,
+    0x110C,
+    0x110D,
+    0x110E,  # A2DP / AVRCP
+    0x1108,
+    0x111E,
+    0x1112,  # Headset / HFP
+    0x184E,
+    0x184F,
+    0x1850,
+    0x1851,
+    0x1852,  # LE Audio profiles
 )
 
 
@@ -118,37 +128,41 @@ def _classify_appearance(app):
     """Return a short tag for the type column. Unknown → 'other'."""
     if app is None:
         return "other"
-    if 0x0040 <= app <= 0x007F: return "phone"
-    if 0x0080 <= app <= 0x00BF: return "computer"
-    if 0x00C0 <= app <= 0x00FF: return "watch"
-    if 0x0140 <= app <= 0x017F: return "display"   # incl. tablet
+    if 0x0040 <= app <= 0x007F:
+        return "phone"
+    if 0x0080 <= app <= 0x00BF:
+        return "computer"
+    if 0x00C0 <= app <= 0x00FF:
+        return "watch"
+    if 0x0140 <= app <= 0x017F:
+        return "display"  # incl. tablet
     return "other"
 
 
 # AD record types (BT Core Spec 5.x Vol 3 Part C 18.x)
-_AD_FLAGS              = 0x01
-_AD_INCOMPLETE_UUID16  = 0x02
-_AD_COMPLETE_UUID16    = 0x03
-_AD_SHORT_NAME         = 0x08
-_AD_COMPLETE_NAME      = 0x09
-_AD_TX_POWER           = 0x0A
-_AD_APPEARANCE         = 0x19
-_AD_MANUFACTURER       = 0xFF
+_AD_FLAGS = 0x01
+_AD_INCOMPLETE_UUID16 = 0x02
+_AD_COMPLETE_UUID16 = 0x03
+_AD_SHORT_NAME = 0x08
+_AD_COMPLETE_NAME = 0x09
+_AD_TX_POWER = 0x0A
+_AD_APPEARANCE = 0x19
+_AD_MANUFACTURER = 0xFF
 
 # Company IDs we'll surface as "label hints" when a peer omits its name
 # (common on iOS, which suppresses the GAP name until pairing). The full
 # Bluetooth SIG assigned-numbers list is huge; we cover the brands the
 # user is most likely to see in a conference hall.
 _MFR_TAGS = {
-    0x004C: "Apple",         # iPhone, iPad, Mac, AirPods
-    0x0006: "Microsoft",     # Surface, Xbox
-    0x00E0: "Google",        # Pixel, Chromebook
+    0x004C: "Apple",  # iPhone, iPad, Mac, AirPods
+    0x0006: "Microsoft",  # Surface, Xbox
+    0x00E0: "Google",  # Pixel, Chromebook
     0x0075: "Samsung",
     0x038F: "Xiaomi",
     0x0157: "Anker",
     0x012D: "Sony",
     0x0001: "Ericsson",
-    0x0059: "Nordic",        # nRF dev boards
+    0x0059: "Nordic",  # nRF dev boards
 }
 
 
@@ -157,10 +171,10 @@ def _parse_adv(adv_data):
     Tolerates malformed payloads — we never trust a peer advertiser to
     be conformant. mfr_id is the first 16-bit Company Identifier from
     a manufacturer-specific data record (AD type 0xFF), or None."""
-    name       = None
+    name = None
     appearance = None
-    services   = []
-    mfr_id     = None
+    services = []
+    mfr_id = None
     if not adv_data:
         return name, appearance, services, mfr_id
     i = 0
@@ -208,6 +222,7 @@ def _mac_str(addr_bytes):
 
 
 # ── discovery API used by apps/bt ───────────────────────────────────────
+
 
 def own_name():
     """Return the GAP Complete Local Name the badge advertises as."""
@@ -281,7 +296,7 @@ def scan_results():
     individual because we can't tell them apart.
     """
     by_name = {}
-    anon    = []
+    anon = []
     for v in _scan_results.values():
         nm = v.get("name") or ""
         if nm and not nm.startswith("device "):
@@ -299,6 +314,7 @@ def scan_results():
 
 # ── pair flow ───────────────────────────────────────────────────────────
 
+
 def pair_state():
     """Tuple of (state, message, target_dict_or_None). UI polls this to
     drive the on-screen popup; state moves IDLE → CONNECTING →
@@ -308,7 +324,7 @@ def pair_state():
 
 def _set_pair_state(state, msg=""):
     global _pair_state, _pair_message
-    _pair_state   = state
+    _pair_state = state
     _pair_message = msg
 
 
@@ -350,10 +366,10 @@ def _apply_security_config(ble):
     accepted = []
     rejected = []
     for kw in (
-        {"bond":      True},
-        {"mitm":      True},
+        {"bond": True},
+        {"mitm": True},
         {"le_secure": True},
-        {"io":        _IO_DISPLAY_YESNO},
+        {"io": _IO_DISPLAY_YESNO},
     ):
         try:
             ble.config(**kw)
@@ -361,8 +377,10 @@ def _apply_security_config(ble):
         except Exception as e:
             rejected.append("%s(%s)" % (list(kw.keys())[0], str(e)[:24]))
     try:
-        print("[bt] security: accepted=%s rejected=%s" %
-              (",".join(accepted) or "-", ",".join(rejected) or "-"))
+        print(
+            "[bt] security: accepted=%s rejected=%s"
+            % (",".join(accepted) or "-", ",".join(rejected) or "-")
+        )
     except Exception:
         pass
 
@@ -383,8 +401,8 @@ def start_pair(target):
     # pass one through — defaulting to 0 (PUBLIC) silently bricked
     # iPhone connections because iOS uses Random Resolvable addresses
     # (type 1). The scan IRQ stashes the correct type per-entry.
-    mac_key   = (target.get("mac") or "").upper()
-    scan_hit  = None
+    mac_key = (target.get("mac") or "").upper()
+    scan_hit = None
     for k, v in _scan_results.items():
         if k.upper() == mac_key:
             scan_hit = v
@@ -421,18 +439,18 @@ def start_pair(target):
         pass
 
     _pair_target = {
-        "mac":       target.get("mac", "").upper(),
-        "name":      target.get("name", ""),
-        "kind":      target.get("kind", "other"),
+        "mac": target.get("mac", "").upper(),
+        "name": target.get("name", ""),
+        "kind": target.get("kind", "other"),
         "addr_type": addr_type,
-        "addr":      bytes(addr),
-        "conn":      None,
+        "addr": bytes(addr),
+        "conn": None,
     }
     _set_pair_state(PAIR_CONNECTING, "connecting...")
     try:
         ble.gap_connect(addr_type, bytes(addr))
         return True
-    except Exception as e:
+    except Exception:
         _set_pair_state(PAIR_FAILED, "connect call failed")
         return False
 
@@ -452,11 +470,13 @@ def cancel_pair():
 
 # ── bonded-device list (read-through to oreoOS.bonds) ───────────────────
 
+
 def paired_devices():
     """Pulled from the on-flash bond store. Wrapped here so callers in
     apps/bt don't have to know about oreoOS.bonds."""
     try:
         from oreoOS import bonds
+
         return list(bonds.list_bonds())
     except Exception:
         return []
@@ -465,6 +485,7 @@ def paired_devices():
 def forget(mac):
     try:
         from oreoOS import bonds
+
         return bonds.remove(mac)
     except Exception:
         return False
@@ -474,6 +495,7 @@ def _get_ble():
     global _ble
     if _ble is None:
         import bluetooth
+
         _ble = bluetooth.BLE()
     return _ble
 
@@ -506,7 +528,7 @@ def set_active(on):
             _start_advertising(ble)
         else:
             try:
-                ble.gap_advertise(None)   # stop adv
+                ble.gap_advertise(None)  # stop adv
             except Exception:
                 pass
         return True
@@ -535,18 +557,20 @@ def init_from_config():
 
 # ─── service registration ────────────────────────────────────────────────
 
+
 def _register_service(ble):
     """Idempotent — only registers once per boot."""
     global _rx_handle, _tx_handle
     if _rx_handle is not None:
         return
     import bluetooth
+
     _SVC_UUID = bluetooth.UUID("6f72656f-0000-1000-8000-00805f9b34fb")
-    _RX_UUID  = bluetooth.UUID("6f72656f-0001-1000-8000-00805f9b34fb")
-    _TX_UUID  = bluetooth.UUID("6f72656f-0002-1000-8000-00805f9b34fb")
+    _RX_UUID = bluetooth.UUID("6f72656f-0001-1000-8000-00805f9b34fb")
+    _TX_UUID = bluetooth.UUID("6f72656f-0002-1000-8000-00805f9b34fb")
     rx_char = (_RX_UUID, bluetooth.FLAG_WRITE | bluetooth.FLAG_WRITE_NO_RESPONSE)
     tx_char = (_TX_UUID, bluetooth.FLAG_NOTIFY)
-    svc     = (_SVC_UUID, (rx_char, tx_char))
+    svc = (_SVC_UUID, (rx_char, tx_char))
     try:
         ((_rx_handle, _tx_handle),) = ble.gatts_register_services((svc,))
     except Exception:
@@ -581,17 +605,19 @@ def _adv_payload(name):
     to carry the full string."""
     name_bytes = name.encode("utf-8")
     # 2-byte appearance (LE)
-    appearance = bytes((3, _AD_APPEARANCE,
-                        _APPEARANCE_GENERIC & 0xFF,
-                        (_APPEARANCE_GENERIC >> 8) & 0xFF))
+    appearance = bytes(
+        (3, _AD_APPEARANCE, _APPEARANCE_GENERIC & 0xFF, (_APPEARANCE_GENERIC >> 8) & 0xFF)
+    )
     # Truncate name so Flags(3) + Appearance(4) + NameHdr(2) + name <= 31.
     max_name = 31 - 3 - 4 - 2
     if len(name_bytes) > max_name:
         name_bytes = name_bytes[:max_name]
-    return (b"\x02\x01\x06"                              # Flags
-            + appearance
-            + bytes((len(name_bytes) + 1, 0x09))         # Complete Local Name
-            + name_bytes)
+    return (
+        b"\x02\x01\x06"  # Flags
+        + appearance
+        + bytes((len(name_bytes) + 1, 0x09))  # Complete Local Name
+        + name_bytes
+    )
 
 
 def _scan_resp_payload(name):
@@ -600,13 +626,13 @@ def _scan_resp_payload(name):
     Badge" cleanly) plus the 128-bit service UUID so apps that filter
     by service can find us."""
     import bluetooth
+
     name_bytes = name.encode("utf-8")
     name_ad = bytes((len(name_bytes) + 1, 0x09)) + name_bytes
     # 128-bit Complete Service UUID list. Endianness is little-endian
     # on the wire (Core Spec Vol 3 Part C 18.2). The constant matches
     # the UUID registered in _register_service.
-    svc_bytes = bytes(reversed(bytes(
-        bluetooth.UUID("6f72656f-0000-1000-8000-00805f9b34fb"))))
+    svc_bytes = bytes(reversed(bytes(bluetooth.UUID("6f72656f-0000-1000-8000-00805f9b34fb"))))
     svc_ad = bytes((len(svc_bytes) + 1, 0x07)) + svc_bytes  # 0x07 = Complete 128-bit UUIDs
     return name_ad + svc_ad
 
@@ -619,13 +645,16 @@ def _start_advertising(ble):
         ble.config(gap_name=DEVICE_NAME)
     except Exception:
         pass
-    interval_us = 200_000   # was 500_000 — too slow for iOS opportunistic scans
-    try:
-        from secrets import BT_ADV_INTERVAL_MS
-        interval_us = int(BT_ADV_INTERVAL_MS) * 1000
-    except Exception:
-        pass
-    adv  = _adv_payload(DEVICE_NAME)
+    interval_us = 200_000  # was 500_000 — too slow for iOS opportunistic scans
+    from oreoOS import config
+
+    adv_ms = config.wifi.BT_ADV_INTERVAL_MS
+    if adv_ms:
+        try:
+            interval_us = int(adv_ms) * 1000
+        except Exception:
+            pass
+    adv = _adv_payload(DEVICE_NAME)
     try:
         resp = _scan_resp_payload(DEVICE_NAME)
     except Exception:
@@ -649,30 +678,30 @@ def _start_advertising(ble):
 
 # ─── IRQ dispatch + reassembly ───────────────────────────────────────────
 
-_IRQ_CENTRAL_CONNECT     = 1
-_IRQ_CENTRAL_DISCONNECT  = 2
-_IRQ_GATTS_WRITE         = 3
-_IRQ_SCAN_RESULT         = 5
-_IRQ_SCAN_DONE           = 6
-_IRQ_PERIPHERAL_CONNECT     = 7
-_IRQ_PERIPHERAL_DISCONNECT  = 8
-_IRQ_ENCRYPTION_UPDATE   = 28
-_IRQ_GET_SECRET          = 29
-_IRQ_SET_SECRET          = 30
+_IRQ_CENTRAL_CONNECT = 1
+_IRQ_CENTRAL_DISCONNECT = 2
+_IRQ_GATTS_WRITE = 3
+_IRQ_SCAN_RESULT = 5
+_IRQ_SCAN_DONE = 6
+_IRQ_PERIPHERAL_CONNECT = 7
+_IRQ_PERIPHERAL_DISCONNECT = 8
+_IRQ_ENCRYPTION_UPDATE = 28
+_IRQ_GET_SECRET = 29
+_IRQ_SET_SECRET = 30
 
 
 # ── pair-flow state machine ─────────────────────────────────────────────
 # Lives at module scope so the IRQ handlers can update it without an
 # explicit dispatch object. Consumed by apps/bt to drive the popup state.
 
-PAIR_IDLE        = "idle"
-PAIR_CONNECTING  = "connecting"
-PAIR_ENCRYPTING  = "encrypting"
-PAIR_DONE        = "done"
-PAIR_FAILED      = "failed"
+PAIR_IDLE = "idle"
+PAIR_CONNECTING = "connecting"
+PAIR_ENCRYPTING = "encrypting"
+PAIR_DONE = "done"
+PAIR_FAILED = "failed"
 
-_pair_state   = PAIR_IDLE
-_pair_target  = None     # {"mac", "name", "kind", "addr_type", "addr", "conn"}
+_pair_state = PAIR_IDLE
+_pair_target = None  # {"mac", "name", "kind", "addr_type", "addr", "conn"}
 _pair_message = ""
 
 # Security config — LE Secure Connections with Numeric Comparison.
@@ -686,31 +715,33 @@ _pair_message = ""
 # Older phones / odd peers that can't negotiate Secure Connections fall
 # back to legacy pairing; we keep mitm=True so the stack picks the most
 # secure method available rather than silently dropping to JustWorks.
-_IO_DISPLAY_YESNO       = 1
-_IO_NO_INPUT_NO_OUTPUT  = 3
+_IO_DISPLAY_YESNO = 1
+_IO_NO_INPUT_NO_OUTPUT = 3
 
 # Passkey-action codes the stack hands back in _IRQ_PASSKEY_ACTION.
-_PASSKEY_ACTION_NONE    = 0
-_PASSKEY_ACTION_INPUT   = 1     # peer-side: we'd need a keyboard
-_PASSKEY_ACTION_DISP    = 2     # legacy: display passkey, peer enters
-_PASSKEY_ACTION_NUMCMP  = 4     # Secure-Connections numeric comparison
+_PASSKEY_ACTION_NONE = 0
+_PASSKEY_ACTION_INPUT = 1  # peer-side: we'd need a keyboard
+_PASSKEY_ACTION_DISP = 2  # legacy: display passkey, peer enters
+_PASSKEY_ACTION_NUMCMP = 4  # Secure-Connections numeric comparison
 
-_IRQ_PASSKEY_ACTION     = 31
+_IRQ_PASSKEY_ACTION = 31
 
 # Inbound pair-prompt state. Populated by _IRQ_PASSKEY_ACTION and
 # polled by oreoOS.pair_prompt to drive the on-screen confirmation
 # overlay. Cleared by accept_pair_prompt() / reject_pair_prompt().
-_pair_prompt = None      # {"conn", "action", "passkey", "name", "mac"}
+_pair_prompt = None  # {"conn", "action", "passkey", "name", "mac"}
 
 
 class _RxState:
     """Stateful reassembler: header → payload → crc → write."""
-    __slots__ = ("type_byte", "length", "buf", "crc_buf")
+
+    __slots__ = ("buf", "crc_buf", "length", "type_byte")
+
     def __init__(self):
         self.type_byte = None
-        self.length    = None
-        self.buf       = bytearray()
-        self.crc_buf   = bytearray()
+        self.length = None
+        self.buf = bytearray()
+        self.crc_buf = bytearray()
 
 
 def _irq(event, data):
@@ -728,8 +759,7 @@ def _irq(event, data):
         if _conn is not None and conn_handle != _conn:
             try:
                 _get_ble().gap_disconnect(conn_handle)
-                print("[bt] rejected 2nd connect handle=%d (busy with %d)" %
-                      (conn_handle, _conn))
+                print("[bt] rejected 2nd connect handle=%d (busy with %d)" % (conn_handle, _conn))
             except Exception:
                 pass
             return
@@ -739,16 +769,16 @@ def _irq(event, data):
         # bond store. Without this we'd only persist outbound (we-
         # initiated) pairs, and the user would see "phone paired" on
         # their phone but no entry in the badge's Paired list.
-        _conn_addr_type  = _addr_type
+        _conn_addr_type = _addr_type
         try:
             _conn_addr_bytes = bytes(_addr)
         except Exception:
             _conn_addr_bytes = None
         try:
             import time as _t
+
             _conn_started_ms = _t.ticks_ms()
-            print("[bt] central connect handle=%d type=%d" %
-                  (conn_handle, _addr_type))
+            print("[bt] central connect handle=%d type=%d" % (conn_handle, _addr_type))
         except Exception:
             _conn_started_ms = None
         # Surface the new peer in the notification panel so the user
@@ -758,6 +788,7 @@ def _irq(event, data):
         try:
             mac = _mac_str(bytes(_addr))
             from oreoOS import notifications as _n
+
             _n.push("bt", "BT connected", mac, target=None)
         except Exception:
             pass
@@ -781,15 +812,15 @@ def _irq(event, data):
     elif event == _IRQ_CENTRAL_DISCONNECT:
         try:
             import time as _t
-            held = _t.ticks_diff(_t.ticks_ms(), _conn_started_ms) \
-                   if _conn_started_ms else -1
+
+            held = _t.ticks_diff(_t.ticks_ms(), _conn_started_ms) if _conn_started_ms else -1
             print("[bt] central disconnect held=%d ms" % held)
         except Exception:
             pass
         _conn = None
         _rx_state = None
         _conn_started_ms = None
-        _conn_addr_type  = None
+        _conn_addr_type = None
         _conn_addr_bytes = None
         # Restart advertising so the next peer can find us.
         try:
@@ -804,7 +835,7 @@ def _irq(event, data):
         if chunk:
             _feed(chunk)
     elif event == _IRQ_SCAN_RESULT:
-        addr_type, addr, adv_type, rssi, adv_data = data
+        addr_type, addr, _adv_type, rssi, adv_data = data
         # Each result fires many times per device per scan window; we
         # merge into the dict so the most recent RSSI + any newly
         # discovered name wins. bytes(addr) copies out of the IRQ-scoped
@@ -830,42 +861,40 @@ def _irq(event, data):
                 name = "device " + tail
         cur = _scan_results.get(mac)
         if cur is None:
-            cur = {"mac":         mac,
-                   "name":        name,
-                   "rssi":        rssi,
-                   "appearance":  appearance,
-                   "services":    services,
-                   "type":        _classify_appearance(appearance),
-                   # Capture addr_type so start_pair() can pass the
-                   # correct type to gap_connect — defaulting to 0
-                   # (PUBLIC) was breaking every iPhone connection
-                   # because iOS uses Random Resolvable addresses.
-                   "addr_type":   addr_type,
-                   "addr":        bytes(addr),
-                   "mfr_id":      mfr_id}
+            cur = {
+                "mac": mac,
+                "name": name,
+                "rssi": rssi,
+                "appearance": appearance,
+                "services": services,
+                "type": _classify_appearance(appearance),
+                # Capture addr_type so start_pair() can pass the
+                # correct type to gap_connect — defaulting to 0
+                # (PUBLIC) was breaking every iPhone connection
+                # because iOS uses Random Resolvable addresses.
+                "addr_type": addr_type,
+                "addr": bytes(addr),
+                "mfr_id": mfr_id,
+            }
             _scan_results[mac] = cur
         else:
-            cur["rssi"]      = rssi
+            cur["rssi"] = rssi
             cur["addr_type"] = addr_type
-            cur["addr"]      = bytes(addr)
+            cur["addr"] = bytes(addr)
             # Names from active scan responses are usually more complete
             # than the ones in the initial adv. Prefer real names over
             # our manufacturer-tag / MAC-tail fallbacks; among real
             # names prefer the longer one.
             cur_name = cur["name"] or ""
-            cur_is_fallback = (cur_name.startswith("device ") or
-                               cur_name.endswith("device"))
-            new_is_fallback = (name and (name.startswith("device ") or
-                                         name.endswith("device")))
-            if name and not new_is_fallback and (
-                    cur_is_fallback or len(name) > len(cur_name)):
-                cur["name"] = name
-            elif name and new_is_fallback and cur_is_fallback and \
-                    len(name) > len(cur_name):
+            cur_is_fallback = cur_name.startswith("device ") or cur_name.endswith("device")
+            new_is_fallback = name and (name.startswith("device ") or name.endswith("device"))
+            if (
+                name and not new_is_fallback and (cur_is_fallback or len(name) > len(cur_name))
+            ) or (name and new_is_fallback and cur_is_fallback and len(name) > len(cur_name)):
                 cur["name"] = name
             if appearance and not cur["appearance"]:
                 cur["appearance"] = appearance
-                cur["type"]       = _classify_appearance(appearance)
+                cur["type"] = _classify_appearance(appearance)
             if services:
                 cur["services"] = services
             if mfr_id and not cur.get("mfr_id"):
@@ -907,13 +936,15 @@ def _irq(event, data):
                 # from the scan result, so the bond record is rich.
                 try:
                     from oreoOS import bonds
-                    bonds.add(_pair_target["mac"],
-                              _pair_target.get("name", ""),
-                              _pair_target.get("kind", "other"))
+
+                    bonds.add(
+                        _pair_target["mac"],
+                        _pair_target.get("name", ""),
+                        _pair_target.get("kind", "other"),
+                    )
                 except Exception:
                     pass
-                _set_pair_state(PAIR_DONE,
-                                "paired" + (" + bonded" if bonded else ""))
+                _set_pair_state(PAIR_DONE, "paired" + (" + bonded" if bonded else ""))
             elif _conn_addr_bytes is not None:
                 # INBOUND pair (phone initiated). We don't know the
                 # peer's friendly name — we never scanned it — so the
@@ -922,6 +953,7 @@ def _irq(event, data):
                 # "phone says paired but Paired list is empty" bug.
                 try:
                     from oreoOS import bonds
+
                     mac = _mac_str(_conn_addr_bytes)
                     bonds.add(mac, "BT peer " + mac[-5:], "other")
                     print("[bt] inbound bond saved: %s" % mac)
@@ -960,15 +992,14 @@ def _irq(event, data):
             # the conn handle alongside the number; the BT app's
             # connect notification already surfaced the MAC.
             _pair_prompt = {
-                "conn":    conn_handle,
-                "action":  action,
+                "conn": conn_handle,
+                "action": action,
                 "passkey": int(passkey),
-                "name":    "BT peer",
-                "mac":     "",
+                "name": "BT peer",
+                "mac": "",
             }
             try:
-                print("[bt] pair prompt passkey=%06d conn=%d" %
-                      (int(passkey), conn_handle))
+                print("[bt] pair prompt passkey=%06d conn=%d" % (int(passkey), conn_handle))
             except Exception:
                 pass
         else:
@@ -984,8 +1015,8 @@ def _irq(event, data):
         sec_type, key, value = data
         try:
             from oreoOS import bonds
-            bonds.set_secret(sec_type, bytes(key) if key else None,
-                             bytes(value) if value else None)
+
+            bonds.set_secret(sec_type, bytes(key) if key else None, bytes(value) if value else None)
         except Exception:
             return False
         return True
@@ -993,8 +1024,8 @@ def _irq(event, data):
         sec_type, index, key = data
         try:
             from oreoOS import bonds
-            return bonds.get_secret(sec_type, index,
-                                    bytes(key) if key else None)
+
+            return bonds.get_secret(sec_type, index, bytes(key) if key else None)
         except Exception:
             return None
 
@@ -1028,15 +1059,24 @@ def _emit_progress(received, total, type_byte):
         return
     _last_progress_bytes = received
     pct = int((received * 100) // total)
-    kind = "image" if type_byte == b"I" else \
-           "text"  if type_byte == b"T" else \
-           "markdown" if type_byte == b"M" else "file"
+    kind = (
+        "image"
+        if type_byte == b"I"
+        else "text"
+        if type_byte == b"T"
+        else "markdown"
+        if type_byte == b"M"
+        else "file"
+    )
     try:
         from oreoOS import notifications as _n
-        _n.push("bt",
-                "Receiving %s" % kind,
-                "%d%% · %d/%d KB" % (pct, received // 1024, total // 1024),
-                target=None)
+
+        _n.push(
+            "bt",
+            "Receiving %s" % kind,
+            "%d%% · %d/%d KB" % (pct, received // 1024, total // 1024),
+            target=None,
+        )
     except Exception:
         pass
 
@@ -1107,6 +1147,7 @@ def watchdog_tick():
     global _watchdog_last_ms
     try:
         import time as _t
+
         now = _t.ticks_ms()
     except Exception:
         return
@@ -1133,6 +1174,7 @@ def watchdog_tick():
 # can render the on-screen confirmation overlay. Three calls cover the
 # state machine: peek to read the live prompt, accept to confirm, reject
 # to refuse.
+
 
 def peek_pair_prompt():
     """Return the live pair-prompt dict, or None if no prompt is
@@ -1184,13 +1226,12 @@ def _feed(chunk):
     # Header phase — accumulate 5 bytes.
     if st.length is None:
         need = _HEADER_LEN - len(st.buf)
-        st.buf.extend(chunk[pos:pos + need])
+        st.buf.extend(chunk[pos : pos + need])
         pos += need
         if len(st.buf) < _HEADER_LEN:
             return
         st.type_byte = bytes(st.buf[0:1])
-        st.length    = (st.buf[1] << 24) | (st.buf[2] << 16) \
-                     | (st.buf[3] << 8)  |  st.buf[4]
+        st.length = (st.buf[1] << 24) | (st.buf[2] << 16) | (st.buf[3] << 8) | st.buf[4]
         st.buf = bytearray()
         # Validate before consuming any payload. Accepted types are
         # exactly I (image), T (text) and M (markdown) — anything else
@@ -1201,12 +1242,14 @@ def _feed(chunk):
         if st.type_byte not in (b"I", b"T", b"M"):
             _notify(_STATUS_BAD_TYPE)
             try:
-                _post_notification("rejected",
-                                   None,
-                                   None,
-                                   title="Unsupported file",
-                                   body="Only .md and .txt are accepted",
-                                   kind="reject")
+                _post_notification(
+                    "rejected",
+                    None,
+                    None,
+                    title="Unsupported file",
+                    body="Only .md and .txt are accepted",
+                    kind="reject",
+                )
             except Exception:
                 pass
             _rx_state = _RxState()
@@ -1214,12 +1257,14 @@ def _feed(chunk):
         if st.type_byte == b"I" and st.length > IMAGE_MAX:
             _notify(_STATUS_TOO_LARGE)
             try:
-                _post_notification("rejected",
-                                   None,
-                                   None,
-                                   title="Image too large",
-                                   body="Max %d KB per transfer" % (IMAGE_MAX // 1024),
-                                   kind="reject")
+                _post_notification(
+                    "rejected",
+                    None,
+                    None,
+                    title="Image too large",
+                    body="Max %d KB per transfer" % (IMAGE_MAX // 1024),
+                    kind="reject",
+                )
             except Exception:
                 pass
             _rx_state = _RxState()
@@ -1229,7 +1274,7 @@ def _feed(chunk):
     # Payload phase.
     remaining = st.length - len(st.buf)
     if remaining > 0:
-        take = chunk[pos:pos + remaining]
+        take = chunk[pos : pos + remaining]
         st.buf.extend(take)
         pos += len(take)
         # Progress hook — best-effort throttled notification update so
@@ -1245,7 +1290,7 @@ def _feed(chunk):
 
     # CRC phase.
     need = _CRC_LEN - len(st.crc_buf)
-    st.crc_buf.extend(chunk[pos:pos + need])
+    st.crc_buf.extend(chunk[pos : pos + need])
     if len(st.crc_buf) < _CRC_LEN:
         return
 
@@ -1256,8 +1301,8 @@ def _feed(chunk):
 def _finish(st):
     """Validate CRC and commit the payload to disk."""
     import binascii
-    expected = (st.crc_buf[0] << 24) | (st.crc_buf[1] << 16) \
-             | (st.crc_buf[2] << 8)  |  st.crc_buf[3]
+
+    expected = (st.crc_buf[0] << 24) | (st.crc_buf[1] << 16) | (st.crc_buf[2] << 8) | st.crc_buf[3]
     actual = binascii.crc32(bytes(st.buf)) & 0xFFFFFFFF
     if actual != expected:
         _notify(_STATUS_BAD_CRC)
@@ -1280,8 +1325,7 @@ def _finish(st):
         _post_notification(kind_label, len(st.buf), notif_target)
 
 
-def _post_notification(kind_label, size_bytes, target,
-                       title=None, body=None, kind="file"):
+def _post_notification(kind_label, size_bytes, target, title=None, body=None, kind="file"):
     """Push a transfer event into the OS notification ring.
 
     Successful transfers default to kind="file" with a "N bytes via BT"
@@ -1290,6 +1334,7 @@ def _post_notification(kind_label, size_bytes, target,
     """
     try:
         from oreoOS import notifications
+
         if title is None:
             title = "New %s" % kind_label
         if body is None:
@@ -1306,8 +1351,10 @@ def _post_notification(kind_label, size_bytes, target,
 
 # ─── disk landing ────────────────────────────────────────────────────────
 
+
 def _ensure_dir(path):
     import os
+
     parts = path.split("/")
     cur = ""
     for p in parts:
@@ -1321,6 +1368,7 @@ def _ensure_dir(path):
 def _ts():
     try:
         import time
+
         return str(time.time())
     except Exception:
         return "0"
@@ -1330,7 +1378,7 @@ def _sniff_image_ext(buf):
     """Best-effort magic-number sniff. Default to .bin if unknown."""
     if len(buf) >= 8 and buf[:8] == b"\x89PNG\r\n\x1a\n":
         return "png"
-    if len(buf) >= 3 and buf[:3] == b"\xFF\xD8\xFF":
+    if len(buf) >= 3 and buf[:3] == b"\xff\xd8\xff":
         return "jpg"
     if len(buf) >= 6 and buf[:6] in (b"GIF87a", b"GIF89a"):
         return "gif"
@@ -1355,8 +1403,10 @@ def _write_text(buf, ext="txt"):
     `ext` controls the landing extension — "txt" for plain text and "md"
     for markdown payloads. Both share the same wire compression."""
     try:
-        import deflate
         import io
+
+        import deflate
+
         plain = deflate.DeflateIO(io.BytesIO(buf)).read()
     except Exception:
         # Sender may have skipped compression for tiny payloads — accept

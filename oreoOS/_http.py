@@ -22,7 +22,8 @@ import time
 
 try:
     import socket as _socket
-    import ssl    as _ssl
+    import ssl as _ssl
+
     _OK = True
 except ImportError:
     _OK = False
@@ -44,7 +45,7 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     if not url.startswith("https://"):
         return None
 
-    rest = url[len("https://"):]
+    rest = url[len("https://") :]
     slash = rest.find("/")
     if slash < 0:
         host, path = rest, "/"
@@ -53,8 +54,10 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     port = 443
     if ":" in host:
         host, p = host.split(":", 1)
-        try: port = int(p)
-        except ValueError: port = 443
+        try:
+            port = int(p)
+        except ValueError:
+            port = 443
 
     accept_hdr = accept or "*/*"
 
@@ -62,9 +65,12 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     # present in oreoOS.config. Bumps anonymous limit (60 / hr / IP)
     # to 5000 / hr — relevant only for sustained Store / OTA polling.
     # `auth` arg overrides if the caller wants something custom.
-    if auth is None and ("github.com" in host or "githubusercontent.com" in host):
+    if auth is None and "api.github.com" in host:
         try:
-            from oreoOS.config import GH_TOKEN as _TOK
+            from oreoOS import config
+
+            _TOK = getattr(config.github, "TOKEN", "")
+
             if _TOK:
                 auth = "Bearer " + _TOK
         except Exception:
@@ -76,19 +82,46 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     raw = None
     try:
         _bc("dns " + host)
-        addr = _socket.getaddrinfo(host, port)[0][-1]
-        _bc("connect " + host + ":" + str(port))
-        raw = _socket.socket()
+        raw = None
+        for res in _socket.getaddrinfo(host, port):
+            af, socktype, proto, _, sa = res
+            try:
+                raw = _socket.socket(af, socktype, proto)
+                raw.settimeout(min(3.5, timeout_s))
+                raw.connect(sa)
+                break
+            except Exception:
+                if raw is not None:
+                    try:
+                        raw.close()
+                    except Exception:
+                        pass
+                raw = None
+
+        if raw is None:
+            _bc("connect FAIL " + host)
+            return None
+
         raw.settimeout(timeout_s)
-        raw.connect(addr)
         _bc("ssl")
-        s = _ssl.wrap_socket(raw, server_hostname=host)
-        # SSLSocket wraps raw — settimeout on raw doesn't always
-        # propagate. Set it again on the wrapper so .read() honours it.
         try:
-            s.settimeout(timeout_s)
-        except Exception:
-            pass
+            if hasattr(_ssl, "create_default_context"):
+                ctx = _ssl.create_default_context()
+                s = ctx.wrap_socket(raw, server_hostname=host)
+            else:
+                s = _ssl.wrap_socket(raw, server_hostname=host)
+            # SSLSocket wraps raw — settimeout on raw doesn't always
+            # propagate. Set it again on the wrapper so .read() honours it.
+            try:
+                s.settimeout(timeout_s)
+            except Exception:
+                pass
+        finally:
+            if s is None and raw is not None:
+                try:
+                    raw.close()
+                except Exception:
+                    pass
 
         req = (
             "GET %s HTTP/1.1\r\n"
@@ -103,6 +136,8 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
 
         _bc("read")
         buf = bytearray()
+        expected_len = None
+        head_end = -1
         while True:
             # Hard wallclock guard — even if settimeout misfires we
             # bail when the budget is blown.
@@ -117,6 +152,23 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
             if not chunk:
                 break
             buf.extend(chunk)
+
+            if head_end < 0 and b"\r\n\r\n" in buf:
+                head_end = buf.find(b"\r\n\r\n")
+                if head_end >= 0:
+                    head_lower = bytes(buf[:head_end]).lower()
+                    cl_idx = head_lower.find(b"\r\ncontent-length: ")
+                    if cl_idx >= 0:
+                        cl_val = head_lower[cl_idx + 18 :].split(b"\r\n", 1)[0]
+                        try:
+                            expected_len = int(cl_val)
+                        except ValueError:
+                            pass
+
+            if head_end >= 0 and expected_len is not None:
+                if len(buf) - (head_end + 4) >= expected_len:
+                    break
+
             if len(buf) > 256 * 1024:
                 break
     except Exception as e:
@@ -135,14 +187,16 @@ def get_url(url, accept=None, timeout_s=4, auth=None):
     if head_end < 0:
         return None
     head = bytes(buf[:head_end])
-    body = bytes(buf[head_end + 4:])
+    body = bytes(buf[head_end + 4 :])
 
     status = 0
-    line0  = head.split(b"\r\n", 1)[0]
-    parts  = line0.split(b" ", 2)
+    line0 = head.split(b"\r\n", 1)[0]
+    parts = line0.split(b" ", 2)
     if len(parts) >= 2:
-        try: status = int(parts[1])
-        except ValueError: status = 0
+        try:
+            status = int(parts[1])
+        except ValueError:
+            status = 0
     if status != 200:
         _bc("HTTP %d %s" % (status, host))
         return None
@@ -169,6 +223,6 @@ def _dechunk(body):
         i = nl + 2
         if n == 0:
             break
-        out.extend(body[i:i + n])
+        out.extend(body[i : i + n])
         i += n + 2
     return bytes(out)

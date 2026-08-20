@@ -4,125 +4,159 @@ Five rows, UP/DOWN to select, A toggles or actions, HOME exits.
 """
 
 import oreoOS
-from oreoOS import api
-from oreoOS import theme, widgets
+from oreoOS import api, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-ROW_H        = 28
-ROW_PAD_X    = 18
-PAD_TOP      = 8                  # breathing-room below the header
-PAD_BOT      = 8                  # breathing-room above the hint bar
-ROW_TOP_Y    = widgets.HEADER_H + PAD_TOP
+ROW_H = 28
+ROW_PAD_X = 18
+PAD_TOP = 8  # breathing-room below the header
+PAD_BOT = 8  # breathing-room above the hint bar
+ROW_TOP_Y = widgets.HEADER_H + PAD_TOP
 
 # How many full rows fit inside the play area (used as the scroll window).
-_PLAY_H       = SH - widgets.HEADER_H - widgets.HINT_H - PAD_TOP - PAD_BOT
-VISIBLE_ROWS  = max(1, _PLAY_H // ROW_H)
+_PLAY_H = SH - widgets.HEADER_H - widgets.HINT_H - PAD_TOP - PAD_BOT
+VISIBLE_ROWS = max(1, _PLAY_H // ROW_H)
 
 
 class _Row:
-    __slots__ = ("label", "kind", "getter", "setter", "step", "max_val",
-                 "on_label", "off_label")
-    def __init__(self, label, kind, getter=None, setter=None,
-                 step=10, max_val=100,
-                 on_label="ON", off_label="OFF"):
-        self.label   = label
-        self.kind    = kind        # "toggle" | "info" | "action" | "slider"
-        self.getter  = getter
-        self.setter  = setter
+    __slots__ = (
+        "getter",
+        "kind",
+        "label",
+        "max_val",
+        "off_label",
+        "on_label",
+        "setter",
+        "step",
+    )
+
+    def __init__(
+        self,
+        label,
+        kind,
+        getter=None,
+        setter=None,
+        step=10,
+        max_val=100,
+        on_label="ON",
+        off_label="OFF",
+    ):
+        self.label = label
+        self.kind = kind  # "toggle" | "info" | "action" | "slider"
+        self.getter = getter
+        self.setter = setter
         # Per-row L/R adjustment step. 10 is right for percent-style sliders
         # (brightness 0-100); minute counters use 1 so 1->30 isn't 3 jumps.
-        self.step    = step
+        self.step = step
         # Full-scale value the slider's progress-bar fills at. 100 for
         # brightness; 10 for the auto-sleep timer (so the bar reads full
         # when sleep-after is at its max 10 min).
         self.max_val = max_val
         # Custom labels for toggle rows where ON/OFF doesn't read well
         # ("App View" reads "Cat" / "Grid" instead).
-        self.on_label  = on_label
+        self.on_label = on_label
         self.off_label = off_label
 
 
 class App(oreoOS.App):
-    name         = "Settings"
-    author       = "Circuit-Overtime"
-    SHOW_LOADING = True     # pulls the pink slide-down panel while on_enter
-                            # wires up WiFi / BT / power manager imports.
+    SHOW_LOADING = True  # pulls the pink slide-down panel while on_enter
+    # wires up WiFi / BT / power manager imports.
 
     def on_enter(self, os):
-        self._os         = os
-        self._sel        = 0
-        self._scroll_top = 0           # first visible row index
-        self._dirty      = True
+        self._os = os
+        self.title = "SETTINGS"
+        self.hints = [("A", "toggle"), ("L/R", "slider"), ("HOME", "back")]
+        self._sel = 0
+        self._scroll_top = 0  # first visible row index
+        self._dirty = True
 
         # Lazily import the WiFi / BT modules so the sim doesn't crash.
         try:
-            from oreoWare import wifi as _w, bt as _b
+            from oreoWare import bt as _b
+            from oreoWare import wifi as _w
+
             self._wifi = _w
-            self._bt   = _b
+            self._bt = _b
         except Exception:
             self._wifi = None
-            self._bt   = None
+            self._bt = None
 
-        self._brightness = 100   # logical brightness (0..100), backlight is pure HIGH for now
+        self._brightness = 100  # logical brightness (0..100), backlight is pure HIGH for now
 
         # Power-manager settings live in the SETTINGS dict in oreoOS.power.
         # Default to "on, 120 s" if the module isn't importable for any reason.
         try:
             from oreoOS import power as _pm
+
             self._pm = _pm
             _pm.load_settings(os)
         except Exception:
             self._pm = None
 
         self._rows = [
-            _Row("WiFi",        "action",
-                 getter=lambda: self._wifi_summary(),
-                 setter=lambda v: self._open_wifi()),
-            _Row("Bluetooth",   "action",
-                 getter=lambda: self._bt_summary(),
-                 setter=lambda v: self._open_bt()),
-            _Row("Brightness",  "slider",
-                 getter=lambda: self._brightness,
-                 setter=lambda v: self._set_brightness(v)),
-            _Row("Auto Sleep",  "toggle",
-                 getter=self._idle_enabled,
-                 setter=self._set_idle_enabled),
-            _Row("Sleep After", "slider",
-                 getter=self._idle_minutes,
-                 setter=self._set_idle_minutes,
-                 step=1, max_val=10),
-            _Row("Categorical", "toggle",
-                 getter=self._app_view_categorical,
-                 setter=self._set_app_view_categorical),
-            _Row("App View",    "toggle",
-                 getter=self._app_view_is_categories,
-                 setter=self._set_app_view_categories,
-                 on_label="Cat", off_label="Grid"),
-            _Row("Storage",     "action",
-                 setter=lambda v: self._open_storage()),
-            _Row("Sync Time",   "action",
-                 getter=lambda: self._sync_time_summary(),
-                 setter=lambda v: self._sync_time()),
-
+            _Row(
+                "WiFi",
+                "action",
+                getter=lambda: self._wifi_summary(),
+                setter=lambda v: self._open_wifi(),
+            ),
+            _Row(
+                "Bluetooth",
+                "action",
+                getter=lambda: self._bt_summary(),
+                setter=lambda v: self._open_bt(),
+            ),
+            _Row(
+                "Brightness",
+                "slider",
+                getter=lambda: self._brightness,
+                setter=lambda v: self._set_brightness(v),
+            ),
+            _Row("Auto Sleep", "toggle", getter=self._idle_enabled, setter=self._set_idle_enabled),
+            _Row(
+                "Sleep After",
+                "slider",
+                getter=self._idle_minutes,
+                setter=self._set_idle_minutes,
+                step=1,
+                max_val=10,
+            ),
+            _Row(
+                "App View",
+                "toggle",
+                getter=self._app_view_is_categories,
+                setter=self._set_app_view_categories,
+                on_label="Cat",
+                off_label="Grid",
+            ),
+            _Row("Storage", "action", setter=lambda v: self._open_storage()),
+            _Row(
+                "Sync Time",
+                "action",
+                getter=lambda: self._sync_time_summary(),
+                setter=lambda v: self._sync_time(),
+            ),
             # Gestures — phone-style detail screen. Settings here just
             # links into apps/gestures/ which owns the per-gesture
             # toggles + IMU power coordination, mirroring the WiFi /
             # Bluetooth pattern (deep settings live in their own app).
-            _Row("Gestures",    "action",
-                 getter=lambda: self._gestures_summary(),
-                 setter=lambda v: self._open_gestures()),
-
+            _Row(
+                "Gestures",
+                "action",
+                getter=lambda: self._gestures_summary(),
+                setter=lambda v: self._open_gestures(),
+            ),
             # Version → tap to open the full Updates page (Check +
             # Install live there now, mirroring the GitHub Releases UI).
             # The value column shows the version string so the row
             # still reads as a status line at a glance.
-            _Row("Version",     "action",
-                 getter=self._os_version,
-                 setter=lambda v: self._open_updates()),
-            _Row("Reboot",      "action",
-                 setter=lambda v: self._reboot()),
+            _Row(
+                "Version", "action", getter=self._os_version, setter=lambda v: self._open_updates()
+            ),
+            _Row("Factory Reset", "action", setter=lambda v: self._factory_reset()),
+            _Row("Reboot", "action", setter=lambda v: self._reboot()),
         ]
 
     # ── actions ──────────────────────────────────────────────────────────
@@ -150,20 +184,24 @@ class App(oreoOS.App):
     # the power manager's tick math stays in milliseconds without a unit
     # conversion every frame.
     def _idle_enabled(self):
-        if not self._pm: return True
+        if not self._pm:
+            return True
         return bool(self._pm.SETTINGS.get("idle_enable", True))
 
     def _set_idle_enabled(self, v):
-        if not self._pm: return
+        if not self._pm:
+            return
         self._pm.SETTINGS["idle_enable"] = bool(v)
         self._pm.save_settings(self._os)
 
     def _idle_minutes(self):
-        if not self._pm: return 2
+        if not self._pm:
+            return 2
         return max(0, int(self._pm.SETTINGS.get("idle_seconds", 120) / 60))
 
     def _set_idle_minutes(self, v):
-        if not self._pm: return
+        if not self._pm:
+            return
         # 0 = auto-sleep off (power.py also skips when seconds == 0).
         # 10 = top cap so the slider doesn't run off into hours.
         v = max(0, min(10, int(v)))
@@ -197,13 +235,13 @@ class App(oreoOS.App):
 
     @staticmethod
     def _os_version():
-        """Pull the live VERSION constant from the launcher so the Settings
-        row stays in sync with the actual deployed OS — no double bookkeeping."""
+        """Pull canonical OS version string."""
         try:
-            from oreoOS import launcher
-            return getattr(launcher, "VERSION", "?")
+            from oreoOS import api
+
+            return api.get_version()
         except Exception:
-            return "?"
+            return "v1.4.103-dev"
 
     # ── Updates page launcher ───────────────────────────────────────────
     # All version / OTA actions live in apps/updates/ now. Settings just
@@ -217,15 +255,54 @@ class App(oreoOS.App):
     def _reboot(self):
         try:
             import machine
+
             machine.reset()
         except Exception:
             self._os.quit()
 
+    def _factory_reset(self):
+        row = self._rows[self._sel]
+        if row.label == "Factory Reset":
+            row.label = "Confirm Wipe?"
+            self._dirty = True
+        else:
+            try:
+                from oreoOS import config, storage, theme
+
+                # Wipe state directory
+                storage.rm_tree(config.storage.ROOT_DIR)
+
+                # Wipe any legacy root state files if present
+                for legacy_file in (
+                    "state_color.txt",
+                    "state_theme.json",
+                    "settings.json",
+                    "bonds.json",
+                ):
+                    try:
+                        import os
+
+                        if os.path.exists(legacy_file):
+                            os.remove(legacy_file)
+                    except Exception:
+                        pass
+
+                # Reset runtime theme to default celebration
+                theme.set_preset("celebration", save=False)
+
+                import machine
+
+                machine.reset()
+            except Exception:
+                self._os.quit()
+
     def _open_storage(self):
         try:
             self._os.launch("storage")
-        except Exception:
-            pass
+        except Exception as e:
+            from oreoOS import api
+
+            api.log_debug("SETTINGS", "Failed to launch storage", e)
 
     # ── time sync ───────────────────────────────────────────────────────
     # Manual NTP re-sync. The boot path runs this once when WiFi comes up;
@@ -249,8 +326,7 @@ class App(oreoOS.App):
             return ""
         # Master is ON — count which individual gestures are active.
         try:
-            keys = ("gesture_tap", "gesture_double_tap",
-                    "gesture_flip_up", "gesture_hard_shake")
+            keys = ("gesture_tap", "gesture_double_tap", "gesture_flip_up", "gesture_hard_shake")
             n = sum(1 for k in keys if self._os.settings_get(k, False))
         except Exception:
             return "On"
@@ -259,6 +335,7 @@ class App(oreoOS.App):
     def _sync_time(self):
         try:
             from oreoOS import timeutil
+
             timeutil.sync_from_ntp()
         except Exception:
             pass
@@ -266,14 +343,15 @@ class App(oreoOS.App):
     def _sync_time_summary(self):
         try:
             from oreoOS import timeutil
+
             status = timeutil.last_sync_status()
         except Exception:
             return ""
         return {
-            "ok":      "synced",
+            "ok": "synced",
             "no-wifi": "no wifi",
-            "failed":  "failed",
-            "never":   "tap A",
+            "failed": "failed",
+            "never": "tap A",
         }.get(status, "tap A")
 
     def _open_wifi(self):
@@ -310,11 +388,22 @@ class App(oreoOS.App):
     # ── input ────────────────────────────────────────────────────────────
     def on_button_press(self, btn):
         n = len(self._rows)
-        if   btn == api.BTN_UP:    self._sel = (self._sel - 1) % n
-        elif btn == api.BTN_DOWN:  self._sel = (self._sel + 1) % n
-        elif btn == api.BTN_LEFT:  self._adjust(-1)
-        elif btn == api.BTN_RIGHT: self._adjust(+1)
-        elif btn == api.BTN_A:     self._activate()
+        if btn in (api.BTN_UP, api.BTN_DOWN, api.BTN_LEFT, api.BTN_RIGHT):
+            for r in self._rows:
+                if r.label == "Confirm Wipe?":
+                    r.label = "Factory Reset"
+                    self._dirty = True
+
+        if btn == api.BTN_UP:
+            self._sel = (self._sel - 1) % n
+        elif btn == api.BTN_DOWN:
+            self._sel = (self._sel + 1) % n
+        elif btn == api.BTN_LEFT:
+            self._adjust(-1)
+        elif btn == api.BTN_RIGHT:
+            self._adjust(+1)
+        elif btn == api.BTN_A:
+            self._activate()
         # Auto-scroll: keep the selected row inside the visible window.
         if self._sel < self._scroll_top:
             self._scroll_top = self._sel
@@ -328,16 +417,37 @@ class App(oreoOS.App):
             self._scroll_top = 0
         self._dirty = True
 
+    def _cycle_theme(self, delta):
+        try:
+            keys = theme.PRESET_KEYS
+            curr = theme.get_current_id()
+            idx = keys.index(curr) if curr in keys else 0
+            next_idx = (idx + delta) % len(keys)
+            next_key = keys[next_idx]
+            if next_key == "custom":
+                theme.apply_theme(
+                    theme.derive_custom_theme(theme.PRIMARY_R, theme.PRIMARY_G, theme.PRIMARY_B)
+                )
+            else:
+                theme.set_preset(next_key)
+            self._dirty = True
+        except Exception:
+            pass
+
     def _adjust(self, sign):
         """sign is +1 or -1 — multiplied by the row's own step."""
         row = self._rows[self._sel]
         if row.kind == "slider":
             row.setter(row.getter() + sign * row.step)
+        elif row.kind == "cycle":
+            row.setter(sign)
 
     def _activate(self):
         row = self._rows[self._sel]
         if row.kind == "toggle":
             row.setter(not row.getter())
+        elif row.kind == "cycle":
+            row.setter(1)
         elif row.kind == "action":
             row.setter(None)
 
@@ -349,45 +459,52 @@ class App(oreoOS.App):
         if not self._dirty:
             return
         d.clear(theme.BG)
-        widgets.draw_header(d, "SETTINGS")
-        widgets.draw_hint  (d, "A=toggle  L/R=slider  HOME=back")
 
-        n        = len(self._rows)
-        top      = self._scroll_top
-        end      = min(n, top + VISIBLE_ROWS)
+        n = len(self._rows)
+        top = self._scroll_top
+        end = min(n, top + VISIBLE_ROWS)
         for vis_i, i in enumerate(range(top, end)):
             row = self._rows[i]
-            y   = ROW_TOP_Y + vis_i * ROW_H
-            sel = (i == self._sel)
+            y = ROW_TOP_Y + vis_i * ROW_H
+            sel = i == self._sel
             if sel:
                 d.rect(0, y - 2, SW, ROW_H - 2, theme.DOCK_SEL, fill=True)
-                d.rect(0, y - 2, 4, ROW_H - 2, theme.PRIMARY,  fill=True)
+                d.rect(0, y - 2, 4, ROW_H - 2, theme.PRIMARY, fill=True)
             d.text(row.label, ROW_PAD_X, y + 6, theme.TEXT_BRIGHT, scale=2)
             self._draw_value(d, row, SW - 18, y)
+
+        # Right-side scrollbar
+        widgets.draw_scrollbar(
+            d, SW - 4, ROW_TOP_Y, 2, VISIBLE_ROWS * ROW_H - 4, n, top, visible=VISIBLE_ROWS
+        )
 
         self._dirty = False
 
     def _draw_value(self, d, row, right_x, y):
-        if row.kind == "toggle":
-            on    = bool(row.getter())
+        if row.kind == "cycle":
+            s = str(row.getter() or "—")
+            val_w = len(s) * 8
+            d.text(s, right_x - val_w, y + 7, theme.PRIMARY, scale=1)
+        elif row.kind == "toggle":
+            on = bool(row.getter())
             label = row.on_label if on else row.off_label
             color = theme.GREEN if on else theme.MUTED
             d.text(label, right_x - len(label) * 8 * 2, y + 6, color, scale=2)
         elif row.kind == "slider":
-            v       = int(row.getter())
+            v = int(row.getter())
             max_val = max(1, int(row.max_val))
             # "off" reads better than "0" for the sleep-after slider; the
             # brightness slider keeps numeric 0 (unambiguous percent).
             value_s = "off" if (v == 0 and row.max_val <= 30) else "%d" % v
-            val_w   = len(value_s) * 8
-            val_x   = right_x - val_w                          # right-aligned
+            val_w = len(value_s) * 8
+            val_x = right_x - val_w  # right-aligned
             # Bar sits to the LEFT of the value with a comfortable gap. With
             # the value now anchored to the right edge there is no more risk
             # of overlapping a long label like "Sleep After".
-            bar_w   = 50
-            bar_x   = val_x - bar_w - 10
+            bar_w = 50
+            bar_x = val_x - bar_w - 10
             d.rect(bar_x, y + 10, bar_w, 4, theme.MUTED2, fill=True)
-            fill_w  = int(bar_w * v / max_val)
+            fill_w = int(bar_w * v / max_val)
             d.rect(bar_x, y + 10, fill_w, 4, theme.PRIMARY, fill=True)
             d.text(value_s, val_x, y + 6, theme.TEXT_BRIGHT)
         elif row.kind == "info":
@@ -405,7 +522,14 @@ class App(oreoOS.App):
                 except Exception:
                     preview = ""
             if preview:
-                d.text(preview,
-                       right_x - chev_w - len(preview) * 8,
-                       y + 7, theme.MUTED, scale=1)
+                d.text(preview, right_x - chev_w - len(preview) * 8, y + 7, theme.MUTED, scale=1)
             d.text(">", right_x - chev_w + 4, y + 6, theme.PRIMARY, scale=2)
+
+    def on_exit(self):
+        """Free rows and sweep GC on exit."""
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:
+            pass

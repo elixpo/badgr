@@ -13,10 +13,11 @@ assets/sprites/optimized/color_splash.py.
 """
 
 from pathlib import Path
+
 from PIL import Image
 
 W, H = 80, 49
-OUT  = Path("assets/sprites/raw/color_splash.png")
+OUT = Path("assets/sprites/raw/color_splash.png")
 
 
 def hsl_to_rgb(h, s, l):
@@ -25,20 +26,28 @@ def hsl_to_rgb(h, s, l):
     hh = (h % 360) / 60.0
     x = c * (1 - abs(hh % 2 - 1))
     m = l - c / 2
-    if   hh < 1: r, g, b = c, x, 0
-    elif hh < 2: r, g, b = x, c, 0
-    elif hh < 3: r, g, b = 0, c, x
-    elif hh < 4: r, g, b = 0, x, c
-    elif hh < 5: r, g, b = x, 0, c
-    else:        r, g, b = c, 0, x
-    return (max(0, min(255, int(round((r + m) * 255)))),
-            max(0, min(255, int(round((g + m) * 255)))),
-            max(0, min(255, int(round((b + m) * 255)))))
+    if hh < 1:
+        r, g, b = c, x, 0
+    elif hh < 2:
+        r, g, b = x, c, 0
+    elif hh < 3:
+        r, g, b = 0, c, x
+    elif hh < 4:
+        r, g, b = 0, x, c
+    elif hh < 5:
+        r, g, b = x, 0, c
+    else:
+        r, g, b = c, 0, x
+    return (
+        max(0, min(255, int(round((r + m) * 255)))),
+        max(0, min(255, int(round((g + m) * 255)))),
+        max(0, min(255, int(round((b + m) * 255)))),
+    )
 
 
 def main():
     img = Image.new("RGB", (W, H))
-    px  = img.load()
+    px = img.load()
     for y in range(H):
         L = 100 - (y * 100) // max(1, H - 1)
         for x in range(W):

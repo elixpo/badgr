@@ -19,16 +19,19 @@ not per-frame HUD readouts.
 
 from oreoOS import api
 
-
-_CACHE = {}      # module_name → PixelFont instance
+_CACHE = {}  # module_name → PixelFont instance
 
 
 def load(module_name):
     """Load + cache a font module from assets/fonts/optimized/<name>.py."""
     if module_name in _CACHE:
         return _CACHE[module_name]
-    mod = __import__("assets.fonts.optimized." + module_name,
-                     None, None, ["GLYPH_W", "GLYPH_H", "BPR", "KERN", "_FONT"])
+    mod = __import__(
+        "assets.fonts.optimized." + module_name,
+        None,
+        None,
+        ["GLYPH_W", "GLYPH_H", "BPR", "KERN", "_FONT"],
+    )
     pf = PixelFont(mod)
     _CACHE[module_name] = pf
     return pf
@@ -36,10 +39,10 @@ def load(module_name):
 
 class PixelFont:
     def __init__(self, mod):
-        self.w     = mod.GLYPH_W
-        self.h     = mod.GLYPH_H
-        self.bpr   = mod.BPR
-        self.kern  = mod.KERN
+        self.w = mod.GLYPH_W
+        self.h = mod.GLYPH_H
+        self.bpr = mod.BPR
+        self.kern = mod.KERN
         self._font = mod._FONT
         # Proportional metrics: per-glyph (left_trim, advance). Scanned once
         # so text() can lay glyphs out edge-to-edge (with KERN) instead of
@@ -48,8 +51,8 @@ class PixelFont:
 
     def _compute_metrics(self):
         bpr = self.bpr
-        gw  = self.w
-        gh  = self.h
+        gw = self.w
+        gh = self.h
         out = {}
         # Space — keep a sensible width since its bitmap is empty.
         space_w = max(3, gw // 3)
@@ -59,8 +62,10 @@ class PixelFont:
                 row_off = row * bpr
                 for col in range(gw):
                     if bits[row_off + (col >> 3)] & (0x80 >> (col & 7)):
-                        if col < lo: lo = col
-                        if col > hi: hi = col
+                        if col < lo:
+                            lo = col
+                        if col > hi:
+                            hi = col
             if hi < 0:
                 out[ch] = (0, space_w)
             else:
@@ -92,20 +97,19 @@ class PixelFont:
             return
         lo, _adv = self._metrics.get(ch, (0, self.w))
         bpr = self.bpr
-        gw  = self.w
-        gh  = self.h
+        gw = self.w
+        gh = self.h
         for row in range(gh):
             row_off = row * bpr
             for col in range(lo, gw):
                 if bits[row_off + (col >> 3)] & (0x80 >> (col & 7)):
-                    d.rect(x + (col - lo) * scale, y + row * scale,
-                           scale, scale, color, fill=True)
+                    d.rect(x + (col - lo) * scale, y + row * scale, scale, scale, color, fill=True)
 
     def text(self, d, s, x, y, color=None, scale=1):
         """Draw a string at (x, y). Returns x after the last glyph."""
         if color is None:
             color = api.WHITE
-        cx   = x
+        cx = x
         kern = self.kern * scale
         for ch in s:
             _, adv = self._metrics.get(ch, (0, self.w))

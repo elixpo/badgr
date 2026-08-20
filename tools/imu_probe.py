@@ -33,10 +33,10 @@ The verdict combines (1) and (2) into a one-liner.
 import subprocess
 import sys
 
-DEFAULT_PORT  = "/dev/ttyACM0"
-DEFAULT_SDA   = 42
-DEFAULT_SCL   = 47
-MPREMOTE      = ".venv/bin/mpremote"      # repo-local venv first
+DEFAULT_PORT = "/dev/ttyACM0"
+DEFAULT_SDA = 42
+DEFAULT_SCL = 47
+MPREMOTE = ".venv/bin/mpremote"  # repo-local venv first
 PROBE_SNIPPET = r"""
 from machine import I2C, SoftI2C, Pin
 import time
@@ -97,12 +97,14 @@ def _run(port, sda, scl):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
     except FileNotFoundError:
-        sys.exit("mpremote not found at %s — `pip install mpremote` "
-                 "into the venv first." % MPREMOTE)
+        sys.exit(
+            "mpremote not found at %s — `pip install mpremote` into the venv first." % MPREMOTE
+        )
     except subprocess.TimeoutExpired:
-        sys.exit("Probe timed out — device unreachable on %s. "
-                 "Check the cable + that the badge isn't in deep-sleep."
-                 % port)
+        sys.exit(
+            "Probe timed out — device unreachable on %s. "
+            "Check the cable + that the badge isn't in deep-sleep." % port
+        )
     if r.returncode != 0:
         sys.stderr.write(r.stderr or "(no stderr)\n")
         sys.exit("mpremote exec failed (rc=%d)." % r.returncode)
@@ -111,9 +113,9 @@ def _run(port, sda, scl):
 
 def _verdict(out):
     """Translate the raw probe output into a one-line diagnosis."""
-    devs_seen   = set()
+    devs_seen = set()
     whoami_hits = []
-    line        = {}
+    line = {}
     for ln in out.splitlines():
         if ln.startswith("SCAN ") and "->" in ln and "FAIL" not in ln:
             # SCAN HW(0) 100k -> ['0x68', '0x36']
@@ -140,7 +142,7 @@ def _verdict(out):
     if 0x68 in devs_seen or 0x69 in devs_seen:
         print("VERDICT: ✅ IMU detected on the bus.")
         for w in whoami_hits:
-            print("        ", w[len("WHOAMI "):])
+            print("        ", w[len("WHOAMI ") :])
         return
 
     # No IMU. Inspect the line states to give a useful nudge.
@@ -148,9 +150,12 @@ def _verdict(out):
     scl = line.get("SCL", (None, None))
 
     def _classify(up, dn):
-        if up == 1 and dn == 0: return "FLOATING"   # only ESP32 pull driving
-        if up == 1 and dn == 1: return "PULLED_HIGH" # external pull-up wins
-        if up == 0 and dn == 0: return "PULLED_LOW"  # external short / pull-down
+        if up == 1 and dn == 0:
+            return "FLOATING"  # only ESP32 pull driving
+        if up == 1 and dn == 1:
+            return "PULLED_HIGH"  # external pull-up wins
+        if up == 0 and dn == 0:
+            return "PULLED_LOW"  # external short / pull-down
         return "UNCERTAIN (up=%s down=%s)" % (up, dn)
 
     sda_cls = _classify(*sda)
@@ -186,22 +191,25 @@ def _parse_args():
     while i < len(args):
         a = args[i]
         if a == "--sda":
-            sda = int(args[i + 1]); i += 2
+            sda = int(args[i + 1])
+            i += 2
         elif a == "--scl":
-            scl = int(args[i + 1]); i += 2
+            scl = int(args[i + 1])
+            i += 2
         elif a in ("-h", "--help"):
-            print(__doc__); sys.exit(0)
+            print(__doc__)
+            sys.exit(0)
         elif a.startswith("--"):
             sys.exit("unknown flag: %s" % a)
         else:
-            port = a; i += 1
+            port = a
+            i += 1
     return port, sda, scl
 
 
 def main():
     port, sda, scl = _parse_args()
-    print("Probing IMU on %s  (SDA=GPIO %d, SCL=GPIO %d) ..."
-          % (port, sda, scl))
+    print("Probing IMU on %s  (SDA=GPIO %d, SCL=GPIO %d) ..." % (port, sda, scl))
     out = _run(port, sda, scl)
     print(out, end="")
     _verdict(out)

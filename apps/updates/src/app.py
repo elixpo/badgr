@@ -25,49 +25,46 @@ Modes (a sub-page system inside this app):
 import oreoOS
 from oreoOS import api, theme, widgets
 
-
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-S_IDLE        = "idle"
-S_CHECKING    = "checking"
-S_UP_TO_DATE  = "up_to_date"     # device == latest stable
-S_BETA        = "beta"           # device  > latest stable (dev build)
-S_AVAILABLE   = "available"      # device  < latest stable (update can install)
+S_IDLE = "idle"
+S_CHECKING = "checking"
+S_UP_TO_DATE = "up_to_date"  # device == latest stable
+S_BETA = "beta"  # device  > latest stable (dev build)
+S_AVAILABLE = "available"  # device  < latest stable (update can install)
 S_DOWNLOADING = "downloading"
-S_READY       = "ready"
-S_FAILED      = "failed"
+S_READY = "ready"
+S_FAILED = "failed"
 
-PAD_X    = 14
-TITLE_Y  = widgets.HEADER_H + 12
-LOAD_Y   = TITLE_Y + 56
-BTN_W    = 134
-BTN_H    = 30
-BTN_GAP  = 10
-BTN_Y    = SH - widgets.HINT_H - BTN_H - 14
+PAD_X = 14
+TITLE_Y = widgets.HEADER_H + 12
+LOAD_Y = TITLE_Y + 56
+BTN_W = 134
+BTN_H = 30
+BTN_GAP = 10
+BTN_Y = SH - widgets.HINT_H - BTN_H - 14
 
 
 class App(oreoOS.App):
-    name         = "Updates"
-    author       = "Circuit-Overtime"
     SHOW_LOADING = True
 
     BTN_INSTALL, BTN_CHANGELOG = 0, 1
 
     def on_enter(self, os_):
         super().on_enter(os_)
-        self._os    = os_
-        self._mode  = "main"           # "main" | "changelog"
+        self._os = os_
+        self._mode = "main"  # "main" | "changelog"
         self._state = S_IDLE
-        self._sel   = self.BTN_INSTALL
+        self._sel = self.BTN_INSTALL
         self._release = None
-        self._peeked  = None
-        self._notes   = ""             # release-body for the changelog page
-        self._scroll  = 0              # changelog scroll offset (px)
-        self._tick    = 0              # animation tick for the loading dots
-        self._tick_t  = 0.0
-        self._error   = ""
-        self._dirty   = True
+        self._peeked = None
+        self._notes = ""  # release-body for the changelog page
+        self._scroll = 0  # changelog scroll offset (px)
+        self._tick = 0  # animation tick for the loading dots
+        self._tick_t = 0.0
+        self._error = ""
+        self._dirty = True
         # Auto-run a check on entry so the page is meaningful without
         # a manual A press.
         self._run_check()
@@ -76,13 +73,12 @@ class App(oreoOS.App):
     def update(self, dt):
         # Cycle the loading dots while we're mid-network. Caps at 3 Hz
         # so the dot phase is readable.
-        if (self._mode == "main"
-                and self._state in (S_CHECKING, S_DOWNLOADING)):
+        if self._mode == "main" and self._state in (S_CHECKING, S_DOWNLOADING):
             self._tick_t += dt
             if self._tick_t >= 0.35:
                 self._tick_t = 0.0
-                self._tick   = (self._tick + 1) % 4
-                self._dirty  = True
+                self._tick = (self._tick + 1) % 4
+                self._dirty = True
 
     # ── input ──────────────────────────────────────────────────────────
     def on_button_press(self, btn):
@@ -111,8 +107,8 @@ class App(oreoOS.App):
 
     def _on_btn_changelog(self, btn):
         if btn in (api.BTN_HOME, api.BTN_B):
-            self._mode  = "main"
-            self._sel   = self.BTN_INSTALL
+            self._mode = "main"
+            self._sel = self.BTN_INSTALL
             self._dirty = True
             return
         if btn == api.BTN_UP:
@@ -133,10 +129,11 @@ class App(oreoOS.App):
             self._dirty = True
             return
         self._state = S_CHECKING
-        self._tick  = 0
+        self._tick = 0
         self._dirty = True
         try:
-            self.draw(self._os.display); self._os.display.present()
+            self.draw(self._os.display)
+            self._os.display.present()
         except Exception:
             pass
 
@@ -153,29 +150,35 @@ class App(oreoOS.App):
         cur = self._current_version()
         cmp = ota.compare_version(cur, latest_ver)
         self._release = rel
-        self._notes   = (rel or {}).get("notes", "") or ""
+        self._notes = (rel or {}).get("notes", "") or ""
 
         if cmp > 0:
             # Device VERSION is ahead of the latest stable release.
             # Likely a dev build the maintainer flashed directly.
             self._state = S_BETA
-            try: self._os.settings_set("ota_status", "beta")
-            except Exception: pass
+            try:
+                self._os.settings_set("ota_status", "beta")
+            except Exception:
+                pass
             self._dirty = True
             return
 
         if cmp == 0:
             # Device matches the latest stable — this is the LTS state.
             self._state = S_UP_TO_DATE
-            try: self._os.settings_set("ota_status", "up-to-date")
-            except Exception: pass
+            try:
+                self._os.settings_set("ota_status", "up-to-date")
+            except Exception:
+                pass
             self._dirty = True
             return
 
         # Device is BEHIND latest — surface the new release + peek the
         # manifest so the user can hit Install.
-        try: ota.push_update_notification(latest_ver)
-        except Exception: pass
+        try:
+            ota.push_update_notification(latest_ver)
+        except Exception:
+            pass
 
         peeked = self._safe(lambda: ota.peek(rel))
         if not peeked:
@@ -187,13 +190,13 @@ class App(oreoOS.App):
         self._peeked = peeked
         try:
             self._os.settings_set("ota_pending_version", latest_ver)
-            self._os.settings_set("ota_pending_bytes",   peeked["bytes"])
-            self._os.settings_set("ota_pending_url",     rel["manifest_url"])
-            self._os.settings_set("ota_status",          "available")
+            self._os.settings_set("ota_pending_bytes", peeked["bytes"])
+            self._os.settings_set("ota_pending_url", rel["manifest_url"])
+            self._os.settings_set("ota_status", "available")
         except Exception:
             pass
         self._state = S_AVAILABLE
-        self._sel   = self.BTN_INSTALL
+        self._sel = self.BTN_INSTALL
         self._dirty = True
 
     def _run_install(self):
@@ -216,22 +219,27 @@ class App(oreoOS.App):
                     self._dirty = True
                     return
             self._state = S_DOWNLOADING
-            self._tick  = 0
+            self._tick = 0
             self._dirty = True
             try:
-                self.draw(self._os.display); self._os.display.present()
+                self.draw(self._os.display)
+                self._os.display.present()
             except Exception:
                 pass
             ok = self._safe(lambda: ota.download(self._peeked))
             if not ok:
                 self._state = S_FAILED
                 self._error = "download failed"
-                try: self._os.settings_set("ota_status", "download-failed")
-                except Exception: pass
+                try:
+                    self._os.settings_set("ota_status", "download-failed")
+                except Exception:
+                    pass
                 self._dirty = True
                 return
-            try: self._os.settings_set("ota_status", "ready")
-            except Exception: pass
+            try:
+                self._os.settings_set("ota_status", "ready")
+            except Exception:
+                pass
             self._state = S_READY
         try:
             self._os.settings_set("ota_pending_peek_ok", False)
@@ -239,14 +247,15 @@ class App(oreoOS.App):
             pass
         try:
             import machine
+
             machine.reset()
         except Exception:
             self._os.quit()
 
     def _open_changelog(self):
-        self._mode   = "changelog"
+        self._mode = "changelog"
         self._scroll = 0
-        self._dirty  = True
+        self._dirty = True
 
     @staticmethod
     def _safe(fn):
@@ -261,7 +270,7 @@ class App(oreoOS.App):
             return
         self._dirty = False
         d.clear(theme.BG)
-        widgets.draw_header(d, "UPDATES")
+        self.title = "UPDATES"
         if self._mode == "changelog":
             self._draw_changelog(d)
             return
@@ -269,19 +278,17 @@ class App(oreoOS.App):
 
     def _draw_main(self, d):
         if self._state in (S_AVAILABLE, S_READY):
-            widgets.draw_hint(d, "L/R=pick  A=do  HOME=back")
+            self.hints = [("L/R", "pick"), ("A", "do"), ("HOME", "back")]
         elif self._state == S_CHECKING:
-            widgets.draw_hint(d, "HOME=back")
+            self.hints = [("HOME", "back")]
         else:
-            widgets.draw_hint(d, "A=check  HOME=back")
+            self.hints = [("A", "check"), ("HOME", "back")]
 
         # ── Title: OREO OS <version> ──────────────────────────────
         cur = self._current_version()
         title = "OREO OS"
-        d.text(title, (SW - len(title) * 16) // 2,
-               TITLE_Y, theme.PRIMARY, scale=2)
-        d.text(cur, (SW - len(cur) * 16) // 2,
-               TITLE_Y + 22, theme.TEXT_BRIGHT, scale=2)
+        d.text(title, (SW - len(title) * 16) // 2, TITLE_Y, theme.PRIMARY, scale=2)
+        d.text(cur, (SW - len(cur) * 16) // 2, TITLE_Y + 22, theme.TEXT_BRIGHT, scale=2)
 
         # ── State-specific middle block ───────────────────────────
         if self._state == S_CHECKING:
@@ -298,8 +305,7 @@ class App(oreoOS.App):
             return
         if self._state == S_FAILED:
             msg = (self._error or "something went wrong")[:34]
-            d.text(msg, (SW - len(msg) * 8) // 2,
-                   LOAD_Y + 6, theme.PRIMARY, scale=1)
+            d.text(msg, (SW - len(msg) * 8) // 2, LOAD_Y + 6, theme.PRIMARY, scale=1)
             return
         if self._state in (S_AVAILABLE, S_READY):
             self._draw_available(d)
@@ -310,8 +316,7 @@ class App(oreoOS.App):
         # Centered "<LABEL>" + an ellipsis that grows then resets.
         dots = "." * (self._tick + 1)
         line = label + " " + dots
-        d.text(line, (SW - len(line) * 8) // 2,
-               LOAD_Y + 6, theme.MUTED, scale=1)
+        d.text(line, (SW - len(line) * 8) // 2, LOAD_Y + 6, theme.MUTED, scale=1)
 
     def _draw_lts(self, d):
         # LTS-only compact render. The OREO OS <version> headline above
@@ -320,43 +325,45 @@ class App(oreoOS.App):
         # has room to breathe and the page stays uncluttered.
         date = self._release_date()
         line = "LTS  " + date
-        d.text(line, (SW - len(line) * 16) // 2,
-               LOAD_Y + 6, theme.TEAL, scale=2)
+        d.text(line, (SW - len(line) * 16) // 2, LOAD_Y + 6, theme.TEAL, scale=2)
 
     def _draw_beta(self, d):
-        # Pink BETA badge — device is running AHEAD of the latest
-        # stable release on GitHub (dev / hotfix build).
-        d.text("BETA", (SW - 4 * 16) // 2,
-               LOAD_Y - 2, theme.PRIMARY, scale=2)
-        line = "ahead of stable"
-        d.text(line, (SW - len(line) * 8) // 2,
-               LOAD_Y + 24, theme.MUTED, scale=1)
+        # Pink DEV / BETA badge — device is running a development / beta build.
+        cur = self._current_version()
+        tag = "DEV BUILD" if "-dev" in cur else "BETA"
+        d.text(tag, (SW - len(tag) * 16) // 2, LOAD_Y - 2, theme.PRIMARY, scale=2)
         rel = self._release or {}
-        ver = rel.get("version", "?")
-        sub = "Latest stable: " + ver
-        d.text(sub, (SW - len(sub) * 8) // 2,
-               LOAD_Y + 38, theme.TEXT_DIM, scale=1)
+        ver = rel.get("version", "")
+        if ver:
+            sub = "Upstream stable: " + ver
+            d.text(sub, (SW - len(sub) * 8) // 2, LOAD_Y + 26, theme.MUTED, scale=1)
+        else:
+            line = "local development build"
+            d.text(line, (SW - len(line) * 8) // 2, LOAD_Y + 26, theme.MUTED, scale=1)
 
     def _draw_available(self, d):
         rel = self._release or {}
         ver = rel.get("version", "?")
-        d.text("New version", (SW - 11 * 8) // 2,
-               LOAD_Y - 8, theme.PRIMARY, scale=1)
-        d.text(ver, (SW - len(ver) * 16) // 2,
-               LOAD_Y + 4, theme.TEXT_BRIGHT, scale=2)
+        d.text("New version", (SW - 11 * 8) // 2, LOAD_Y - 8, theme.PRIMARY, scale=1)
+        d.text(ver, (SW - len(ver) * 16) // 2, LOAD_Y + 4, theme.TEXT_BRIGHT, scale=2)
         if self._peeked:
-            kb   = max(1, self._peeked["bytes"] // 1024)
+            kb = max(1, self._peeked["bytes"] // 1024)
             meta = "%d files  ·  %d KB" % (len(self._peeked["changed"]), kb)
-            d.text(meta, (SW - len(meta) * 8) // 2,
-                   LOAD_Y + 28, theme.MUTED, scale=1)
+            d.text(meta, (SW - len(meta) * 8) // 2, LOAD_Y + 28, theme.MUTED, scale=1)
 
         # Two side-by-side buttons.
         total_w = BTN_W * 2 + BTN_GAP
         start_x = (SW - total_w) // 2
-        self._draw_btn(d, start_x, self._install_label(),
-                       sel=(self._sel == self.BTN_INSTALL), primary=True)
-        self._draw_btn(d, start_x + BTN_W + BTN_GAP, "CHANGELOG",
-                       sel=(self._sel == self.BTN_CHANGELOG), primary=False)
+        self._draw_btn(
+            d, start_x, self._install_label(), sel=(self._sel == self.BTN_INSTALL), primary=True
+        )
+        self._draw_btn(
+            d,
+            start_x + BTN_W + BTN_GAP,
+            "CHANGELOG",
+            sel=(self._sel == self.BTN_CHANGELOG),
+            primary=False,
+        )
 
     def _install_label(self):
         if self._state == S_DOWNLOADING:
@@ -369,33 +376,29 @@ class App(oreoOS.App):
         if primary:
             fill, ink = theme.PRIMARY, api.WHITE
         else:
-            fill, ink = theme.CARD,    theme.PRIMARY
+            fill, ink = theme.CARD, theme.PRIMARY
         d.rect(x, BTN_Y, BTN_W, BTN_H, fill, fill=True)
         border = theme.SEL_BORDER if sel else theme.PRIMARY
-        d.rect(x,             BTN_Y,             BTN_W, 1, border, fill=True)
-        d.rect(x,             BTN_Y + BTN_H - 1, BTN_W, 1, border, fill=True)
-        d.rect(x,             BTN_Y,             1, BTN_H, border, fill=True)
-        d.rect(x + BTN_W - 1, BTN_Y,             1, BTN_H, border, fill=True)
+        d.rect(x, BTN_Y, BTN_W, 1, border, fill=True)
+        d.rect(x, BTN_Y + BTN_H - 1, BTN_W, 1, border, fill=True)
+        d.rect(x, BTN_Y, 1, BTN_H, border, fill=True)
+        d.rect(x + BTN_W - 1, BTN_Y, 1, BTN_H, border, fill=True)
         if sel:
             # Inset emphasis ring on the focused button.
-            d.rect(x + 2,             BTN_Y + 2,             BTN_W - 4, 1, border, fill=True)
-            d.rect(x + 2,             BTN_Y + BTN_H - 3,     BTN_W - 4, 1, border, fill=True)
-        d.text(label,
-               x + (BTN_W - len(label) * 16) // 2,
-               BTN_Y + (BTN_H - 16) // 2,
-               ink, scale=2)
+            d.rect(x + 2, BTN_Y + 2, BTN_W - 4, 1, border, fill=True)
+            d.rect(x + 2, BTN_Y + BTN_H - 3, BTN_W - 4, 1, border, fill=True)
+        d.text(label, x + (BTN_W - len(label) * 16) // 2, BTN_Y + (BTN_H - 16) // 2, ink, scale=2)
 
     # ── changelog sub-page ─────────────────────────────────────────────
     def _draw_changelog(self, d):
-        widgets.draw_hint(d, "UP/DOWN=scroll  B/HOME=back")
+        self.hints = [("UP/DOWN", "scroll"), ("B/HOME", "back")]
         ver = (self._release or {}).get("version", "?")
         title = "CHANGELOG  " + ver
-        d.text(title, (SW - len(title) * 8) // 2,
-               widgets.HEADER_H + 6, theme.PRIMARY, scale=1)
+        d.text(title, (SW - len(title) * 8) // 2, widgets.HEADER_H + 6, theme.PRIMARY, scale=1)
 
         body_top = widgets.HEADER_H + 22
         body_bot = SH - widgets.HINT_H - 4
-        lines    = self._wrap_lines()
+        lines = self._wrap_lines()
         y = body_top - self._scroll
         for ln in lines:
             if y + 12 < body_top:
@@ -408,13 +411,10 @@ class App(oreoOS.App):
 
         # Scroll thumb on the right edge.
         total_h = len(lines) * 12
-        view_h  = body_bot - body_top
-        if total_h > view_h:
-            track_x = SW - 3
-            thumb_h = max(12, int(view_h * view_h / total_h))
-            max_s   = max(1, total_h - view_h)
-            thumb_y = body_top + (view_h - thumb_h) * self._scroll // max_s
-            d.rect(track_x, thumb_y, 2, thumb_h, theme.PRIMARY, fill=True)
+        view_h = body_bot - body_top
+        widgets.draw_scrollbar(
+            d, SW - 3, body_top, 2, view_h, total_h, self._scroll, visible=view_h
+        )
 
     def _wrap_lines(self):
         """Word-wrap `self._notes` (the GitHub release body) to fit at
@@ -426,7 +426,7 @@ class App(oreoOS.App):
             if not raw_line.strip():
                 out.append("")
                 continue
-            cur  = ""
+            cur = ""
             rest = raw_line.split()
             while rest:
                 w = rest[0]
@@ -448,23 +448,36 @@ class App(oreoOS.App):
     def _max_scroll(self):
         body_top = widgets.HEADER_H + 22
         body_bot = SH - widgets.HINT_H - 4
-        view_h   = body_bot - body_top
-        total_h  = len(self._wrap_lines()) * 12
+        view_h = body_bot - body_top
+        total_h = len(self._wrap_lines()) * 12
         return max(0, total_h - view_h)
 
     # ── helpers ────────────────────────────────────────────────────────
     @staticmethod
     def _current_version():
         try:
-            from oreoOS.config import VERSION
-            return VERSION
+            from oreoOS import api
+
+            return api.get_version()
         except Exception:
-            return "?"
+            return "v1.4.103-dev"
 
     @staticmethod
     def _release_date():
         try:
-            from oreoOS.config import RELEASE_DATE
-            return RELEASE_DATE
+            from oreoOS import config
+
+            return config.system.RELEASE_DATE
         except Exception:
             return "—"
+
+    def on_exit(self):
+        """Free release/peek caches and sweep GC on exit."""
+        self._release = None
+        self._peeked = None
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:
+            pass

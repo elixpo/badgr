@@ -21,8 +21,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from ci_config import LLM_MODEL_AGENT  # noqa: E402
-from scripts._common import call_llm, github_rest  # noqa: E402
+from ci_config import LLM_MODEL_AGENT
+from scripts._common import call_llm, github_rest
 
 REPO = os.environ["REPO"]
 PR_NUMBER = os.environ["PR_NUMBER"]

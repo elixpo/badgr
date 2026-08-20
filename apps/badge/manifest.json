@@ -1,1 +1,9 @@
-{"name": "Badge", "description": "Show your conference badge with name, role, and pronouns.", "type": "app", "version": "0.1", "icon": "badge_icon.png", "author": "Circuit-Overtime"}
+{
+    "name": "Badge",
+    "description": "Show your conference badge with name, role, and pronouns.",
+    "type": "app",
+    "version": "0.1.0",
+    "icon": "badge_icon.png",
+    "author": "Circuit-Overtime",
+    "category": "Tools"
+}

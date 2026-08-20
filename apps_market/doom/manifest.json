@@ -1,0 +1,10 @@
+{
+  "name": "DOOM",
+  "description": "Classic 1993 first-person shooter port for Oreo OS. E1M1 Hangar, shotgun, demons, full status bar.",
+  "type": "app",
+  "version": "1.0.0",
+  "icon": "doom_icon.png",
+  "author": "sea-deep",
+  "color": "#D32F2F",
+  "category": "Games"
+}

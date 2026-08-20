@@ -5,7 +5,12 @@ directly — useful as a teaching example of how to keep I/O isolated
 from game logic.
 """
 
-HISCORE_PATH = "apps/snake/hiscore.txt"
+try:
+    from oreoOS.config import get_state_path
+
+    HISCORE_PATH = get_state_path("saves/snake_hiscore.txt")
+except Exception:
+    HISCORE_PATH = "badge_data/saves/snake_hiscore.txt"
 
 
 def load():

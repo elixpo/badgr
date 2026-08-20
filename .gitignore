@@ -13,6 +13,7 @@ __pycache__/
 
 # Firmware binaries (download separately)
 firmware/*.bin
+firmware.bin
 
 # MicroPython device artifacts
 *.mpy
@@ -23,8 +24,37 @@ firmware/*.bin
 .vscode/settings.json
 .idea/
 .secrets_tmp.py
+secrets.py
 *.swp
+
+# Environment & secrets
 *.env
+!.env.example
+
+# Unified Badge Runtime State Directory (all mutable runtime state, themes, creds, installed apps)
+badge_data/
+badge_data/*
+
+# Runtime state, caches & highscores
+*.txt
+state_*
+state_*.json
+store_cache.json
+settings.json
+wifi.json
+.savegame/
+.default.cfg
+apps/.tmp_*
+store_icons/
+store_details/
+
+# Large binary assets (fetch separately or use LFS)
+apps_market/doom/assets/*.wad
+apps_market/doom/src/*.so
+
+# Added by tool
 .deploy_hashes.json
 dist/
-legal/
+*.bin
+.*.bin
+shipready_results/

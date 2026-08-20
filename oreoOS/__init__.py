@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 """oreoOS — the Python OS layer for the Oreo conference badge.
 
 Apps subclass `oreoOS.App` and import services from this package:
@@ -9,14 +10,40 @@ Apps subclass `oreoOS.App` and import services from this package:
         def on_enter(self, os): ...
 """
 
+from . import font
 from .api import (
-    SCREEN_W, SCREEN_H,
-    rgb, BLACK, WHITE, RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, GRAY,
-    BTN_HOME, BTN_A, BTN_B, BTN_C, BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT, BUTTONS,
-    LED_TL, LED_TR, LED_BL, LED_BR,
-    Display, Buttons, IR, LEDs, ADC, OS,
+    ADC,
+    BLACK,
+    BLUE,
+    BTN_A,
+    BTN_B,
+    BTN_C,
+    BTN_DOWN,
+    BTN_HOME,
+    BTN_LEFT,
+    BTN_RIGHT,
+    BTN_UP,
+    BUTTONS,
+    CYAN,
+    GRAY,
+    GREEN,
+    IR,
+    LED_BL,
+    LED_BR,
+    LED_TL,
+    LED_TR,
+    MAGENTA,
+    OS,
+    RED,
+    SCREEN_H,
+    SCREEN_W,
+    WHITE,
+    YELLOW,
+    Buttons,
+    Display,
+    LEDs,
+    rgb,
 )
 from .app import App
-from . import font
-from .sprite import SpriteSheet, Animation
 from .launcher import boot
+from .sprite import Animation, SpriteSheet

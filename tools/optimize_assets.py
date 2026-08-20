@@ -16,28 +16,29 @@ Run from project root:
     python tools/optimize_assets.py --app flappy    # all sprites in apps/flappy/assets/raw
 """
 
-import sys
 import struct
+import sys
 from pathlib import Path
+
 from PIL import Image
 
 # ── config ────────────────────────────────────────────────────────────────────
 
-RAW_DIR      = Path("assets/icons/raw")
-HW_DIR       = Path("assets/icons/optimized")
+RAW_DIR = Path("assets/icons/raw")
+HW_DIR = Path("assets/icons/optimized")
 
-ICON_SIZE    = 32
-BG_W         = 80
-BG_H         = 60
-BADGE_BG     = (255, 248, 235)   # warm cream — fills transparent pixels
+ICON_SIZE = 32
+BG_W = 80
+BG_H = 60
+BADGE_BG = (255, 248, 235)  # warm cream — fills transparent pixels
 
 STATUS_SVG_DIR = Path("assets/status/raw")
-STATUS_HW_DIR  = Path("assets/status/optimized")
-STATUS_SIZE    = 13
+STATUS_HW_DIR = Path("assets/status/optimized")
+STATUS_SIZE = 13
 # Fill OUTSIDE the SVG's alpha with the chroma-key sentinel so display.blit()
 # treats those pixels as transparent. The icons then read correctly on ANY
 # header colour (crimson on the launcher, forest-green on the home screen, …).
-STATUS_BG      = (248, 0, 248)   # magenta → RGB565 0xF81F → blit chroma-key
+STATUS_BG = (248, 0, 248)  # magenta → RGB565 0xF81F → blit chroma-key
 
 # Chroma-key magenta. Packs to RGB565 0xF81F (bytes [0xF8, 0x1F]). Any sprite
 # pixel matching this value is treated as transparent by display.blit().
@@ -45,7 +46,7 @@ CHROMA_KEY = (248, 0, 248)
 
 # Per-app: fill for OPAQUE assets (transparent pixels get this colour, no key).
 PER_APP_FILL = {
-    "flappy":   (120, 200, 240),
+    "flappy": (120, 200, 240),
 }
 
 # Per-app: stems that should be treated as OPAQUE (no chroma key, full coverage).
@@ -54,67 +55,62 @@ PER_APP_FILL = {
 # gets stripped in transparent/grass.png. The chroma key lets the bg show
 # through that sky region when the tile is overlaid on the bottom of the screen.
 PER_APP_OPAQUE = {
-    "flappy":   {"background"},
-    "weather":  {"background"},
-    "snake":    {"arena"},
+    "flappy": {"background"},
+    "weather": {"background"},
+    "snake": {"arena"},
     # Road tarmac fully covers its tile; cars + trees need chroma-key
     # transparency so they composite over the road and grass.
-    "racer":    {"racer_road"},
+    "racer": {"racer_road"},
 }
 
 # Per-app asset target sizes (W, H) by file stem.
 # Names matching neither this table nor _bg fall back to 32×32.
 PER_APP_SIZES = {
     # flappy game
-    "panda_up_a":   (32, 32),
-    "panda_up_b":   (32, 32),
-    "panda_down":   (32, 32),
-    "panda_crash":  (32, 32),
-    "panda_blast":  (32, 32),
-    "obstacle":     (32, 96),
-    "background":   (80, 60),   # also used by weather/background but bigger output OK
-    "cloud":        (40, 20),
-    "grass":        (40, 40),
-
+    "panda_up_a": (32, 32),
+    "panda_up_b": (32, 32),
+    "panda_down": (32, 32),
+    "panda_crash": (32, 32),
+    "panda_blast": (32, 32),
+    "obstacle": (32, 96),
+    "background": (80, 60),  # also used by weather/background but bigger output OK
+    "cloud": (40, 20),
+    "grass": (40, 40),
     # pet — panda expressions + heart icon (sized to fit the Pet UI)
-    "panda_happy":  (64, 64),
+    "panda_happy": (64, 64),
     "panda_hungry": (64, 64),
-    "panda_sad":    (64, 64),
-    "panda_sleep":  (64, 64),
-    "panda_eat":    (64, 64),
-    "heart":        (16, 16),
-
+    "panda_sad": (64, 64),
+    "panda_sleep": (64, 64),
+    "panda_eat": (64, 64),
+    "heart": (16, 16),
     # weather — panda condition sprites
-    "panda_sun":    (80, 80),
-    "panda_cloud":  (80, 80),
-    "panda_rain":   (80, 80),
-    "panda_snow":   (80, 80),
-    "panda_storm":  (80, 80),
-
+    "panda_sun": (80, 80),
+    "panda_cloud": (80, 80),
+    "panda_rain": (80, 80),
+    "panda_snow": (80, 80),
+    "panda_storm": (80, 80),
     # snake — tiled arena bg + bamboo food sprite (CELL_PX size)
-    "arena":        (40, 40),
-    "food":         (10, 10),
-
+    "arena": (40, 40),
+    "food": (10, 10),
     # splash — quarter-res backdrop (160×120). oreoOS/splash.py upscales it
     # to 320×240 at boot. Storing 4× smaller keeps the .py module under 200 KB
     # so the MicroPython parser doesn't OOM the boot heap.
-    "splash_bg":    (160, 120),
-
+    "splash_bg": (160, 120),
     # color_picker — hue × lightness rainbow. Stored quarter-res; the app
     # upscales 4x to fill the play area. 80×49 = ~7 kB .py module.
     "color_splash": (80, 49),
-
     # racer game — top-down kart, oncoming cars, verge trees, tiled tarmac
-    "racer_player":       (32, 40),
+    "racer_player": (32, 40),
     "racer_player_crash": (32, 40),
-    "racer_enemy_a":      (32, 40),
-    "racer_enemy_b":      (32, 40),
-    "racer_tree":         (24, 32),
-    "racer_road":         (80, 80),
+    "racer_enemy_a": (32, 40),
+    "racer_enemy_b": (32, 40),
+    "racer_tree": (24, 32),
+    "racer_road": (80, 80),
 }
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _resize_clean(src: Image.Image, size: int) -> Image.Image:
     return src.convert("RGBA").resize((size, size), Image.LANCZOS)
@@ -128,16 +124,16 @@ def _fill_transparent(img: Image.Image, fill_rgb: tuple, alpha_threshold=128) ->
     the subject with the chroma-key colour (which manifests as a lavender halo
     when the fill is magenta).
     """
-    img   = img.convert("RGBA")
+    img = img.convert("RGBA")
     alpha = img.split()[3].point(lambda v: 255 if v >= alpha_threshold else 0)
-    bg    = Image.new("RGBA", img.size, (fill_rgb[0], fill_rgb[1], fill_rgb[2], 255))
+    bg = Image.new("RGBA", img.size, (fill_rgb[0], fill_rgb[1], fill_rgb[2], 255))
     bg.paste(img, mask=alpha)
     return bg.convert("RGB")
 
 
 def _to_rgb565_bytes(img_rgb: Image.Image) -> bytes:
     w, h = img_rgb.size
-    px   = img_rgb.load()
+    px = img_rgb.load()
     words = []
     for y in range(h):
         for x in range(w):
@@ -156,15 +152,14 @@ def _write_py_module(path: Path, data: bytes, w: int, h: int):
         "DATA = (",
     ]
     for i in range(0, len(words), chunk):
-        row = words[i:i + chunk]
-        lines.append("    b'" + "".join(
-            "\\x%02x\\x%02x" % (v >> 8, v & 0xFF) for v in row
-        ) + "'")
+        row = words[i : i + chunk]
+        lines.append("    b'" + "".join("\\x%02x\\x%02x" % (v >> 8, v & 0xFF) for v in row) + "'")
     lines.append(")")
     path.write_text("\n".join(lines) + "\n")
 
 
 # ── icon processing ───────────────────────────────────────────────────────────
+
 
 def optimize(src: Path):
     raw_kb = src.stat().st_size // 1024
@@ -172,25 +167,26 @@ def optimize(src: Path):
 
     HW_DIR.mkdir(parents=True, exist_ok=True)
     img_raw = Image.open(src)
-    is_bg   = src.stem.endswith("_bg")
+    is_bg = src.stem.endswith("_bg")
 
     if is_bg:
-        hw_img  = img_raw.convert("RGBA").resize((BG_W, BG_H), Image.LANCZOS)
-        hw_rgb  = _fill_transparent(hw_img, BADGE_BG)
+        hw_img = img_raw.convert("RGBA").resize((BG_W, BG_H), Image.LANCZOS)
+        hw_rgb = _fill_transparent(hw_img, BADGE_BG)
         hw_data = _to_rgb565_bytes(hw_rgb)
-        hw_out  = HW_DIR / ("%s.py" % src.stem)
+        hw_out = HW_DIR / ("%s.py" % src.stem)
         _write_py_module(hw_out, hw_data, BG_W, BG_H)
     else:
-        hw_img  = _resize_clean(img_raw, ICON_SIZE)
-        hw_rgb  = _fill_transparent(hw_img, BADGE_BG)
+        hw_img = _resize_clean(img_raw, ICON_SIZE)
+        hw_rgb = _fill_transparent(hw_img, BADGE_BG)
         hw_data = _to_rgb565_bytes(hw_rgb)
-        hw_out  = HW_DIR / ("%s.py" % src.stem)
+        hw_out = HW_DIR / ("%s.py" % src.stem)
         _write_py_module(hw_out, hw_data, ICON_SIZE, ICON_SIZE)
 
     print("  %dB  → %s" % (hw_out.stat().st_size, hw_out))
 
 
 # ── SVG status icon processing ────────────────────────────────────────────────
+
 
 def optimize_app(app_name, fill_override=None):
     """Optimize app sprites → optimized/*.py.
@@ -208,16 +204,17 @@ def optimize_app(app_name, fill_override=None):
     # Store app). Pick whichever has a raw/ folder so existing flows
     # don't break after a move.
     for root in (Path("apps"), Path("apps_market")):
-        if (root / app_name / "assets" / "raw").exists() or \
-           (root / app_name / "assets" / "transparent").exists():
+        if (root / app_name / "assets" / "raw").exists() or (
+            root / app_name / "assets" / "transparent"
+        ).exists():
             break
-    raw_dir  = root / app_name / "assets" / "raw"
-    tr_dir   = root / app_name / "assets" / "transparent"
-    out_dir  = root / app_name / "assets" / "optimized"
+    raw_dir = root / app_name / "assets" / "raw"
+    tr_dir = root / app_name / "assets" / "transparent"
+    out_dir = root / app_name / "assets" / "optimized"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     opaque_fill = fill_override or PER_APP_FILL.get(app_name, BADGE_BG)
-    opaque_set  = PER_APP_OPAQUE.get(app_name, set())
+    opaque_set = PER_APP_OPAQUE.get(app_name, set())
 
     # Accept .png / .jpg / .jpeg (case-insensitive). PIL decodes all three;
     # we treat them uniformly downstream since each is converted to RGBA.
@@ -237,8 +234,10 @@ def optimize_app(app_name, fill_override=None):
         print("No raw images (.png / .jpg / .jpeg) in", raw_dir)
         return
 
-    print("Optimizing %d asset(s) for app '%s'  [opaque-fill=rgb%s, chroma-key=rgb%s]...\n"
-          % (len(sources), app_name, opaque_fill, CHROMA_KEY))
+    print(
+        "Optimizing %d asset(s) for app '%s'  [opaque-fill=rgb%s, chroma-key=rgb%s]...\n"
+        % (len(sources), app_name, opaque_fill, CHROMA_KEY)
+    )
     # Gallery is the one app where we want to preserve the source aspect
     # ratio rather than squash into a fixed-size sprite. We fit each photo
     # into the play area (320×196) and let the renderer letterbox it.
@@ -249,9 +248,9 @@ def optimize_app(app_name, fill_override=None):
 
         if app_name == "gallery":
             sw, sh = img_raw.size
-            scale  = min(GALLERY_MAX_W / sw, GALLERY_MAX_H / sh, 1.0)
-            w      = max(1, int(round(sw * scale)))
-            h      = max(1, int(round(sh * scale)))
+            scale = min(GALLERY_MAX_W / sw, GALLERY_MAX_H / sh, 1.0)
+            w = max(1, int(round(sw * scale)))
+            h = max(1, int(round(sh * scale)))
             # Force even dimensions so the row stride packs cleanly.
             w -= w & 1
             h -= h & 1
@@ -262,19 +261,17 @@ def optimize_app(app_name, fill_override=None):
             size = PER_APP_SIZES.get(src.stem)
             if size is None:
                 size = (BG_W, BG_H) if src.stem.endswith("_bg") else (ICON_SIZE, ICON_SIZE)
-            w, h      = size
+            w, h = size
             is_opaque = src.stem in opaque_set
-            fill      = opaque_fill if is_opaque else CHROMA_KEY
-            hw_img    = img_raw.convert("RGBA").resize((w, h), Image.LANCZOS)
-            hw_rgb    = _fill_transparent(hw_img, fill)
+            fill = opaque_fill if is_opaque else CHROMA_KEY
+            hw_img = img_raw.convert("RGBA").resize((w, h), Image.LANCZOS)
+            hw_rgb = _fill_transparent(hw_img, fill)
 
         hw_data = _to_rgb565_bytes(hw_rgb)
-        out     = out_dir / ("%s.py" % src.stem)
+        out = out_dir / ("%s.py" % src.stem)
         _write_py_module(out, hw_data, w, h)
-        kind = "photo" if app_name == "gallery" else (
-               "opaque" if src.stem in opaque_set else "key")
-        print("  %-25s  →  %dx%d  %5dB  [%s]" %
-              (src.stem, w, h, out.stat().st_size, kind))
+        kind = "photo" if app_name == "gallery" else ("opaque" if src.stem in opaque_set else "key")
+        print("  %-25s  →  %dx%d  %5dB  [%s]" % (src.stem, w, h, out.stat().st_size, kind))
 
 
 def optimize_status_svgs():
@@ -284,8 +281,9 @@ def optimize_status_svgs():
     regardless of the original SVG fill colour.
     """
     try:
-        import cairosvg
         from io import BytesIO
+
+        import cairosvg
     except ImportError:
         print("cairosvg not installed — run: pip install cairosvg")
         return
@@ -299,27 +297,32 @@ def optimize_status_svgs():
     print("Processing %d SVG(s) from %s...\n" % (len(svgs), STATUS_SVG_DIR))
     for svg in svgs:
         name = svg.stem.replace("_icon", "").replace("bluetooh", "bluetooth")
-        hi   = STATUS_SIZE * 4
-        png  = cairosvg.svg2png(url=str(svg), output_width=hi, output_height=hi)
-        img  = Image.open(BytesIO(png)).convert("RGBA").resize(
-            (STATUS_SIZE, STATUS_SIZE), Image.LANCZOS)
+        hi = STATUS_SIZE * 4
+        png = cairosvg.svg2png(url=str(svg), output_width=hi, output_height=hi)
+        img = (
+            Image.open(BytesIO(png))
+            .convert("RGBA")
+            .resize((STATUS_SIZE, STATUS_SIZE), Image.LANCZOS)
+        )
 
         # Build white icon on chroma-key magenta. THRESHOLD the alpha first —
         # without this the anti-aliased edges blend white/magenta into pink
         # halos that aren't pure chroma-key and don't blit as transparent.
         alpha = img.split()[3].point(lambda v: 255 if v >= 96 else 0)
-        out_img = Image.new("RGB", (STATUS_SIZE, STATUS_SIZE),
-                            (STATUS_BG[0], STATUS_BG[1], STATUS_BG[2]))
+        out_img = Image.new(
+            "RGB", (STATUS_SIZE, STATUS_SIZE), (STATUS_BG[0], STATUS_BG[1], STATUS_BG[2])
+        )
         white = Image.new("RGB", (STATUS_SIZE, STATUS_SIZE), (255, 255, 255))
         out_img.paste(white, mask=alpha)
 
         data = _to_rgb565_bytes(out_img)
-        out  = STATUS_HW_DIR / ("%s.py" % name)
+        out = STATUS_HW_DIR / ("%s.py" % name)
         _write_py_module(out, data, STATUS_SIZE, STATUS_SIZE)
         print("  %-30s → %s" % (svg.name, out))
 
 
 # ── entry point ───────────────────────────────────────────────────────────────
+
 
 def optimize_sprites(targets=None):
     """Optimize top-level sprites: assets/sprites/raw/* → assets/sprites/optimized/*.py.
@@ -332,7 +335,8 @@ def optimize_sprites(targets=None):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     sources = sorted(
-        s for s in raw_dir.iterdir()
+        s
+        for s in raw_dir.iterdir()
         if s.is_file() and s.suffix.lower() in (".png", ".jpg", ".jpeg")
     )
     if targets:
@@ -345,13 +349,12 @@ def optimize_sprites(targets=None):
     for src in sources:
         size = PER_APP_SIZES.get(src.stem)
         if size is None:
-            print("  SKIP %s (no entry in PER_APP_SIZES — add one to set its size)"
-                  % src.name)
+            print("  SKIP %s (no entry in PER_APP_SIZES — add one to set its size)" % src.name)
             continue
-        w, h    = size
-        img     = Image.open(src).convert("RGB").resize((w, h), Image.LANCZOS)
-        data    = _to_rgb565_bytes(img)
-        out     = out_dir / ("%s.py" % src.stem)
+        w, h = size
+        img = Image.open(src).convert("RGB").resize((w, h), Image.LANCZOS)
+        data = _to_rgb565_bytes(img)
+        out = out_dir / ("%s.py" % src.stem)
         _write_py_module(out, data, w, h)
         print("  %-25s  →  %dx%d  %5dB" % (src.stem, w, h, out.stat().st_size))
 
@@ -362,8 +365,7 @@ def main():
         return
 
     if "--sprites" in sys.argv:
-        targets = [a for a in sys.argv[1:]
-                   if not a.startswith("--") and a != "--sprites"]
+        targets = [a for a in sys.argv[1:] if not a.startswith("--") and a != "--sprites"]
         optimize_sprites(targets or None)
         return
 
@@ -390,7 +392,8 @@ def main():
 
     targets = [a for a in sys.argv[1:] if not a.startswith("--")]
     sources = sorted(
-        s for s in RAW_DIR.iterdir()
+        s
+        for s in RAW_DIR.iterdir()
         if s.is_file() and s.suffix.lower() in (".png", ".jpg", ".jpeg")
     )
     if targets:

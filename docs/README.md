@@ -18,6 +18,7 @@ point — not this folder.
 |---|---|---|
 | [`HARDWARE.md`](HARDWARE.md) | Narrative build guide — BOM, pinout, power, wake-from-sleep, soldering tips | Anyone building or repairing the badge |
 | [`DATASHEET.md`](DATASHEET.md) | Formal specs — electrical, mechanical, communication interfaces, component reference | Someone designing a PCB or porting OreoOS |
+| [`SIMULATOR.md`](SIMULATOR.md) | Desktop simulator guide (`oreoSim`) — run and test apps without hardware | App developers and contributors |
 | [`BADGE_LAYOUT.md`](BADGE_LAYOUT.md) | Mechanical layout drawings + dimensions | PCB designers, case-makers |
 | [`BREADBOARD_BOM.md`](BREADBOARD_BOM.md) | First-time-builder BOM with through-hole-friendly parts | Workshop teachers, beginner solderers |
 | [`lcd.md`](lcd.md) | Display init, RAMWR strategy, refresh fps notes | Anyone touching `oreoWare/display.py` |

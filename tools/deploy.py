@@ -20,22 +20,22 @@ Usage:
 Must be run from the project root.
 """
 
-import sys
-import re
-import json
 import hashlib
+import json
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 PYTHON = sys.executable or "python3"
 
 PORT = "/dev/ttyACM0"
 for arg in sys.argv[1:]:
-    if arg.startswith("/dev/") or "COM" in arg:
+    if arg.startswith("/dev/") or "COM" in arg or arg.startswith("rfc2217://"):
         PORT = arg
 
-CLEAN  = "--clean" in sys.argv
-FORCE  = "--force" in sys.argv     # bypass local hash cache, push everything
+CLEAN = "--clean" in sys.argv
+FORCE = "--force" in sys.argv  # bypass local hash cache, push everything
 NOSKIP = CLEAN or FORCE
 
 HASH_CACHE_PATH = Path(".deploy_hashes.json")
@@ -44,7 +44,7 @@ HASH_CACHE_PATH = Path(".deploy_hashes.json")
 # bytes of free flash post-deploy. Sized for OTA staging headroom
 # (~500 KB peak) + a 250 KB image transfer + cache growth. Override on
 # the CLI with `--free-floor=N` (bytes) when you really need it.
-FREE_FLOOR_BYTES = 1 * 1024 * 1024     # 1 MB
+FREE_FLOOR_BYTES = 1 * 1024 * 1024  # 1 MB
 for _arg in sys.argv[1:]:
     if _arg.startswith("--free-floor="):
         try:
@@ -61,8 +61,7 @@ SKIP_FREE_GUARD = "--no-free-guard" in sys.argv
 OVERRIDE_DIRS = []
 for _arg in sys.argv[1:]:
     if _arg.startswith("--override="):
-        OVERRIDE_DIRS = [s.strip() for s in _arg.split("=", 1)[1].split(",")
-                         if s.strip()]
+        OVERRIDE_DIRS = [s.strip() for s in _arg.split("=", 1)[1].split(",") if s.strip()]
         break
     if _arg == "--override":
         # Bare `--override` defaults to the two trees that accumulate
@@ -101,12 +100,40 @@ def _save_hash_cache(cache):
 
 # ── version auto-bump ─────────────────────────────────────────────────────────
 
-CONFIG_PATH      = Path("oreoOS/config.py")
+CONFIG_PATH = Path("oreoOS/config.py")
 _VERSION_PATTERN = re.compile(
     r'^(VERSION\s*=\s*")v(\d+)\.(\d+)\.(\d+)(")',
     re.MULTILINE,
 )
 
+_STORE_REF_PATTERN = re.compile(
+    r'^(STORE_REF\s*=\s*")(.*?)(")',
+    re.MULTILINE,
+)
+
+def sync_store_ref():
+    """Dynamically set STORE_REF in oreoOS/config.py to the current git branch."""
+    if not CONFIG_PATH.exists():
+        return None
+    try:
+        branch = subprocess.check_output(["git", "branch", "--show-current"]).decode().strip()
+    except Exception:
+        return None
+    if not branch:
+        return None
+
+    text = CONFIG_PATH.read_text()
+    m = _STORE_REF_PATTERN.search(text)
+    if not m:
+        return None
+
+    old_branch = m.group(2)
+    if old_branch == branch:
+        return branch
+
+    new_line = "%s%s%s" % (m.group(1), branch, m.group(3))
+    CONFIG_PATH.write_text(text[: m.start()] + new_line + text[m.end() :])
+    return branch
 
 def bump_patch_version():
     """Rewrite the VERSION literal in oreoOS/config.py, +1 to the patch.
@@ -119,92 +146,88 @@ def bump_patch_version():
     if not CONFIG_PATH.exists():
         return None, None
     text = CONFIG_PATH.read_text()
-    m    = _VERSION_PATTERN.search(text)
+    m = _VERSION_PATTERN.search(text)
     if not m:
         return None, None
     major, minor, patch = int(m.group(2)), int(m.group(3)), int(m.group(4))
     old = "v%d.%d.%d" % (major, minor, patch)
     new = "v%d.%d.%d" % (major, minor, patch + 1)
     new_line = "%s%s%s" % (m.group(1), new, m.group(5))
-    CONFIG_PATH.write_text(text[:m.start()] + new_line + text[m.end():])
+    CONFIG_PATH.write_text(text[: m.start()] + new_line + text[m.end() :])
     return old, new
+
 
 # ── Files and directories to deploy ──────────────────────────────────────────
 # (local_path, remote_path)  — directories are copied recursively
 
 DEPLOY = [
     # entry point — oreoOS.entry → /main.py on the device
-    ("oreoOS/entry.py",         "main.py"),
-
+    ("oreoOS/entry.py", "main.py"),
     # OS layer (flat namespace: api, app, theme, widgets, font, …)
-    ("oreoOS/__init__.py",      "oreoOS/__init__.py"),
-    ("oreoOS/_http.py",         "oreoOS/_http.py"),
-    ("oreoOS/config.py",        "oreoOS/config.py"),
-    ("oreoOS/api.py",           "oreoOS/api.py"),
-    ("oreoOS/app.py",           "oreoOS/app.py"),
-    ("oreoOS/font.py",          "oreoOS/font.py"),
-    ("oreoOS/pixelfont.py",     "oreoOS/pixelfont.py"),
-    ("oreoOS/sprite.py",        "oreoOS/sprite.py"),
-    ("oreoOS/home.py",          "oreoOS/home.py"),
-    ("oreoOS/icons.py",         "oreoOS/icons.py"),
-    ("oreoOS/launcher.py",      "oreoOS/launcher.py"),
-    ("oreoOS/power.py",         "oreoOS/power.py"),
-    ("oreoOS/splash.py",        "oreoOS/splash.py"),
-    ("oreoOS/theme.py",         "oreoOS/theme.py"),
-    ("oreoOS/timeutil.py",      "oreoOS/timeutil.py"),
-    ("oreoOS/widgets.py",       "oreoOS/widgets.py"),
-    ("oreoOS/cache.py",         "oreoOS/cache.py"),
-    ("oreoOS/ota.py",           "oreoOS/ota.py"),
-    ("oreoOS/storage.py",       "oreoOS/storage.py"),
-    ("oreoOS/store.py",         "oreoOS/store.py"),
+    ("oreoOS/__init__.py", "oreoOS/__init__.py"),
+    ("oreoOS/_http.py", "oreoOS/_http.py"),
+    ("oreoOS/config.py", "oreoOS/config.py"),
+    ("oreoOS/api.py", "oreoOS/api.py"),
+    ("oreoOS/app.py", "oreoOS/app.py"),
+    ("oreoOS/font.py", "oreoOS/font.py"),
+    ("oreoOS/pixelfont.py", "oreoOS/pixelfont.py"),
+    ("oreoOS/sprite.py", "oreoOS/sprite.py"),
+    ("oreoOS/home.py", "oreoOS/home.py"),
+    ("oreoOS/icons.py", "oreoOS/icons.py"),
+    ("oreoOS/launcher.py", "oreoOS/launcher.py"),
+    ("oreoOS/power.py", "oreoOS/power.py"),
+    ("oreoOS/splash.py", "oreoOS/splash.py"),
+    ("oreoOS/theme.py", "oreoOS/theme.py"),
+    ("oreoOS/timeutil.py", "oreoOS/timeutil.py"),
+    ("oreoOS/widgets.py", "oreoOS/widgets.py"),
+    ("oreoOS/cache.py", "oreoOS/cache.py"),
+    ("oreoOS/ota.py", "oreoOS/ota.py"),
+    ("oreoOS/storage.py", "oreoOS/storage.py"),
+    ("oreoOS/store.py", "oreoOS/store.py"),
     ("oreoOS/notifications.py", "oreoOS/notifications.py"),
-    ("oreoOS/notif_panel.py",   "oreoOS/notif_panel.py"),
-    ("oreoOS/pair_prompt.py",   "oreoOS/pair_prompt.py"),
-    ("oreoOS/http_server.py",   "oreoOS/http_server.py"),
+    ("oreoOS/notif_panel.py", "oreoOS/notif_panel.py"),
+    ("oreoOS/pair_prompt.py", "oreoOS/pair_prompt.py"),
+    ("oreoOS/http_server.py", "oreoOS/http_server.py"),
     # Mascot image served at /mascot.png by the on-badge upload page.
     # Without this in the deploy manifest the file never makes it to
     # flash, so the local upload page renders a broken-image icon.
-    ("oreoOS/mascot.png",       "oreoOS/mascot.png"),
-    ("oreoOS/gestures.py",      "oreoOS/gestures.py"),
-
+    ("oreoOS/mascot.png", "oreoOS/mascot.png"),
+    ("oreoOS/gestures.py", "oreoOS/gestures.py"),
     # Hardware drivers
-    ("oreoWare/__init__.py",    "oreoWare/__init__.py"),
-    ("oreoWare/_st7789.py",     "oreoWare/_st7789.py"),
-    ("oreoWare/buttons.py",     "oreoWare/buttons.py"),
-    ("oreoWare/display.py",     "oreoWare/display.py"),
-    ("oreoWare/battery.py",     "oreoWare/battery.py"),
-    ("oreoWare/os.py",          "oreoWare/os.py"),
-    ("oreoWare/pins.py",        "oreoWare/pins.py"),
-    ("oreoWare/wifi.py",        "oreoWare/wifi.py"),
-    ("oreoWare/bt.py",          "oreoWare/bt.py"),
-    ("oreoWare/imu.py",         "oreoWare/imu.py"),
-    ("oreoWare/ir.py",          "oreoWare/ir.py"),
+    ("oreoWare/__init__.py", "oreoWare/__init__.py"),
+    ("oreoWare/_st7789.py", "oreoWare/_st7789.py"),
+    ("oreoWare/buttons.py", "oreoWare/buttons.py"),
+    ("oreoWare/display.py", "oreoWare/display.py"),
+    ("oreoWare/battery.py", "oreoWare/battery.py"),
+    ("oreoWare/os.py", "oreoWare/os.py"),
+    ("oreoWare/pins.py", "oreoWare/pins.py"),
+    ("oreoWare/wifi.py", "oreoWare/wifi.py"),
+    ("oreoWare/bt.py", "oreoWare/bt.py"),
+    ("oreoWare/imu.py", "oreoWare/imu.py"),
+    ("oreoWare/ir.py", "oreoWare/ir.py"),
 ]
 
 # Pixelify Sans bitmap-font modules (.py only — skip the TTF, it's build-time)
 _fonts_dir = Path("assets/fonts/optimized")
 if _fonts_dir.exists():
-    DEPLOY.append(("assets/fonts/__init__.py",
-                   "assets/fonts/__init__.py"))
-    DEPLOY.append(("assets/fonts/optimized/__init__.py",
-                   "assets/fonts/optimized/__init__.py"))
+    DEPLOY.append(("assets/fonts/__init__.py", "assets/fonts/__init__.py"))
+    DEPLOY.append(("assets/fonts/optimized/__init__.py", "assets/fonts/optimized/__init__.py"))
     for _f in sorted(_fonts_dir.glob("pixelify_*.py")):
         DEPLOY.append((str(_f), "assets/fonts/optimized/" + _f.name))
 
-APPS_DIR     = Path("apps")
-_app_roots   = [APPS_DIR]
+APPS_DIR = Path("apps")
+_app_roots = [APPS_DIR]
 for _root in _app_roots:
     for app_dir in sorted(_root.iterdir()):
         if not app_dir.is_dir() or app_dir.name.startswith("_"):
             continue
-        if not ((app_dir / "main.py").exists() and
-                (app_dir / "manifest.json").exists()):
+        if not ((app_dir / "main.py").exists() and (app_dir / "manifest.json").exists()):
             continue
         rel = str(app_dir)
         DEPLOY += [
-            ("%s/__init__.py" % rel,      "%s/__init__.py" % rel),
-            ("%s/main.py" % rel,          "%s/main.py" % rel),
-            ("%s/manifest.json" % rel,    "%s/manifest.json" % rel),
+            ("%s/__init__.py" % rel, "%s/__init__.py" % rel),
+            ("%s/main.py" % rel, "%s/main.py" % rel),
+            ("%s/manifest.json" % rel, "%s/manifest.json" % rel),
         ]
 
         # Optional src/ subtree for the modular-app convention:
@@ -222,12 +245,10 @@ for _root in _app_roots:
                     continue
                 # Filter out everything we don't want on flash.
                 parts = sp.relative_to(app_dir).parts
-                if any(p == "__pycache__" or p.startswith(".") or
-                       p == "tests" for p in parts):
+                if any(p == "__pycache__" or p.startswith(".") or p == "tests" for p in parts):
                     continue
-                rel_path = "/".join(parts)         # src/foo/bar.py
-                DEPLOY.append((str(sp),
-                               "%s/%s" % (rel, rel_path)))
+                rel_path = "/".join(parts)  # src/foo/bar.py
+                DEPLOY.append((str(sp), "%s/%s" % (rel, rel_path)))
         # Reader bundles plain .md / .txt files under assets/ (no optimize
         # step — they're already device-readable). README.md is a host-only
         # workflow doc and is excluded from the push.
@@ -241,8 +262,7 @@ for _root in _app_roots:
                         continue
                     if p.suffix.lower() not in (".md", ".txt"):
                         continue
-                    DEPLOY.append((str(p),
-                                   "%s/assets/%s" % (rel, p.name)))
+                    DEPLOY.append((str(p), "%s/assets/%s" % (rel, p.name)))
 
         # Per-app assets (only optimized .py modules, not raw images).
         # Gallery is special: filter the optimized list to ONLY the stems
@@ -254,11 +274,12 @@ for _root in _app_roots:
             DEPLOY.append(("%s/assets/__init__.py" % rel, "%s/assets/__init__.py" % rel))
             DEPLOY.append(("%s/__init__.py" % opt, "%s/__init__.py" % r_base))
 
-            raw_dir   = app_dir / "assets" / "raw"
+            raw_dir = app_dir / "assets" / "raw"
             raw_stems = None
             if app_dir.name == "gallery" and raw_dir.exists():
                 raw_stems = {
-                    p.stem for p in raw_dir.iterdir()
+                    p.stem
+                    for p in raw_dir.iterdir()
                     if p.suffix.lower() in (".png", ".jpg", ".jpeg")
                 }
 
@@ -277,8 +298,7 @@ for _root in _app_roots:
             # are included by --force / --override=gallery deployments.
             if app_dir.name == "gallery":
                 for video in sorted(opt.glob("*.rv565")):
-                    DEPLOY.append((str(video), "%s/%s" %
-                                   (r_base, video.name)))
+                    DEPLOY.append((str(video), "%s/%s" % (r_base, video.name)))
 
 # assets — only the optimized .py modules (not raw PNGs/SVGs)
 for subdir in ["icons", "sprites", "status"]:
@@ -291,7 +311,7 @@ for subdir in ["icons", "sprites", "status"]:
                 continue
             DEPLOY.append((str(py), "%s/%s" % (remote_base, py.name)))
         # parent __init__ files
-        parent_local  = "assets/%s/__init__.py" % subdir
+        parent_local = "assets/%s/__init__.py" % subdir
         parent_remote = "assets/%s/__init__.py" % subdir
         if Path(parent_local).exists():
             DEPLOY.append((parent_local, parent_remote))
@@ -300,6 +320,7 @@ DEPLOY.append(("assets/__init__.py", "assets/__init__.py"))
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def run(cmd, check=True):
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -324,10 +345,18 @@ def mpremote(*args):
 def _device_free_bytes():
     """Query the device's free flash via statvfs. Returns bytes, or None
     on failure (no device / unexpected output)."""
-    r = run([PYTHON, "-m", "mpremote", "connect", PORT, "exec",
-             "import os\n"
-             "s=os.statvfs('/')\n"
-             "print('FREE=%d' % (s[1]*s[4]))"], check=False)
+    r = run(
+        [
+            PYTHON,
+            "-m",
+            "mpremote",
+            "connect",
+            PORT,
+            "exec",
+            "import os\ns=os.statvfs('/')\nprint('FREE=%d' % (s[1]*s[4]))",
+        ],
+        check=False,
+    )
     if r.returncode != 0:
         return None
     for line in (r.stdout or "").splitlines():
@@ -386,13 +415,14 @@ def mpremote_batch(actions, label=""):
             except OSError:
                 cp_size[a[1]] = 0
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, bufsize=1)
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+    )
 
-    done       = 0
-    new_bytes  = 0
-    skipped    = 0
-    pending    = None     # local path of file currently being copied
+    done = 0
+    new_bytes = 0
+    skipped = 0
+    pending = None  # local path of file currently being copied
 
     for line in proc.stdout:
         line = line.rstrip()
@@ -411,12 +441,11 @@ def mpremote_batch(actions, label=""):
         # "Up to date: <remote>"  — mpremote skipped because content matches
         if line.startswith("Up to date:"):
             if pending is not None:
-                done    += 1
+                done += 1
                 skipped += 1
-                bar      = _progress_bar(done, total_cp)
-                print("  [%03d/%03d] %s  %-40s  ↺ unchanged" %
-                      (done, total_cp, bar, pending[-40:]))
-                pending  = None
+                bar = _progress_bar(done, total_cp)
+                print("  [%03d/%03d] %s  %-40s  ↺ unchanged" % (done, total_cp, bar, pending[-40:]))
+                pending = None
             continue
 
         # Anything else → mpremote stderr (e.g. "mkdir: File exists" is filtered above)
@@ -439,8 +468,10 @@ def mpremote_batch(actions, label=""):
     if real_writes:
         avg = sum(cp_size.values()) // max(1, total_cp)
         new_bytes = avg * real_writes
-    print("  ── %d files: %d new/updated (~%s)  %d unchanged   exit=%d" %
-          (total_cp, real_writes, _human_size(new_bytes), skipped, rc))
+    print(
+        "  ── %d files: %d new/updated (~%s)  %d unchanged   exit=%d"
+        % (total_cp, real_writes, _human_size(new_bytes), skipped, rc)
+    )
     return rc
 
 
@@ -457,6 +488,7 @@ def write_secrets_local():
     """
     # Import the project config from the repo root.
     import sys as _sys
+
     project_root = str(Path(__file__).resolve().parent.parent)
     if project_root not in _sys.path:
         _sys.path.insert(0, project_root)
@@ -472,22 +504,22 @@ def write_secrets_local():
         # the .env CSV) so older code paths that read them still
         # work. WIFI_NETWORKS is the canonical list that wifi.py
         # merges into /wifi.json at boot.
-        ("WIFI_SSID",        "%r"),
-        ("WIFI_PASSWORD",    "%r"),
-        ("WIFI_NETWORKS",    "%r"),
-        ("WIFI_AUTO_CONNECT","%r"),
-        ("BT_AUTO_ENABLE",   "%r"),
-        ("GITHUB_USER",      "%r"),
-        ("DISPLAY_NAME",     "%r"),
-        ("DESIGNATION",      "%r"),
-        ("OWM_API_KEY",      "%r"),
-        ("WEATHER_LAT",      "%s"),
-        ("WEATHER_LON",      "%s"),
-        ("WEATHER_NAME",     "%r"),
-        ("TIMEZONE_OFFSET",  "%s"),
-        ("WIFI_TX_DBM",      "%s"),
-        ("WIFI_POWERSAVE",   "%r"),
-        ("BT_ADV_INTERVAL_MS","%s"),
+        ("WIFI_SSID", "%r"),
+        ("WIFI_PASSWORD", "%r"),
+        ("WIFI_NETWORKS", "%r"),
+        ("WIFI_AUTO_CONNECT", "%r"),
+        ("BT_AUTO_ENABLE", "%r"),
+        ("GITHUB_USER", "%r"),
+        ("DISPLAY_NAME", "%r"),
+        ("DESIGNATION", "%r"),
+        ("OWM_API_KEY", "%r"),
+        ("WEATHER_LAT", "%s"),
+        ("WEATHER_LON", "%s"),
+        ("WEATHER_NAME", "%r"),
+        ("TIMEZONE_OFFSET", "%s"),
+        ("WIFI_TX_DBM", "%s"),
+        ("WIFI_POWERSAVE", "%r"),
+        ("BT_ADV_INTERVAL_MS", "%s"),
     )
     out = ["# Auto-generated by tools/deploy.py from config.py + .env — do not commit."]
     for name, fmt in fields:
@@ -502,7 +534,7 @@ def write_secrets_local():
 # ── build directory set ────────────────────────────────────────────────────────
 
 remote_dirs = set()
-for local, remote in DEPLOY:
+for _local, remote in DEPLOY:
     # Include every ancestor. After --clean the top-level apps/ directory no
     # longer exists, so trying os.mkdir("apps/about") first just raises ENOENT.
     # The old code ignored that error and the batch later failed misleadingly
@@ -518,8 +550,9 @@ remote_dirs = sorted(remote_dirs, key=lambda p: p.count("/"))
 
 # ── website deploy ───────────────────────────────────────────────────────────
 
-WEBSITE_DIR    = Path("oreo.elixpo")
-WEBSITE_PROJECT = "oreo"        # Cloudflare Pages project name
+WEBSITE_DIR = Path("oreo.elixpo")
+WEBSITE_PROJECT = "oreo"  # Cloudflare Pages project name
+
 
 def deploy_website():
     """Build the Next.js static export and push it to Cloudflare Pages.
@@ -536,7 +569,11 @@ def deploy_website():
     preview = "--preview" in sys.argv
 
     print("Building Next.js static export in %s/..." % WEBSITE_DIR)
-    rc = subprocess.call(["npx", "next", "build"], cwd=str(WEBSITE_DIR))
+    import os
+
+    env = dict(os.environ)
+    env["CF_PAGES"] = "1"
+    rc = subprocess.call(["npx", "next", "build"], cwd=str(WEBSITE_DIR), env=env)
     if rc != 0:
         print("next build failed (exit %d)" % rc)
         sys.exit(rc)
@@ -550,12 +587,10 @@ def deploy_website():
     # custom domain (oreo.elixpo.com) actually serves the new bytes.
     # Without it wrangler defaults to the current git branch, which
     # only updates the branch-alias preview URL.
-    cmd = ["npx", "wrangler", "pages", "deploy", "out",
-           "--project-name=" + WEBSITE_PROJECT]
+    cmd = ["npx", "wrangler", "pages", "deploy", "out", "--project-name=" + WEBSITE_PROJECT]
     if not preview:
         cmd.append("--branch=main")
-    print("Deploying to Cloudflare Pages (%s)..." %
-          ("preview" if preview else "production"))
+    print("Deploying to Cloudflare Pages (%s)..." % ("preview" if preview else "production"))
     rc = subprocess.call(cmd, cwd=str(WEBSITE_DIR))
     if rc != 0:
         print("wrangler deploy failed (exit %d)" % rc)
@@ -565,6 +600,7 @@ def deploy_website():
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
+
 def main():
     # Website-only path — short-circuits everything ESP-related so the
     # user can ship the site without a badge attached.
@@ -573,14 +609,18 @@ def main():
         return
 
     import time as _t
+
     t0 = _t.time()
     if "--no-bump" not in sys.argv:
         old, new = bump_patch_version()
         if new:
             print("Version: %s → %s" % (old, new))
         else:
-            print("Version: could not locate VERSION line in %s — skipping bump"
-                  % CONFIG_PATH)
+            print("Version: could not locate VERSION line in %s — skipping bump" % CONFIG_PATH)
+
+        store_branch = sync_store_ref()
+        if store_branch:
+            print("Store Ref: synced to %s" % store_branch)
     print("Deploying Oreo Badge OS → %s\n" % PORT)
 
     # Verify device reachable
@@ -593,8 +633,7 @@ def main():
         # Wipe the specified app trees on device. We do this BEFORE the
         # hash-cache scan so the entries we just nuked get re-pushed in
         # this same run rather than waiting for --force.
-        print("Override: wiping device-side apps/{%s}/..."
-              % ",".join(OVERRIDE_DIRS))
+        print("Override: wiping device-side apps/{%s}/..." % ",".join(OVERRIDE_DIRS))
         wipe_script = (
             "import os\n"
             "def _rm(p):\n"
@@ -624,28 +663,31 @@ def main():
             except Exception:
                 cached = {}
             prefixes = tuple("apps/%s/" % d for d in OVERRIDE_DIRS)
-            kept = {k: v for k, v in cached.items()
-                    if not k.startswith(prefixes)}
+            kept = {k: v for k, v in cached.items() if not k.startswith(prefixes)}
             dropped = len(cached) - len(kept)
             if dropped:
                 cache_path.write_text(json.dumps(kept))
-                print("  dropped %d hash-cache entr%s under override dirs"
-                      % (dropped, "y" if dropped == 1 else "ies"))
+                print(
+                    "  dropped %d hash-cache entr%s under override dirs"
+                    % (dropped, "y" if dropped == 1 else "ies")
+                )
         print()
 
     if CLEAN:
         print("Wiping device filesystem...")
-        mpremote("exec",
-                 "import os\n"
-                 "def _rm(p):\n"
-                 "    try:\n"
-                 "        for f in os.listdir(p): _rm(p + '/' + f)\n"
-                 "        os.rmdir(p)\n"
-                 "    except OSError:\n"
-                 "        try: os.remove(p)\n"
-                 "        except: pass\n"
-                 "for f in os.listdir('/'):\n"
-                 "    if f != 'boot.py': _rm('/' + f)\n")
+        mpremote(
+            "exec",
+            "import os\n"
+            "def _rm(p):\n"
+            "    try:\n"
+            "        for f in os.listdir(p): _rm(p + '/' + f)\n"
+            "        os.rmdir(p)\n"
+            "    except OSError:\n"
+            "        try: os.remove(p)\n"
+            "        except: pass\n"
+            "for f in os.listdir('/'):\n"
+            "    if f != 'boot.py': _rm('/' + f)\n",
+        )
         # A wiped device has no files left to match the host-side cache.
         # Keeping stale hashes here would make --clean skip nearly the entire
         # OS and leave the badge unbootable.
@@ -659,18 +701,15 @@ def main():
     # Create all directories in one device-side exec (ignores "File exists")
     print("Creating directories (single exec)...")
     mkdir_script = (
-        "import os\n"
-        "for d in %r:\n"
-        "    try: os.mkdir(d)\n"
-        "    except OSError: pass\n"
+        "import os\nfor d in %r:\n    try: os.mkdir(d)\n    except OSError: pass\n"
     ) % list(remote_dirs)
     mpremote("exec", mkdir_script)
 
     # Build cp action list, skipping files whose hash matches the local cache.
-    cache       = _load_hash_cache()
-    new_cache   = dict(cache)
-    actions     = []
-    files       = []
+    cache = _load_hash_cache()
+    new_cache = dict(cache)
+    actions = []
+    files = []
     skipped_pre = 0
     for local, remote in DEPLOY:
         if not Path(local).exists():
@@ -698,10 +737,9 @@ def main():
     # carousel showing only the photos the user actually has in raw/.
     gallery_raw = Path("apps/gallery/assets/raw")
     if gallery_raw.exists():
-        keep = sorted({
-            p.stem for p in gallery_raw.iterdir()
-            if p.suffix.lower() in (".png", ".jpg", ".jpeg")
-        })
+        keep = sorted(
+            {p.stem for p in gallery_raw.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg")}
+        )
         cleanup = (
             "import os\n"
             "keep = set(%r)\n"
@@ -716,12 +754,16 @@ def main():
         ) % keep
         print("  pruning stale gallery photos on device (keep=%d)" % len(keep))
         mpremote("exec", cleanup)
-    repo_apps = sorted({
-        p.name for p in Path("apps").iterdir()
-        if p.is_dir() and (p / "main.py").exists()
+    repo_apps = sorted(
+        {
+            p.name
+            for p in Path("apps").iterdir()
+            if p.is_dir()
+            and (p / "main.py").exists()
             and (p / "manifest.json").exists()
             and not p.name.startswith("_")
-    })
+        }
+    )
     apps_prune = (
         "import os\n"
         "keep = set(%r)\n"
@@ -748,8 +790,10 @@ def main():
     mpremote("exec", apps_prune)
 
     cache_state = "miss" if not cache else "hit (%d entries)" % len(cache)
-    print("  hash cache: %s   |   to push: %d   skipped: %d"
-          % (cache_state, len(files) + 1, skipped_pre))
+    print(
+        "  hash cache: %s   |   to push: %d   skipped: %d"
+        % (cache_state, len(files) + 1, skipped_pre)
+    )
     if skipped_pre and len(cache) == 0:
         print("  (cache was empty — first run after a hash-cache reset will push everything)")
 
@@ -774,28 +818,40 @@ def main():
             print("  free-space guard: could not read device statvfs — skipping check")
         else:
             projected_free = free_bytes - projected_bytes
-            print("  free-space guard: device free=%s, push=%s, post-deploy=%s, floor=%s"
-                  % (_human_size(free_bytes), _human_size(projected_bytes),
-                     _human_size(projected_free), _human_size(FREE_FLOOR_BYTES)))
+            print(
+                "  free-space guard: device free=%s, push=%s, post-deploy=%s, floor=%s"
+                % (
+                    _human_size(free_bytes),
+                    _human_size(projected_bytes),
+                    _human_size(projected_free),
+                    _human_size(FREE_FLOOR_BYTES),
+                )
+            )
             if projected_free < FREE_FLOOR_BYTES:
                 deficit = FREE_FLOOR_BYTES - projected_free
                 print()
-                print("  ABORTING: this deploy would leave only %s free "
-                      "(floor is %s, short by %s)."
-                      % (_human_size(max(0, projected_free)),
-                         _human_size(FREE_FLOOR_BYTES),
-                         _human_size(deficit)))
-                print("  Free up space (delete photos / documents / caches) "
-                      "or rerun with --no-free-guard to override.")
+                print(
+                    "  ABORTING: this deploy would leave only %s free "
+                    "(floor is %s, short by %s)."
+                    % (
+                        _human_size(max(0, projected_free)),
+                        _human_size(FREE_FLOOR_BYTES),
+                        _human_size(deficit),
+                    )
+                )
+                print(
+                    "  Free up space (delete photos / documents / caches) "
+                    "or rerun with --no-free-guard to override."
+                )
                 secrets_tmp.unlink(missing_ok=True)
                 sys.exit(2)
     print()
 
     push_t0 = _t.time()
     try:
-        rc = mpremote_batch(actions,
-                            label="Pushing %d files in a single session..."
-                                  % (len(files) + 1))
+        rc = mpremote_batch(
+            actions, label="Pushing %d files in a single session..." % (len(files) + 1)
+        )
     finally:
         secrets_tmp.unlink(missing_ok=True)
     push_elapsed = _t.time() - push_t0
@@ -816,8 +872,7 @@ def main():
         mpremote("reset")
         print("Oreo OS is booting.")
     else:
-        print("\nBatch exited with code %d after %.1fs (cache not changed)." %
-              (rc, elapsed))
+        print("\nBatch exited with code %d after %.1fs (cache not changed)." % (rc, elapsed))
 
 
 if __name__ == "__main__":

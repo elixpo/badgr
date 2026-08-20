@@ -60,10 +60,10 @@ from oreoWare.buttons import Buttons
 btns = Buttons()
 
 # Each frame:
-btns.update()                          # refresh edge state
-if btns.just_pressed(api.BTN_HOME):    # rising-edge press
+btns.update()  # refresh edge state
+if btns.just_pressed(api.BTN_HOME):  # rising-edge press
     ...
-if btns.is_pressed(api.BTN_A):         # held state
+if btns.is_pressed(api.BTN_A):  # held state
     ...
 ```
 

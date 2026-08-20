@@ -15,13 +15,13 @@ SH = api.SCREEN_H
 # Arena geometry — derived from the badge screen and the standard
 # chrome bars (header + hint). One source of truth so render.py
 # and game.py agree on where the playfield is.
-CELL    = 10
+CELL = 10
 ARENA_X = 0
 ARENA_Y = widgets.HEADER_H + 2
 ARENA_W = SW
 ARENA_H = SH - widgets.HEADER_H - widgets.HINT_H - 4
-COLS    = ARENA_W // CELL
-ROWS    = ARENA_H // CELL
+COLS = ARENA_W // CELL
+ROWS = ARENA_H // CELL
 
 # Initial step interval. Snake gets faster as it eats; floor enforced
 # in step() so the game stays playable even at very long lengths.
@@ -51,6 +51,8 @@ def random_food(snake):
     """Pick a cell that the snake doesn't currently occupy. Loops until
     one is found — fine because the arena is far larger than any
     plausible snake."""
+    if len(snake) >= COLS * ROWS:
+        return None
     snake_set = set(snake)
     while True:
         c = rand() % COLS
@@ -90,10 +92,10 @@ def step(snake, direction, food, score, step_sec):
 
     new_snake = [(nc, nr)] + snake
     if (nc, nr) == food:
-        new_food  = random_food(new_snake)
+        new_food = random_food(new_snake)
         new_score = score + 1
         # Speed up by STEP_DECAY each food until STEP_FLOOR.
-        new_step  = max(STEP_FLOOR, step_sec * STEP_DECAY)
+        new_step = max(STEP_FLOOR, step_sec * STEP_DECAY)
         return new_snake, new_food, new_score, new_step, True, False
     # Didn't eat: drop the tail so length is unchanged.
     new_snake.pop()

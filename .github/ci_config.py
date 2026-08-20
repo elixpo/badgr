@@ -108,11 +108,32 @@ ORG_MEMBERS = ["Circuit-Overtime", "anwe-ch", "elixpoo", "ez-vivek"]
 # Maintainer skill map — used for LLM-driven PR reviewer assignment
 MAINTAINERS = {
     "Circuit-Overtime": {
-        "skills": ["agent", "agentic", "breaking", "urgent", "backend", "python", "ci", "devops", "llm", "core"],
+        "skills": [
+            "agent",
+            "agentic",
+            "breaking",
+            "urgent",
+            "backend",
+            "python",
+            "ci",
+            "devops",
+            "llm",
+            "core",
+        ],
         "role": "Lead — handles agentic work, breaking fixes, and urgent issues",
     },
     "ez-vivek": {
-        "skills": ["frontend", "ui", "ux", "nextjs", "react", "css", "components", "styling", "design"],
+        "skills": [
+            "frontend",
+            "ui",
+            "ux",
+            "nextjs",
+            "react",
+            "css",
+            "components",
+            "styling",
+            "design",
+        ],
         "role": "Frontend maintainer",
     },
     "anwe-ch": {

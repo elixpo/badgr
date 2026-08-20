@@ -39,10 +39,10 @@ class PairPrompt:
     prompt lives inside oreoWare.bt and we just mirror it visually."""
 
     def __init__(self, os_obj):
-        self._os    = os_obj
+        self._os = os_obj
         # Cached last-seen prompt dict so a transient peek-failure
         # doesn't flicker the overlay off mid-prompt.
-        self._last  = None
+        self._last = None
         self._dirty = True
 
     # ── module-edge polling ─────────────────────────────────────────────
@@ -50,14 +50,15 @@ class PairPrompt:
         """Re-read the SMP state from bt.py. Called from the OS run loop."""
         try:
             from oreoWare import bt
+
             live = bt.peek_pair_prompt()
         except Exception:
             live = None
         if live is None and self._last is not None:
-            self._last  = None
+            self._last = None
             self._dirty = True
         elif live is not None and self._last is not live:
-            self._last  = live
+            self._last = live
             self._dirty = True
 
     def is_active(self):
@@ -72,22 +73,24 @@ class PairPrompt:
         if btn == api.BTN_A:
             try:
                 from oreoWare import bt
+
                 bt.accept_pair_prompt()
             except Exception:
                 pass
-            self._last  = None
+            self._last = None
             self._dirty = True
             return True
         if btn in (api.BTN_B, api.BTN_HOME):
             try:
                 from oreoWare import bt
+
                 bt.reject_pair_prompt()
             except Exception:
                 pass
-            self._last  = None
+            self._last = None
             self._dirty = True
             return True
-        return True   # swallow other buttons so the app behind doesn't see them
+        return True  # swallow other buttons so the app behind doesn't see them
 
     # ── render ──────────────────────────────────────────────────────────
     def draw(self, d):
@@ -111,23 +114,20 @@ class PairPrompt:
         # Heading
         title = "Confirm pairing?"
         tw = len(title) * 16
-        d.text(title, card_x + (card_w - tw) // 2,
-               card_y + 16, theme.TEXT_BRIGHT, scale=2)
+        d.text(title, card_x + (card_w - tw) // 2, card_y + 16, theme.TEXT_BRIGHT, scale=2)
 
         # Sub-heading
         sub = "Does this code match your phone?"
         sw = len(sub) * 8
-        d.text(sub, card_x + (card_w - sw) // 2,
-               card_y + 46, theme.TEXT_DIM, scale=1)
+        d.text(sub, card_x + (card_w - sw) // 2, card_y + 46, theme.TEXT_DIM, scale=1)
 
         # The 6-digit code, big and centered.
         code = "%06d" % int(self._last.get("passkey", 0))
         cw = len(code) * 32
-        d.text(code, card_x + (card_w - cw) // 2,
-               card_y + 78, theme.PRIMARY, scale=4)
+        d.text(code, card_x + (card_w - cw) // 2, card_y + 78, theme.PRIMARY, scale=4)
 
         # Footer actions.
         foot_y = card_y + card_h - 36
-        d.text("A=YES  match",  card_x + 14, foot_y,      theme.PRIMARY,  scale=1)
-        d.text("B=NO   reject", card_x + 14, foot_y + 14, theme.MUTED,    scale=1)
+        d.text("A=YES  match", card_x + 14, foot_y, theme.PRIMARY, scale=1)
+        d.text("B=NO   reject", card_x + 14, foot_y + 14, theme.MUTED, scale=1)
         self._dirty = False

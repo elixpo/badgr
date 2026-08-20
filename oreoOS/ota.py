@@ -74,22 +74,27 @@ except ImportError:
     _hashlib = None
 
 
-# ── tunables ────────────────────────────────────────────────────────────────
+try:
+    from oreoOS import config
 
-OTA_REPO       = "elixpo/oreo"      # owner/repo on GitHub
-STAGE_DIR      = "/_ota"
-MANIFEST_NAME  = "manifest.json"
+    OTA_REPO = config.github.OTA_REPO
+except Exception:
+    OTA_REPO = "elixpo/oreo"
+
+STAGE_DIR = "/_ota"
+MANIFEST_NAME = "manifest.json"
 DEFAULT_CHANNEL = "stable"
-USER_AGENT     = "OreoBadge-OTA"
+USER_AGENT = "OreoBadge-OTA"
+
 
 # Chunk size for download writes. Big enough to amortise FS overhead but
 # small enough not to OOM the heap when downloading a 100 KB sprite.
-CHUNK_BYTES    = 4096
+CHUNK_BYTES = 4096
 
 # Anything below this counts as a "small patch" — auto-staged without
 # pestering the user. Above it we pop a confirmation dialog because the
 # user is on metered WiFi at a hackathon and 2 MB of new icons is rude.
-SMALL_PATCH_BYTES = 80 * 1024     # 80 KB
+SMALL_PATCH_BYTES = 80 * 1024  # 80 KB
 
 # Timeouts (seconds). Every HTTP call uses one of these — no unbounded
 # blocking is allowed because the OS run loop polls OTA from the
@@ -98,30 +103,31 @@ SMALL_PATCH_BYTES = 80 * 1024     # 80 KB
 # kept short. Tuned down from 10s -> 4s after on-device reports of
 # "press A, OS stuck" — every frame was potentially eating a 10 s GET
 # while GitHub's edge throttled the badge's IP.
-T_GH_API       = 8         # GitHub releases API listing (per_page=10 keeps
-                           # the body in the low single-KB range; 8 s is
-                           # the slow-WiFi + SSL handshake headroom)
-T_MANIFEST     = 4         # manifest.json download (tiny)
-T_FILE         = 25        # individual file download (user-triggered)
+T_GH_API = 8  # GitHub releases API listing (per_page=10 keeps
+# the body in the low single-KB range; 8 s is
+# the slow-WiFi + SSL handshake headroom)
+T_MANIFEST = 4  # manifest.json download (tiny)
+T_FILE = 25  # individual file download (user-triggered)
 
 # Don't auto-probe in the first minute of boot — gives the UI time to
 # settle, lets the user open the home screen / press a button without
 # eating a synchronous HTTP round-trip. Manual "Check Update" from
 # Settings is unaffected: it calls check() directly.
-_OTA_BOOT_GRACE_S = 15 * 60   # 15 min — boot finishes in seconds, but
-                              # the user wants a clean post-boot
-                              # experience without a probe-driven spike
-                              # for at least one drink-of-water window.
-                              # Manual "Check Update" from Settings is
-                              # unaffected.
+_OTA_BOOT_GRACE_S = 15 * 60  # 15 min — boot finishes in seconds, but
+# the user wants a clean post-boot
+# experience without a probe-driven spike
+# for at least one drink-of-water window.
+# Manual "Check Update" from Settings is
+# unaffected.
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
 
+
 def _ensure_dir(path):
     """mkdir -p equivalent for MicroPython's tiny os module."""
     parts = path.split("/")
-    cur   = ""
+    cur = ""
     for p in parts:
         if not p:
             continue
@@ -179,25 +185,32 @@ def _hex(b):
 
 def _current_version():
     try:
-        from oreoOS.config import VERSION
-        return VERSION
+        from oreoOS import config
+
+        return config.system.get_version_string()
     except Exception:
         return "v0.0.0"
 
 
 def _parse_version(s):
-    """'v1.2.3' -> (1, 2, 3). Bad input -> (0, 0, 0)."""
+    """Parse 'v1.2.3', '1.2.3-dev', '0.1' into (major, minor, patch).
+    Non-numeric pre-release suffixes (-dev, -rc, +build) are stripped safely."""
     if not s:
         return (0, 0, 0)
-    if s.startswith("v"):
+    s = str(s).strip()
+    if s.startswith("v") or s.startswith("V"):
         s = s[1:]
-    try:
-        parts = [int(x) for x in s.split(".")]
-        while len(parts) < 3:
+    # Strip pre-release & build metadata
+    s = s.split("-")[0].split("+")[0]
+    parts = []
+    for x in s.split("."):
+        try:
+            parts.append(int(x))
+        except (ValueError, TypeError):
             parts.append(0)
-        return tuple(parts[:3])
-    except (TypeError, ValueError):
-        return (0, 0, 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
 
 
 def _newer(a, b):
@@ -209,7 +222,8 @@ def compare_version(a, b):
     """Public version-compare. Returns -1 / 0 / +1 (a vs b).
     Same semantics as cmp() on the parsed (maj, min, patch) tuples."""
     pa, pb = _parse_version(a), _parse_version(b)
-    if pa == pb: return 0
+    if pa == pb:
+        return 0
     return 1 if pa > pb else -1
 
 
@@ -235,7 +249,9 @@ def latest_version(channel=DEFAULT_CHANNEL):
         return None, None
     body = _httpx.get_url(
         "https://api.github.com/repos/%s/tags?per_page=10" % OTA_REPO,
-        accept="application/vnd.github+json", timeout_s=T_GH_API)
+        accept="application/vnd.github+json",
+        timeout_s=T_GH_API,
+    )
     if body is None:
         return None, None
     try:
@@ -247,18 +263,31 @@ def latest_version(channel=DEFAULT_CHANNEL):
     prefix = channel + "/"
     for t in data:
         tag = t.get("name", "")
-        if not (tag == channel or tag.startswith(prefix)):
+        matched = False
+        ver = tag
+        if tag.startswith(prefix):
+            ver = tag[len(prefix) :]
+            matched = True
+        elif tag == channel or (
+            channel == "stable" and (tag.startswith("v") or (tag and tag[0].isdigit()))
+        ):
+            ver = tag
+            matched = True
+
+        if not matched:
             continue
-        ver = tag[len(prefix):] if tag.startswith(prefix) else tag
-        manifest_url = (
-            "https://github.com/%s/releases/download/%s/%s"
-            % (OTA_REPO, tag, MANIFEST_NAME))
+
+        manifest_url = "https://github.com/%s/releases/download/%s/%s" % (
+            OTA_REPO,
+            tag,
+            MANIFEST_NAME,
+        )
         return ver, {
-            "version":      ver,
-            "notes":        "",
+            "version": ver,
+            "notes": "",
             "manifest_url": manifest_url,
-            "tag":          tag,
-            "major":        _is_major_bump(ver, _current_version()),
+            "tag": tag,
+            "major": _is_major_bump(ver, _current_version()),
         }
     return None, None
 
@@ -277,6 +306,7 @@ def _is_major_bump(new_ver, cur_ver):
 
 
 # ── public API ──────────────────────────────────────────────────────────────
+
 
 def check(channel=DEFAULT_CHANNEL):
     """Stage 1 — fast version probe. Hits GitHub's releases API and
@@ -347,30 +377,30 @@ def peek(release):
     if not isinstance(manifest, dict):
         return None
 
-    changed   = []
+    changed = []
     unchanged = 0
-    total_b   = 0
+    total_b = 0
     for entry in manifest.get("files", ()):
         path = entry.get("path", "")
         want = entry.get("sha256", "")
         size = int(entry.get("size", 0) or 0)
         if not path:
             continue
-        local_sha = _sha256_file(path)   # None when file is missing
+        local_sha = _sha256_file(path)  # None when file is missing
         if want and local_sha == want:
             unchanged += 1
         else:
             changed.append(entry)
-            total_b  += size
+            total_b += size
 
     return {
-        "manifest":  manifest,
-        "changed":   changed,
+        "manifest": manifest,
+        "changed": changed,
         "unchanged": unchanged,
-        "bytes":     total_b,
-        "small":     total_b <= SMALL_PATCH_BYTES,
-        "major":     release.get("major", False) or _is_major_bump(
-                        manifest.get("version", ""), _current_version()),
+        "bytes": total_b,
+        "small": total_b <= SMALL_PATCH_BYTES,
+        "major": release.get("major", False)
+        or _is_major_bump(manifest.get("version", ""), _current_version()),
     }
 
 
@@ -393,10 +423,10 @@ def download(peeked, on_progress=None):
         pass
 
     changed = peeked["changed"]
-    total   = len(changed)
+    total = len(changed)
     for i, entry in enumerate(changed):
         path = entry.get("path", "")
-        url  = entry.get("url", "")
+        url = entry.get("url", "")
         want = entry.get("sha256", "")
         if not (path and url):
             return False
@@ -424,25 +454,108 @@ def _download_file(url, dest_remote, expected_sha=None):
     parent = stage_path.rsplit("/", 1)[0]
     _ensure_dir(parent)
     try:
-        from oreoOS import _http as _httpx
-    except Exception:
+        import socket as _socket
+        import ssl as _ssl
+    except ImportError:
         return False
-    body = _httpx.get_url(url, timeout_s=T_FILE)
-    if body is None:
+
+    if not url.startswith("https://"):
         return False
+    rest = url[len("https://") :]
+    slash = rest.find("/")
+    host = rest if slash < 0 else rest[:slash]
+    path = "/" if slash < 0 else rest[slash:]
+
+    auth_hdr = ""
     try:
-        with open(stage_path, "wb") as f:
-            f.write(body)
+        from oreoOS.config import GH_TOKEN as _TOK
+
+        if _TOK:
+            auth_hdr = "Authorization: Bearer " + _TOK + "\r\n"
     except Exception:
-        return False
-    if expected_sha and _hashlib is not None:
-        if _hex(_hashlib.sha256(body).digest()) != expected_sha:
-            try:
-                _os.remove(stage_path)
-            except Exception:
-                pass
+        pass
+
+    s = None
+    raw = None
+    try:
+        addr = _socket.getaddrinfo(host, 443)[0][-1]
+        raw = _socket.socket()
+        raw.settimeout(T_FILE)
+        raw.connect(addr)
+        if hasattr(_ssl, "create_default_context"):
+            s = _ssl.create_default_context().wrap_socket(raw, server_hostname=host)
+        else:
+            s = _ssl.wrap_socket(raw, server_hostname=host)
+        s.settimeout(T_FILE)
+
+        req = (
+            "GET %s HTTP/1.1\r\n"
+            "Host: %s\r\n"
+            "User-Agent: %s\r\n"
+            "Accept: application/vnd.github.raw\r\n"
+            "%s"
+            "Connection: close\r\n\r\n"
+        ) % (path, host, USER_AGENT, auth_hdr)
+        s.write(req.encode())
+
+        # Read headers
+        buf = bytearray()
+        head_end = -1
+        while True:
+            chunk = s.read(1024)
+            if not chunk:
+                break
+            buf.extend(chunk)
+            head_end = buf.find(b"\r\n\r\n")
+            if head_end >= 0:
+                break
+
+        if head_end < 0:
             return False
-    return True
+
+        head = bytes(buf[:head_end])
+        body_start = buf[head_end + 4 :]
+
+        line0 = head.split(b"\r\n", 1)[0]
+        if b" 200 " not in line0:
+            return False
+
+        h = _hashlib.sha256() if expected_sha and _hashlib else None
+
+        with open(stage_path, "wb") as f:
+            if body_start:
+                f.write(body_start)
+                if h:
+                    h.update(body_start)
+            while True:
+                chunk = s.read(2048)
+                if not chunk:
+                    break
+                f.write(chunk)
+                if h:
+                    h.update(chunk)
+
+        if expected_sha and h:
+            if _hex(h.digest()) != expected_sha:
+                try:
+                    _os.remove(stage_path)
+                except OSError:
+                    pass
+                return False
+        return True
+    except Exception:
+        try:
+            _os.remove(stage_path)
+        except OSError:
+            pass
+        return False
+    finally:
+        for sock in (s, raw):
+            if sock:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
 
 
 def is_pending():
@@ -479,13 +592,14 @@ def apply_pending():
         try:
             _os.stat(src)
         except OSError:
-            continue       # this file was skipped earlier (already up-to-date)
+            continue  # this file was skipped earlier (already up-to-date)
         # Write-then-rename style: ensure dst's parent exists, then copy.
         parent = dst.rsplit("/", 1)[0] if "/" in dst else ""
         if parent:
             _ensure_dir(parent)
         try:
-            _copy_file(src, dst)
+            _copy_file(src, dst + ".tmp")
+            _os.rename(dst + ".tmp", dst)
         except Exception:
             # Half-applied state is the worst case; the manifest still
             # exists so apply_pending() will retry on the next boot.
@@ -580,6 +694,7 @@ def background_check(os_obj, min_interval_s=6 * 3600):
     # background traffic.
     try:
         from oreoWare import wifi
+
         if not wifi.is_connected():
             return False
         try:
@@ -609,9 +724,9 @@ def background_check(os_obj, min_interval_s=6 * 3600):
     # New release found — surface it. The home-screen + launcher tile dot
     # render off these flags; the warn popup fires once per `version`.
     try:
-        os_obj.settings_set("ota_status",            "needs-confirm")
-        os_obj.settings_set("ota_pending_version",   rel.get("version", ""))
-        os_obj.settings_set("ota_pending_major",     bool(rel.get("major")))
+        os_obj.settings_set("ota_status", "needs-confirm")
+        os_obj.settings_set("ota_pending_version", rel.get("version", ""))
+        os_obj.settings_set("ota_pending_major", bool(rel.get("major")))
         # Reset the "have we already warned the user about THIS version"
         # flag so the popup fires once when the user sees a new dot.
         prev_warn_for = os_obj.settings_get("ota_warned_for_version", "")
@@ -634,11 +749,12 @@ def push_update_notification(version):
         return
     try:
         from oreoOS import notifications
-        already = any(n.get("kind") == "ota" and n.get("body") == version
-                      for n in notifications.items())
+
+        already = any(
+            n.get("kind") == "ota" and n.get("body") == version for n in notifications.items()
+        )
         if not already:
-            notifications.push("ota", "Update available",
-                               version, target="updates")
+            notifications.push("ota", "Update available", version, target="updates")
     except Exception:
         pass
 
@@ -646,5 +762,4 @@ def push_update_notification(version):
 def has_attention():
     """Single-call helper for the launcher: True iff the user should see a
     notification dot on the Settings tile + a one-shot warn popup."""
-    return False    # populated by the launcher via os.settings_get()
-
+    return False  # populated by the launcher via os.settings_get()

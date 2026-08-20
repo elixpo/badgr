@@ -11,12 +11,54 @@ try:
 except ImportError:
     # MicroPython has no `abc` module — fall back to duck-typed bases.
     ABC = object
+
     def abstractmethod(f):
         return f
 
 
+import time
+
+try:
+    ticks_ms = time.ticks_ms
+    ticks_diff = time.ticks_diff
+except AttributeError:
+
+    def ticks_ms():
+        return int(time.time() * 1000)
+
+    def ticks_diff(a, b):
+        return a - b
+
+
+def log_debug(tag, msg, err=None):
+    """Conditional debug logger. Emits only when config.system.DEBUG is True."""
+    try:
+        from oreoOS import config
+
+        if config.system.DEBUG:
+            if err is not None:
+                print("[%s] %s: %s" % (tag, msg, err))
+            else:
+                print("[%s] %s" % (tag, msg))
+    except Exception:
+        pass
+
+
+def get_version():
+    """Return canonical OS version string."""
+    try:
+        from oreoOS import config
+
+        return config.system.get_version_string()
+    except Exception:
+        return "v1.4.103-dev"
+
+
+VERSION = "v1.4.103"
+
+
 # ---------- Display geometry ----------
-SCREEN_W = 320   # landscape 320×240
+SCREEN_W = 320  # landscape 320×240
 SCREEN_H = 240
 
 
@@ -25,25 +67,26 @@ def rgb(r, g, b):
     """Pack 8-bit r/g/b into a 16-bit RGB565 word (the panel's native format)."""
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
-BLACK   = 0x0000
-WHITE   = 0xFFFF
-RED     = 0xF800
-GREEN   = 0x07E0
-BLUE    = 0x001F
-YELLOW  = 0xFFE0
-CYAN    = 0x07FF
+
+BLACK = 0x0000
+WHITE = 0xFFFF
+RED = 0xF800
+GREEN = 0x07E0
+BLUE = 0x001F
+YELLOW = 0xFFE0
+CYAN = 0x07FF
 MAGENTA = 0xF81F
-GRAY    = 0x8410
+GRAY = 0x8410
 
 
 # ---------- Button identifiers ----------
-BTN_HOME  = 0
-BTN_A     = 1
-BTN_B     = 2
-BTN_C     = 3
-BTN_UP    = 4
-BTN_DOWN  = 5
-BTN_LEFT  = 6
+BTN_HOME = 0
+BTN_A = 1
+BTN_B = 2
+BTN_C = 3
+BTN_UP = 4
+BTN_DOWN = 5
+BTN_LEFT = 6
 BTN_RIGHT = 7
 BUTTONS = (BTN_HOME, BTN_A, BTN_B, BTN_C, BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT)
 
@@ -56,6 +99,7 @@ LED_BR = 3
 
 
 # ---------- Hardware interfaces ----------
+
 
 class Display(ABC):
     """Immediate-mode 240x320 RGB565 framebuffer. Apps draw, then OS calls present()."""
@@ -94,23 +138,24 @@ class Display(ABC):
     def blit_scale(self, sprite, x, y, w, h, scale, dim=0.0):
         """Draw sprite scaled up by `scale`. dim 0.0–1.0 blends toward theme BG."""
         import struct
+
         n = w * h
         words = struct.unpack_from(">%dH" % n, sprite, 0)
         if dim > 0:
             from oreoOS import theme as _t
+
             br, bg_, bb = _t.BG_R, _t.BG_G, _t.BG_B
         for row in range(h):
             for col in range(w):
                 word = words[row * w + col]
                 r = ((word >> 11) & 0x1F) << 3
-                g = ((word >>  5) & 0x3F) << 2
-                b = ( word        & 0x1F) << 3
+                g = ((word >> 5) & 0x3F) << 2
+                b = (word & 0x1F) << 3
                 if dim > 0:
-                    r = int(r + (br  - r) * dim)
+                    r = int(r + (br - r) * dim)
                     g = int(g + (bg_ - g) * dim)
-                    b = int(b + (bb  - b) * dim)
-                self.rect(x + col * scale, y + row * scale,
-                          scale, scale, rgb(r, g, b), fill=True)
+                    b = int(b + (bb - b) * dim)
+                self.rect(x + col * scale, y + row * scale, scale, scale, rgb(r, g, b), fill=True)
 
     @abstractmethod
     def present(self):
@@ -173,9 +218,9 @@ class OS(ABC):
 
     display: Display
     buttons: Buttons
-    ir:      IR
-    leds:    LEDs
-    adc:     ADC
+    ir: IR
+    leds: LEDs
+    adc: ADC
 
     @abstractmethod
     def quit(self):

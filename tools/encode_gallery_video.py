@@ -14,11 +14,9 @@ import argparse
 import shutil
 import struct
 import subprocess
-import sys
 from pathlib import Path
 
 from PIL import Image
-
 
 W = 180
 H = 135
@@ -33,10 +31,10 @@ def _rgb565_palette(palette):
     if len(palette) < 768:
         palette.extend([0] * (768 - len(palette)))
     for i in range(256):
-        r, g, b = palette[i * 3:i * 3 + 3]
+        r, g, b = palette[i * 3 : i * 3 + 3]
         value = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
         out[i * 2] = value >> 8
-        out[i * 2 + 1] = value & 0xff
+        out[i * 2 + 1] = value & 0xFF
     return out
 
 
@@ -49,12 +47,23 @@ def encode(source: Path, output: Path, seconds: float, fps: int):
         raise SystemExit("fps must be between 1 and 30")
 
     frame_bytes = W * H * 3
-    vf = ("fps=%d,scale=%d:%d:force_original_aspect_ratio=increase,"
-          "crop=%d:%d" % (fps, W, H, W, H))
+    vf = "fps=%d,scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d" % (fps, W, H, W, H)
     cmd = [
-        "ffmpeg", "-v", "error", "-i", str(source),
-        "-t", str(seconds), "-an", "-vf", vf,
-        "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        "ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        str(source),
+        "-t",
+        str(seconds),
+        "-an",
+        "-vf",
+        vf,
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "-",
     ]
 
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -100,8 +109,7 @@ def encode(source: Path, output: Path, seconds: float, fps: int):
         raise SystemExit("ffmpeg failed (rc=%d, frames=%d)" % (rc, frames))
 
     size_mb = output.stat().st_size / (1024 * 1024)
-    print("Encoded %d frames at %d FPS: %.2f MB -> %s" %
-          (frames, fps, size_mb, output))
+    print("Encoded %d frames at %d FPS: %.2f MB -> %s" % (frames, fps, size_mb, output))
 
 
 def main():

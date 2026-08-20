@@ -10,20 +10,18 @@ Usage:
     python tools/_gen_splash.py --seed 7
 """
 
-import struct
 import sys
 from pathlib import Path
 
 # Re-use the project's generator helpers (handles auth + retries).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tools.generate_assets import _read_prompt, download_to
-
 from PIL import Image
 
+from tools.generate_assets import _read_prompt, download_to
 
 RAW_PATH = Path("assets/sprites/raw/splash_bg.png")
 OPT_PATH = Path("assets/sprites/optimized/splash_bg.py")
-W, H     = 320, 240
+W, H = 320, 240
 
 
 def _seed():
@@ -44,7 +42,7 @@ def _pack_rgb565(img):
         for x in range(W):
             r, g, b = px[x, y][:3]
             v = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-            out[i]     = v >> 8
+            out[i] = v >> 8
             out[i + 1] = v & 0xFF
             i += 2
     return bytes(out)
@@ -62,7 +60,7 @@ def _write_module(data):
         "DATA = (",
     ]
     for off in range(0, len(data), chunk):
-        seg = data[off:off + chunk]
+        seg = data[off : off + chunk]
         lines.append("    b'" + "".join("\\x%02x" % b for b in seg) + "'")
     lines.append(")\n")
     OPT_PATH.write_text("\n".join(lines))

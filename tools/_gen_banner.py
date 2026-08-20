@@ -16,10 +16,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.generate_assets import _read_prompt, download_to
 
-
 OUT_PATH = Path("docs/images/banner.png")
-WIDTH    = 1280
-HEIGHT   = 360
+WIDTH = 1280
+HEIGHT = 360
 
 
 def _seed():

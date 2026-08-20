@@ -1,50 +1,43 @@
-"""Storage — how the 16 MB flash is being spent.
+"""System Monitor — Storage and RAM diagnostic app.
 
-Shows total used / free at the top, a stacked usage bar, and a per-bucket
-breakdown (system / apps / gallery / documents / misc).
+Tab 0: Flash Storage (stacked usage bar, per-bucket breakdown)
+Tab 1: RAM & Heap (MicroPython GC stats)
 
 Controls:
-  A      refresh (re-walks the fs)
-  HOME   back to launcher
+  Left/Right  switch tabs
+  A           refresh stats (Flash) / Garbage Collection (RAM)
+  HOME        back to launcher
 """
 
 import oreoOS
-from oreoOS import api, theme, widgets
-from oreoOS import storage
-
+from oreoOS import api, storage, theme, widgets
 
 SW = api.SCREEN_W
 SH = api.SCREEN_H
 
-PAD_X      = 12
-SUMMARY_Y  = widgets.HEADER_H + 8
-SUMMARY_H  = 40
-BAR_H      = 10
-BAR_GAP    = 6
-ROW_H      = 22
-ROW_GAP    = 4
+PAD_X = 12
+SUMMARY_Y = 48
+SUMMARY_H = 40
+BAR_H = 10
+ROW_H = 18
 
-# Bucket → display color. Misc gets an explicit brown (vs theme.MUTED
-# which is a warm beige that bleeds into the free-space colour); free
-# space (the unfilled portion of the bar) gets a clear light grey so
-# it reads as "empty", not "another small bucket".
-_MISC_BROWN = api.rgb(120,  80,  45)    # solid earthy brown
-_FREE_GREY  = api.rgb(210, 215, 220)    # cool grey, distinct from MUTED2
+_MISC_BROWN = api.rgb(120, 80, 45)
+_FREE_GREY = api.rgb(210, 215, 220)
 
 _BUCKET_COLORS = {
-    "system":    "PRIMARY",     # pink — the OS itself
-    "apps":      "TEAL",        # teal — installed apps
-    "gallery":   "GOLD",        # gold — photos
-    "documents": "PURPLE",      # purple — text / md
-    "misc":      _MISC_BROWN,   # brown — caches + leftovers
+    "system": "PRIMARY",
+    "apps": "TEAL",
+    "gallery": "GOLD",
+    "documents": "PURPLE",
+    "misc": _MISC_BROWN,
 }
 
 _BUCKET_LABEL = {
-    "system":    "System",
-    "apps":      "Apps",
-    "gallery":   "Gallery",
+    "system": "System",
+    "apps": "Apps",
+    "gallery": "Gallery",
     "documents": "Documents",
-    "misc":      "Misc",
+    "misc": "Misc",
 }
 
 
@@ -57,27 +50,19 @@ def _human(n):
 
 
 def _color(name):
-    """Resolve a bucket-colour entry — supports either a theme attr name
-    (string, e.g. "PRIMARY") or a pre-built api.rgb() integer."""
     if isinstance(name, int):
         return name
     return getattr(theme, name, theme.MUTED)
 
 
 class App(oreoOS.App):
-    name         = "Storage"
-    author       = "Circuit-Overtime"
-    # storage.usage() does a full os.listdir+stat walk of the flash —
-    # ~hundreds of ms on a populated 16 MB filesystem. Without the
-    # loading splash the user stares at a frozen previous-app frame
-    # until the walk returns. Same applies on every A-refresh, but
-    # the splash only covers the initial on_enter; refresh is fast
-    # enough on a re-walk that the brief stutter is acceptable.
     SHOW_LOADING = True
 
     def on_enter(self, os):
         super().on_enter(os)
-        self._os    = os
+        self._os = os
+        self._tab = 0
+        self.title = "SYSTEM MONITOR"
         self._dirty = True
         self._refresh()
 
@@ -85,9 +70,10 @@ class App(oreoOS.App):
         try:
             self._snap = storage.usage()
         except Exception:
-            self._snap = {"stats":  {"total": 0, "free": 0, "used": 0},
-                          "buckets": {b: {"bytes": 0, "count": 0}
-                                      for b in storage.BUCKETS}}
+            self._snap = {
+                "stats": {"total": 0, "free": 0, "used": 0},
+                "buckets": {b: {"bytes": 0, "count": 0} for b in storage.BUCKETS},
+            }
         self._dirty = True
 
     def update(self, dt):
@@ -96,37 +82,68 @@ class App(oreoOS.App):
     def on_button_press(self, btn):
         if btn == api.BTN_HOME:
             self._os.quit()
+        elif btn == api.BTN_LEFT:
+            if self._tab > 0:
+                self._tab -= 1
+                self._dirty = True
+        elif btn == api.BTN_RIGHT:
+            if self._tab < 1:
+                self._tab += 1
+                self._dirty = True
         elif btn == api.BTN_A:
+            if self._tab == 1:
+                try:
+                    import gc
+
+                    gc.collect()
+                except Exception:
+                    pass
             self._refresh()
 
     def draw(self, d):
         if not self._dirty:
             return
         self._dirty = False
-
         d.clear(theme.BG)
-        widgets.draw_header(d, "STORAGE")
 
-        stats  = self._snap["stats"]
-        bks    = self._snap["buckets"]
-        total  = stats["total"] or 1     # avoid /0 when statvfs returns zero
-        used   = stats["used"]
-        free   = stats["free"]
+        # ── Tabs ──
+        tab_w = SW // 2
+        t0_bg = theme.PRIMARY if self._tab == 0 else theme.CARD
+        t0_fg = api.WHITE if self._tab == 0 else theme.TEXT_DIM
+        t1_bg = theme.PRIMARY if self._tab == 1 else theme.CARD
+        t1_fg = api.WHITE if self._tab == 1 else theme.TEXT_DIM
 
-        # ── summary block: "used / total"  +  "free remaining" ──────────
+        # Tab 0: FLASH
+        d.rect(2, 28, tab_w - 4, 14, t0_bg, fill=True)
+        t0_lbl = "FLASH STORAGE"
+        d.text(t0_lbl, 2 + (tab_w - 4 - len(t0_lbl) * 8) // 2, 31, t0_fg)
+
+        # Tab 1: RAM
+        d.rect(tab_w + 2, 28, tab_w - 4, 14, t1_bg, fill=True)
+        t1_lbl = "RAM & HEAP"
+        d.text(t1_lbl, tab_w + 2 + (tab_w - 4 - len(t1_lbl) * 8) // 2, 31, t1_fg)
+
+        if self._tab == 0:
+            self._draw_flash(d)
+            self.hints = [("", "< > switch"), ("A", "refresh")]
+        else:
+            self._draw_ram(d)
+            self.hints = [("", "< > switch"), ("A", "gc")]
+
+    def _draw_flash(self, d):
+        stats = self._snap["stats"]
+        bks = self._snap["buckets"]
+        total = stats["total"] or 1
+        used = stats["used"]
+        free = stats["free"]
+
         y = SUMMARY_Y
         d.text("%s used" % _human(used), PAD_X, y, theme.TEXT_BRIGHT, scale=2)
-        d.text("of %s" % _human(total),
-               PAD_X, y + 18, theme.TEXT_DIM, scale=1)
+        d.text("of %s" % _human(total), PAD_X, y + 18, theme.TEXT_DIM, scale=1)
         free_txt = "%s free" % _human(free)
-        # Right-align the free counter so it sits opposite "used".
-        tw = len(free_txt) * 8   # framebuf 8x8 at scale=1
+        tw = len(free_txt) * 8
         d.text(free_txt, SW - PAD_X - tw, y + 18, theme.TEAL, scale=1)
 
-        # ── stacked usage bar (one segment per non-empty bucket) ────────
-        # Base fill = free-space colour. Bucket segments are stacked on
-        # top from the left; whatever remains uncovered visualises as
-        # free flash.
         bar_y = y + SUMMARY_H
         bar_w = SW - 2 * PAD_X
         d.rect(PAD_X, bar_y, bar_w, BAR_H, _FREE_GREY, fill=True)
@@ -137,8 +154,6 @@ class App(oreoOS.App):
             if b <= 0:
                 continue
             seg_w = max(1, (b * bar_w) // total)
-            # Clip the last segment so we don't overrun the bar from
-            # rounding (5 × max(1, …) can sum to > bar_w on small fs).
             if x + seg_w > PAD_X + bar_w:
                 seg_w = PAD_X + bar_w - x
                 if seg_w <= 0:
@@ -146,24 +161,61 @@ class App(oreoOS.App):
             d.rect(x, bar_y, seg_w, BAR_H, _color(_BUCKET_COLORS[name]), fill=True)
             x += seg_w
 
-        # ── per-bucket rows ─────────────────────────────────────────────
-        # Buckets first, then a closing "Free" row so the grey strip in
-        # the bar above is also labelled (otherwise users wonder what
-        # the unfilled portion represents).
         row_y = bar_y + BAR_H + 10
-        legend_rows = [(_BUCKET_LABEL[n], _color(_BUCKET_COLORS[n]),
-                        bks[n]["bytes"]) for n in storage.BUCKETS]
+        legend_rows = [
+            (_BUCKET_LABEL[n], _color(_BUCKET_COLORS[n]), bks[n]["bytes"]) for n in storage.BUCKETS
+        ]
         legend_rows.append(("Free", _FREE_GREY, free))
         for label, swatch_color, byte_count in legend_rows:
             sw_x = PAD_X
             sw_w = 10
             d.rect(sw_x, row_y + 4, sw_w, sw_w, swatch_color, fill=True)
-            d.text(label, sw_x + sw_w + 8, row_y + 4,
-                   theme.TEXT_BRIGHT, scale=1)
+            d.text(label, sw_x + sw_w + 8, row_y + 4, theme.TEXT_BRIGHT, scale=1)
             sz_txt = _human(byte_count)
             tw = len(sz_txt) * 8
-            d.text(sz_txt, SW - PAD_X - tw, row_y + 4,
-                   theme.TEXT_DIM, scale=1)
+            d.text(sz_txt, SW - PAD_X - tw, row_y + 4, theme.TEXT_DIM, scale=1)
             row_y += ROW_H
 
-        widgets.draw_hint(d, "A=refresh  HOME=back")
+    def _draw_ram(self, d):
+        d.rect(16, 64, SW - 32, 110, theme.CARD, fill=True)
+        d.rect(16, 64, SW - 32, 2, theme.GOLD, fill=True)
+        d.text("MICROPYTHON HEAP", 24, 74, theme.GOLD, scale=1)
+
+        try:
+            import gc
+
+            free = gc.mem_free()
+            alloc = gc.mem_alloc()
+        except Exception:
+            free = 0
+            alloc = 0
+
+        total = max(1, alloc + free)
+        ram_pct = float(alloc) / total
+
+        bar_y2 = 100
+        bar_w = SW - 48
+        fill_w2 = int(bar_w * ram_pct)
+
+        d.rect(24, bar_y2, bar_w, 8, theme.MUTED2, fill=True)
+        d.rect(24, bar_y2, fill_w2, 8, theme.GOLD, fill=True)
+
+        d.text("Alloc: %s" % _human(alloc), 24, 120, theme.TEXT_BRIGHT)
+        d.text(
+            "Free: %s" % _human(free),
+            SW - 24 - len("Free: %s" % _human(free)) * 8,
+            120,
+            theme.GREEN,
+        )
+
+        msg = "Press A to GC"
+        d.text(msg, (SW - len(msg) * 8) // 2, 150, theme.TEXT_DIM)
+
+    def on_exit(self):
+        self._snap = None
+        try:
+            import gc
+
+            gc.collect()
+        except Exception:
+            pass

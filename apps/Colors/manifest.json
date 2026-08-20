@@ -1,0 +1,10 @@
+{
+  "name": "Colors",
+  "description": "Interactive OS theme customizer & multi-slot dynamic palette designer.",
+  "type": "app",
+  "version": "1.0.0",
+  "icon": "color_icon.png",
+  "author": "sea-deep",
+  "color": "#9C27B0",
+  "category": "Tools"
+}

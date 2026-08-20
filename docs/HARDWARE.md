@@ -87,9 +87,9 @@ and the rail collapses below the 2.7 V brownout threshold.
 **WiFi power capping** lives in `oreoOS/config.py`:
 
 ```python
-WIFI_TX_DBM       = 11        # ~140 mA peak (vs 240 mA at 19.5 dBm default)
-WIFI_POWERSAVE    = True       # ~15 mA idle vs ~100 mA always-on
-BT_ADV_INTERVAL_MS = 500       # ~5× lower BLE duty than the default
+WIFI_TX_DBM = 11  # ~140 mA peak (vs 240 mA at 19.5 dBm default)
+WIFI_POWERSAVE = True  # ~15 mA idle vs ~100 mA always-on
+BT_ADV_INTERVAL_MS = 500  # ~5× lower BLE duty than the default
 ```
 
 These settings ship in `secrets.py` at deploy time and are applied to

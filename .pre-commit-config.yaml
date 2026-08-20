@@ -1,0 +1,46 @@
+repos:
+  # ── Python: Ruff lint + format ──────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff
+        name: ruff lint
+        args: [--fix]
+        # Check OS core and tooling; exclude badge_data + sim stubs
+        files: ^(oreoOS|oreoWare|apps|apps_market|oreoSim|tests)/.*\.py$
+      - id: ruff-format
+        name: ruff format
+        files: ^(oreoOS|oreoWare|apps|apps_market|oreoSim|tests)/.*\.py$
+
+  # ── General file hygiene ────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^badge_data/
+      - id: end-of-file-fixer
+        exclude: ^badge_data/
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # ── TypeScript / Next.js: ESLint + tsc ─────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: eslint-oreo-elixpo
+        name: ESLint (oreo.elixpo)
+        language: system
+        entry: bash -c 'cd oreo.elixpo && npx eslint --max-warnings 0 src/'
+        pass_filenames: false
+        files: ^oreo\.elixpo/src/.*\.(ts|tsx)$
+        additional_dependencies: []
+
+      - id: tsc-oreo-elixpo
+        name: TypeScript check (oreo.elixpo)
+        language: system
+        entry: bash -c 'cd oreo.elixpo && npx tsc --noEmit'
+        pass_filenames: false
+        files: ^oreo\.elixpo/src/.*\.(ts|tsx)$
+        additional_dependencies: []

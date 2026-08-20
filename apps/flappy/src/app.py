@@ -18,45 +18,51 @@ Controls: A or UP = flap.
 import oreoOS
 from oreoOS import api, font
 
-SW = api.SCREEN_W   # 320
-SH = api.SCREEN_H   # 240
+SW = api.SCREEN_W  # 320
+SH = api.SCREEN_H  # 240
 
 # ── physics ──────────────────────────────────────────────────────────────────
 
-GRAVITY     = 480.0   # px/s²
-FLAP_VY     = -180.0  # px/s
-VY_CAP      = 320.0   # px/s
-SCROLL      = 90.0    # px/s
-SPAWN_SEC   = 1.7     # seconds between obstacle spawns
+GRAVITY = 480.0  # px/s²
+FLAP_VY = -180.0  # px/s
+VY_CAP = 320.0  # px/s
+SCROLL = 90.0  # px/s
+SPAWN_SEC = 1.7  # seconds between obstacle spawns
 
 # Sprite sizing — bumped from 24→32 so the panda reads better at landscape scale
-PANDA_SZ    = 32
-OBSTACLE_W  = 32
-OBSTACLE_H  = 96      # one tile covers ~half the playable area in a single blit
-GAP_H       = 100
-PANDA_X     = 44
+PANDA_SZ = 32
+OBSTACLE_W = 32
+OBSTACLE_H = 96  # one tile covers ~half the playable area in a single blit
+GAP_H = 100
+PANDA_X = 44
 
 # The background fills the FULL screen. The "ground" is just the 16-px grass
 # strip at the bottom — no separate dirt rectangle.
-GROUND_H    = 40              # bottom grass strip (one 40-px-tall tile)
-PLAY_H      = SH - GROUND_H   # 200
+GROUND_H = 40  # bottom grass strip (one 40-px-tall tile)
+PLAY_H = SH - GROUND_H  # 200
 
 # ── colours ──────────────────────────────────────────────────────────────────
 
-C_SKY      = api.rgb(120, 200, 240)
-C_SKY_DEEP = api.rgb( 95, 175, 220)
-C_CLOUD    = api.WHITE
+C_SKY = api.rgb(120, 200, 240)
+C_SKY_DEEP = api.rgb(95, 175, 220)
+C_CLOUD = api.WHITE
 C_CLOUD_SH = api.rgb(230, 230, 240)
-C_GROUND   = api.rgb( 96,  62,  40)
-C_SHADOW   = api.rgb( 20,  40,  60)
-C_TITLE    = api.rgb(255,  93, 104)
-C_TEXT     = api.WHITE
-C_DIM      = api.rgb(200, 180, 160)
-C_HI       = api.rgb(255, 230,  80)
+C_GROUND = api.rgb(96, 62, 40)
+C_SHADOW = api.rgb(20, 40, 60)
+C_TITLE = api.rgb(255, 93, 104)
+C_TEXT = api.WHITE
+C_DIM = api.rgb(200, 180, 160)
+C_HI = api.rgb(255, 230, 80)
 
 # ── persistent high score ────────────────────────────────────────────────────
 
-HISCORE_PATH = "apps/flappy/hiscore.txt"
+try:
+    from oreoOS.config import get_state_path
+
+    HISCORE_PATH = get_state_path("saves/flappy_hiscore.txt")
+except Exception:
+    HISCORE_PATH = "badge_data/saves/flappy_hiscore.txt"
+
 
 def _load_hiscore():
     try:
@@ -65,6 +71,7 @@ def _load_hiscore():
     except Exception:
         return 0
 
+
 def _save_hiscore(v):
     try:
         with open(HISCORE_PATH, "w") as f:
@@ -72,15 +79,18 @@ def _save_hiscore(v):
     except Exception:
         pass
 
+
 # ── asset loaders ────────────────────────────────────────────────────────────
 
-_assets = {}   # name → (bytearray_data, w, h) or None
+_assets = {}  # name → (bytearray_data, w, h) or None
+
 
 def _try_import(modname):
     try:
         return __import__(modname, None, None, ["DATA", "W", "H"])
     except (ImportError, AttributeError):
         return None
+
 
 def _load(name):
     """Return (bytearray, W, H) for a sprite, or None.
@@ -92,7 +102,7 @@ def _load(name):
         return _assets[name]
     mod = _try_import("apps.flappy.assets.optimized.%s" % name)
     if mod and hasattr(mod, "DATA"):
-        ba = bytearray(mod.DATA)            # one-time bytes → bytearray copy
+        ba = bytearray(mod.DATA)  # one-time bytes → bytearray copy
         result = (ba, mod.W, mod.H)
     else:
         result = None
@@ -107,7 +117,7 @@ def _flip_v_bytearray(data, w, h):
     for y in range(h):
         src = (h - 1 - y) * row_bytes
         dst = y * row_bytes
-        out[dst: dst + row_bytes] = data[src: src + row_bytes]
+        out[dst : dst + row_bytes] = data[src : src + row_bytes]
     return out
 
 
@@ -118,17 +128,17 @@ def _tile_horizontal(tile, tw, th, repeats):
     aspect ratio — useful for repeating asset like grass where pixel-doubling
     would visibly stretch each grass blade.
     """
-    sw      = tw * repeats
-    out     = bytearray(sw * th * 2)
-    row_in  = tw * 2
+    sw = tw * repeats
+    out = bytearray(sw * th * 2)
+    row_in = tw * 2
     row_out = sw * 2
     for y in range(th):
         src_off = y * row_in
         dst_off = y * row_out
-        src_row = tile[src_off: src_off + row_in]
+        src_row = tile[src_off : src_off + row_in]
         for i in range(repeats):
             base = dst_off + i * row_in
-            out[base: base + row_in] = src_row
+            out[base : base + row_in] = src_row
     return out, sw, th
 
 
@@ -140,8 +150,8 @@ def _upscale_to_bytearray(data, w, h, scale_x, scale_y):
     """
     sw = w * scale_x
     sh = h * scale_y
-    out  = bytearray(sw * sh * 2)
-    row  = bytearray(sw * 2)
+    out = bytearray(sw * sh * 2)
+    row = bytearray(sw * 2)
     for src_row in range(h):
         for col in range(w):
             base_src = (src_row * w + col) * 2
@@ -149,12 +159,12 @@ def _upscale_to_bytearray(data, w, h, scale_x, scale_y):
             b0 = data[base_src + 1]
             base = col * scale_x * 2
             for dx in range(scale_x):
-                row[base + dx * 2]     = b1
+                row[base + dx * 2] = b1
                 row[base + dx * 2 + 1] = b0
         row_start = src_row * scale_y * sw * 2
         for dy in range(scale_y):
             s = row_start + dy * sw * 2
-            out[s: s + sw * 2] = row
+            out[s : s + sw * 2] = row
     return out, sw, sh
 
 
@@ -182,23 +192,29 @@ def _bluedim_kernel(src: ptr8, dst: ptr8, n: int):
         i += 1
 """
 
+
 def _bluedim_kernel(src, dst, n):
     """Pure-Python fallback — replaced by the viper-compiled version above."""
     for i in range(n):
         off = i << 1
         v = (src[off] << 8) | src[off + 1]
-        r = ((v >> 11) & 0x1F) * 7  >> 4
-        g = ((v >>  5) & 0x3F) * 7  >> 4
-        b = ( v        & 0x1F) * 11 >> 4
-        if r > 31: r = 31
-        if g > 63: g = 63
-        if b > 31: b = 31
+        r = ((v >> 11) & 0x1F) * 7 >> 4
+        g = ((v >> 5) & 0x3F) * 7 >> 4
+        b = (v & 0x1F) * 11 >> 4
+        if r > 31:
+            r = 31
+        if g > 63:
+            g = 63
+        if b > 31:
+            b = 31
         v2 = (r << 11) | (g << 5) | b
-        dst[off]     = v2 >> 8
+        dst[off] = v2 >> 8
         dst[off + 1] = v2 & 0xFF
 
+
 try:
-    import micropython as _mp     # pragma: no cover (MicroPython only)
+    import micropython as _mp  # pragma: no cover (MicroPython only)
+
     if hasattr(_mp, "viper"):
         _ns = {"micropython": _mp}
         exec(_BLUEDIM_VIPER_SRC, _ns)
@@ -219,26 +235,32 @@ def _bluedim_bytearray(buf):
     _bluedim_kernel(buf, out, len(buf) // 2)
     return out
 
+
 # ── LCG RNG ──────────────────────────────────────────────────────────────────
 
 _seed = 12345
+
+
 def _rand():
     global _seed
     _seed = (_seed * 1103515245 + 12345) & 0x7FFFFFFF
     return _seed
+
 
 def _rand_gap_y(top_margin, bot_margin):
     lo = top_margin
     hi = PLAY_H - GAP_H - bot_margin
     return lo + _rand() % max(1, hi - lo)
 
+
 # ── obstacle ─────────────────────────────────────────────────────────────────
+
 
 class Obstacle:
     def __init__(self):
-        self.x        = float(SW)
-        self.gap_y    = _rand_gap_y(24, 12)
-        self.passed   = False
+        self.x = float(SW)
+        self.gap_y = _rand_gap_y(24, 12)
+        self.passed = False
 
     def update(self, dt):
         self.x -= SCROLL * dt
@@ -246,23 +268,22 @@ class Obstacle:
     def bounds(self):
         # Top hitbox (above gap), bottom hitbox (below gap)
         return (
-            (int(self.x), 0,                                   OBSTACLE_W, self.gap_y),
-            (int(self.x), self.gap_y + GAP_H,                  OBSTACLE_W,
-                          SH - GROUND_H - self.gap_y - GAP_H),
+            (int(self.x), 0, OBSTACLE_W, self.gap_y),
+            (int(self.x), self.gap_y + GAP_H, OBSTACLE_W, SH - GROUND_H - self.gap_y - GAP_H),
         )
 
     def draw(self, d):
-        obs       = _load("obstacle")
-        obs_flip  = _assets.get("__obstacle_flipped__")
+        obs = _load("obstacle")
+        obs_flip = _assets.get("__obstacle_flipped__")
         x = int(self.x)
         if obs:
             data, ow, oh = obs
-            flip = obs_flip[0] if obs_flip else data   # fallback if flip not built
+            flip = obs_flip[0] if obs_flip else data  # fallback if flip not built
             # ── top column ──────────────────────────────────────────────
             # Spike cap should point DOWN toward the gap → use the flipped sprite.
             top_h = self.gap_y
             if top_h > 0:
-                y = self.gap_y - oh                  # bottom tile flush with gap
+                y = self.gap_y - oh  # bottom tile flush with gap
                 d.blit(flip, x, y, ow, oh)
                 y -= oh
                 while y > -oh:
@@ -277,19 +298,27 @@ class Obstacle:
                     d.blit(data, x, y, ow, oh)
                     y += oh
         else:
-            d.rect(x, 0,                  OBSTACLE_W, self.gap_y,       api.GREEN, fill=True)
-            d.rect(x, self.gap_y + GAP_H, OBSTACLE_W,
-                   SH - GROUND_H - self.gap_y - GAP_H,                  api.GREEN, fill=True)
+            d.rect(x, 0, OBSTACLE_W, self.gap_y, api.GREEN, fill=True)
+            d.rect(
+                x,
+                self.gap_y + GAP_H,
+                OBSTACLE_W,
+                SH - GROUND_H - self.gap_y - GAP_H,
+                api.GREEN,
+                fill=True,
+            )
+
 
 # ── panda ────────────────────────────────────────────────────────────────────
 
+
 class Panda:
     def __init__(self):
-        self.y         = float((SH - GROUND_H) // 3)
-        self.vy        = 0.0
-        self.score     = 0
-        self.died_at_s = None     # seconds since die()
-        self.alive_t   = 0.0      # accumulated alive seconds (anim phase)
+        self.y = float((SH - GROUND_H) // 3)
+        self.vy = 0.0
+        self.score = 0
+        self.died_at_s = None  # seconds since die()
+        self.alive_t = 0.0  # accumulated alive seconds (anim phase)
 
     def jump(self):
         if not self.is_dead():
@@ -315,8 +344,7 @@ class Panda:
         bx, by, bw, bh = self.bounds()
         for o in obstacles:
             for ox, oy, ow, oh in o.bounds():
-                if (bx < ox + ow and bx + bw > ox and
-                    by < oy + oh and by + bh > oy):
+                if bx < ox + ow and bx + bw > ox and by < oy + oh and by + bh > oy:
                     self.die()
                     return
             if not o.passed and o.x + OBSTACLE_W < bx:
@@ -327,8 +355,7 @@ class Panda:
         # Generous padding so the player only dies on visually-clear hits.
         # 8 px on each side = 16×16 hitbox inside a 32×32 sprite.
         pad = 8
-        return (PANDA_X + pad, int(self.y) + pad,
-                PANDA_SZ - pad * 2, PANDA_SZ - pad * 2)
+        return (PANDA_X + pad, int(self.y) + pad, PANDA_SZ - pad * 2, PANDA_SZ - pad * 2)
 
     def is_dead(self):
         return self.died_at_s is not None
@@ -341,7 +368,7 @@ class Panda:
             self.died_at_s = 0.0
 
     def draw(self, d):
-        py  = int(self.y)
+        py = int(self.y)
         key = self._pick_sprite()
         sprite = _load(key)
         if sprite:
@@ -368,7 +395,9 @@ class Panda:
         phase = int(self.alive_t / 0.15) & 1
         return "panda_up_b" if phase else "panda_up_a"
 
+
 # ── scenery (parallax) ───────────────────────────────────────────────────────
+
 
 class Scenery:
     """Pre-rendered scenery — built ONCE in build(), drawn as 2 big blits/frame.
@@ -381,28 +410,30 @@ class Scenery:
     No dirt rectangle is drawn — the bg image owns every pixel up to the
     grass strip; collisions still use the logical ground at SH - GROUND_H.
     """
+
     def __init__(self):
-        self.offset       = 0.0
-        self._bg_data     = None   # (bytearray, sw, sh)
+        self.offset = 0.0
+        self._bg_data = None  # (bytearray, sw, sh)
         self._bg_dim_data = None
-        self._gr_data     = None
+        self._gr_data = None
 
     def build(self):
         bg = _load("background")
         if bg:
             data, bw, bh = bg
             sx = max(1, SW // bw)
-            sy = max(1, SH // bh)                        # cover FULL screen
-            self._bg_data     = _upscale_to_bytearray(data, bw, bh, sx, sy)
+            sy = max(1, SH // bh)  # cover FULL screen
+            self._bg_data = _upscale_to_bytearray(data, bw, bh, sx, sy)
             self._bg_dim_data = (
                 _bluedim_bytearray(self._bg_data[0]),
-                self._bg_data[1], self._bg_data[2]
+                self._bg_data[1],
+                self._bg_data[2],
             )
 
         gr = _load("grass")
         if gr:
             data, gw, gh = gr
-            repeats = max(1, (SW + gw - 1) // gw)         # ceil(320/40) = 8
+            repeats = max(1, (SW + gw - 1) // gw)  # ceil(320/40) = 8
             self._gr_data = _tile_horizontal(data, gw, gh, repeats)
 
         # Pre-build a vertically-flipped obstacle sprite so the spike on
@@ -410,9 +441,7 @@ class Scenery:
         obs = _load("obstacle")
         if obs:
             data, ow, oh = obs
-            _assets["__obstacle_flipped__"] = (
-                _flip_v_bytearray(data, ow, oh), ow, oh
-            )
+            _assets["__obstacle_flipped__"] = (_flip_v_bytearray(data, ow, oh), ow, oh)
 
     def update(self, dt):
         self.offset += SCROLL * dt * 0.5
@@ -433,10 +462,10 @@ class Scenery:
         base = int(-(self.offset * 0.25) % (SW + 80))
         for px, py in ((0, 30), (110, 22), (220, 38)):
             cx = ((px - base) % (SW + 80)) - 40
-            d.rect(cx +  6, py,      26, 10, C_CLOUD, fill=True)
-            d.rect(cx,      py + 4,  38, 10, C_CLOUD, fill=True)
-            d.rect(cx +  4, py + 12, 30,  6, C_CLOUD, fill=True)
-            d.rect(cx +  6, py + 14, 26,  2, C_CLOUD_SH, fill=True)
+            d.rect(cx + 6, py, 26, 10, C_CLOUD, fill=True)
+            d.rect(cx, py + 4, 38, 10, C_CLOUD, fill=True)
+            d.rect(cx + 4, py + 12, 30, 6, C_CLOUD, fill=True)
+            d.rect(cx + 6, py + 14, 26, 2, C_CLOUD_SH, fill=True)
 
     def draw_ground(self, d):
         # No dirt rectangle — bg already shows the ground area.
@@ -445,25 +474,28 @@ class Scenery:
             buf, gw, gh = self._gr_data
             d.blit(buf, 0, SH - gh, gw, gh)
 
+
 # ── App ──────────────────────────────────────────────────────────────────────
 
 INTRO, PLAY, OVER, PAUSE = 1, 2, 3, 4
 
+
 class App(oreoOS.App):
-    name          = "Flappy Oreo"
-    SHOW_LOADING  = True   # scenery + dim-bg build can take ~150 ms on hardware
+    FULLSCREEN = True
+    CONSUMES_C = True
+    SHOW_LOADING = True  # scenery + dim-bg build can take ~150 ms on hardware
 
     def on_enter(self, os):
-        self._os         = os
-        self._scenery    = Scenery()
-        self._scenery.build()       # one-time upscale of bg + grass (~150 ms total)
-        self._panda      = None
-        self._obstacles  = []
+        self._os = os
+        self._scenery = Scenery()
+        self._scenery.build()  # one-time upscale of bg + grass (~150 ms total)
+        self._panda = None
+        self._obstacles = []
         self._spawn_left = 0.0
-        self._state      = INTRO
-        self._hiscore    = _load_hiscore()
-        self._new_hi     = False
-        self._blink_t    = 0.0
+        self._state = INTRO
+        self._hiscore = _load_hiscore()
+        self._new_hi = False
+        self._blink_t = 0.0
 
     def on_button_press(self, btn):
         # ── B = pause toggle while playing ───────────────────────────────────
@@ -492,15 +524,16 @@ class App(oreoOS.App):
             self._state = PLAY
 
     def _start_play(self):
-        self._state       = PLAY
-        self._panda       = Panda()
-        self._obstacles   = []
-        self._new_hi      = False
-        self._spawn_left  = 0.6        # first obstacle in 600 ms
+        self._state = PLAY
+        self._panda = Panda()
+        self._obstacles = []
+        self._new_hi = False
+        self._spawn_left = 0.6  # first obstacle in 600 ms
 
     def update(self, dt):
         # cap any pathological dt so a hiccup doesn't teleport the panda
-        if dt > 0.1: dt = 0.1
+        if dt > 0.1:
+            dt = 0.1
         self._blink_t += dt
         # Scenery scroll + physics are frozen while paused.
         if self._state == PAUSE:
@@ -556,7 +589,7 @@ class App(oreoOS.App):
 
     def _shadow_text(self, d, s, x, y, scale=1):
         font.text(d, s, x + 1, y + 1, C_SHADOW, scale=scale)
-        font.text(d, s, x,     y,     C_TEXT,   scale=scale)
+        font.text(d, s, x, y, C_TEXT, scale=scale)
 
     def _center_text(self, d, s, y, scale=1, color=None):
         w = font.measure(s, scale)
@@ -581,7 +614,7 @@ class App(oreoOS.App):
         # this is the single biggest contributor to hitting >30 fps in PLAY.
         s = "SCORE %d" % (self._panda.score if self._panda else 0)
         d.text(s, 7, 5, C_SHADOW, scale=2)
-        d.text(s, 6, 4, C_TEXT,   scale=2)
+        d.text(s, 6, 4, C_TEXT, scale=2)
 
     def _draw_gameover(self, d):
         self._center_text(d, "GAME OVER", 50, scale=3, color=C_TITLE)
@@ -600,4 +633,10 @@ class App(oreoOS.App):
             self._center_text(d, "Press B to resume", 130, scale=2)
 
     def on_exit(self):
-        pass
+        self._scenery = None
+        self._panda = None
+        self._obstacles = []
+        _assets.clear()
+        import gc
+
+        gc.collect()

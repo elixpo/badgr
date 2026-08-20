@@ -21,7 +21,8 @@ no game is using it.
 """
 
 try:
-    from machine import SoftI2C, Pin
+    from machine import Pin, SoftI2C
+
     # SoftI2C bit-bangs through the GPIO matrix and bypasses the
     # ESP32-S3's HW I²C peripheral. On the MicroPython 1.28 build we
     # ship, HW I²C scans correctly but `readfrom_mem*` calls time out
@@ -36,25 +37,25 @@ except ImportError:
     Pin = None
 
 import struct
+
 from oreoWare import pins
 
-
 # ── register map (subset we actually use) ────────────────────────────────────
-_ADDR        = 0x68
-_PWR_MGMT_1  = 0x6B
-_PWR_MGMT_2  = 0x6C
-_SMPLRT_DIV  = 0x19
-_CONFIG      = 0x1A
-_GYRO_CFG    = 0x1B
-_ACCEL_CFG   = 0x1C
-_ACCEL_OUT_H = 0x3B   # accel x_h, x_l, y_h, y_l, z_h, z_l (then temp + gyro)
-_WHO_AM_I    = 0x75
+_ADDR = 0x68
+_PWR_MGMT_1 = 0x6B
+_PWR_MGMT_2 = 0x6C
+_SMPLRT_DIV = 0x19
+_CONFIG = 0x1A
+_GYRO_CFG = 0x1B
+_ACCEL_CFG = 0x1C
+_ACCEL_OUT_H = 0x3B  # accel x_h, x_l, y_h, y_l, z_h, z_l (then temp + gyro)
+_WHO_AM_I = 0x75
 
 # Full-scale ranges we configure.
-_ACCEL_FS_2G   = 0x00         # ±2 g
-_GYRO_FS_250   = 0x00         # ±250 °/s
-_ACCEL_LSB_PER_G  = 16384.0   # at ±2 g full-scale
-_GYRO_LSB_PER_DPS = 131.0     # at ±250 °/s
+_ACCEL_FS_2G = 0x00  # ±2 g
+_GYRO_FS_250 = 0x00  # ±250 °/s
+_ACCEL_LSB_PER_G = 16384.0  # at ±2 g full-scale
+_GYRO_LSB_PER_DPS = 131.0  # at ±250 °/s
 
 # 14-byte read covering accel(6) + temp(2) + gyro(6) starting at 0x3B.
 _BURST_FMT = ">hhhhhhh"
@@ -83,8 +84,7 @@ def detect(i2c=None, retries=3):
         return None
     if i2c is None:
         try:
-            i2c = I2C(scl=Pin(pins.I2C_SCL), sda=Pin(pins.I2C_SDA),
-                      freq=100_000)
+            i2c = I2C(scl=Pin(pins.I2C_SCL), sda=Pin(pins.I2C_SDA), freq=100_000)
         except Exception:
             return None
 
@@ -114,6 +114,7 @@ def detect(i2c=None, retries=3):
                 # clock-stretch timeout on a fresh power-on.
                 try:
                     import time
+
                     time.sleep_ms(5)
                 except Exception:
                     pass
@@ -142,9 +143,9 @@ class MPU6050:
             # capacitance and long jumper wires. Bump to 400 kHz only once
             # you've confirmed the bus is stable.
             i2c = I2C(scl=Pin(pins.I2C_SCL), sda=Pin(pins.I2C_SDA), freq=100_000)
-        self._i2c    = i2c
-        self._addr   = addr
-        self._buf    = bytearray(14)
+        self._i2c = i2c
+        self._addr = addr
+        self._buf = bytearray(14)
         # Persistent biases — set by calibrate(); zero until then.
         self._a_bias = (0.0, 0.0, 0.0)
         self._g_bias = (0.0, 0.0, 0.0)
@@ -160,9 +161,9 @@ class MPU6050:
         self._w(_PWR_MGMT_1, 0x01)
         # 1 kHz sample rate, DLPF ≈ 44 Hz on accel, 42 Hz on gyro
         self._w(_SMPLRT_DIV, 0x00)
-        self._w(_CONFIG,     0x03)
-        self._w(_GYRO_CFG,   _GYRO_FS_250)
-        self._w(_ACCEL_CFG,  _ACCEL_FS_2G)
+        self._w(_CONFIG, 0x03)
+        self._w(_GYRO_CFG, _GYRO_FS_250)
+        self._w(_ACCEL_CFG, _ACCEL_FS_2G)
 
     def whoami(self):
         return self._i2c.readfrom_mem(self._addr, _WHO_AM_I, 1)[0]
@@ -191,8 +192,7 @@ class MPU6050:
         # PWR_MGMT_1: CYCLE=1, SLEEP=0, TEMP_DIS=1, internal 8MHz osc.
         self._w(_PWR_MGMT_1, 0x28)
         # PWR_MGMT_2: gyro X/Y/Z standby + LP_WAKE_CTRL field selects rate.
-        rate_bits = {1: 0b00, 2: 0b00, 5: 0b01,
-                     20: 0b10, 40: 0b11}.get(int(rate_hz), 0b01) << 6
+        rate_bits = {1: 0b00, 2: 0b00, 5: 0b01, 20: 0b10, 40: 0b11}.get(int(rate_hz), 0b01) << 6
         # 0x07 = gyro X/Y/Z all in standby.
         self._w(_PWR_MGMT_2, rate_bits | 0x07)
 
@@ -215,16 +215,16 @@ class MPU6050:
     def read_accel_g(self):
         ax, ay, az, _t, _gx, _gy, _gz = self._burst()
         bx, by, bz = self._a_bias
-        return (ax / _ACCEL_LSB_PER_G - bx,
-                ay / _ACCEL_LSB_PER_G - by,
-                az / _ACCEL_LSB_PER_G - bz)
+        return (ax / _ACCEL_LSB_PER_G - bx, ay / _ACCEL_LSB_PER_G - by, az / _ACCEL_LSB_PER_G - bz)
 
     def read_gyro_dps(self):
         _ax, _ay, _az, _t, gx, gy, gz = self._burst()
         bx, by, bz = self._g_bias
-        return (gx / _GYRO_LSB_PER_DPS - bx,
-                gy / _GYRO_LSB_PER_DPS - by,
-                gz / _GYRO_LSB_PER_DPS - bz)
+        return (
+            gx / _GYRO_LSB_PER_DPS - bx,
+            gy / _GYRO_LSB_PER_DPS - by,
+            gz / _GYRO_LSB_PER_DPS - bz,
+        )
 
     def read_all(self):
         """Return (ax, ay, az, gx, gy, gz, temp_C) in physical units."""
@@ -232,13 +232,15 @@ class MPU6050:
         bax, bay, baz = self._a_bias
         bgx, bgy, bgz = self._g_bias
         # Datasheet: T_C = TEMP_OUT / 340 + 36.53
-        return (ax / _ACCEL_LSB_PER_G - bax,
-                ay / _ACCEL_LSB_PER_G - bay,
-                az / _ACCEL_LSB_PER_G - baz,
-                gx / _GYRO_LSB_PER_DPS - bgx,
-                gy / _GYRO_LSB_PER_DPS - bgy,
-                gz / _GYRO_LSB_PER_DPS - bgz,
-                t / 340.0 + 36.53)
+        return (
+            ax / _ACCEL_LSB_PER_G - bax,
+            ay / _ACCEL_LSB_PER_G - bay,
+            az / _ACCEL_LSB_PER_G - baz,
+            gx / _GYRO_LSB_PER_DPS - bgx,
+            gy / _GYRO_LSB_PER_DPS - bgy,
+            gz / _GYRO_LSB_PER_DPS - bgz,
+            t / 340.0 + 36.53,
+        )
 
     # ── derived ──────────────────────────────────────────────────────────
     def tilt_deg(self):
@@ -249,11 +251,12 @@ class MPU6050:
         (side-to-side tilt). Drives the racer game's throttle + steer.
         """
         import math
+
         ax, ay, az = self.read_accel_g()
         # atan2 with mag of the orthogonal pair keeps small-angle behaviour
         # smooth even near the gimbal-lock edges.
         pitch = math.degrees(math.atan2(ay, math.sqrt(ax * ax + az * az)))
-        roll  = math.degrees(math.atan2(ax, math.sqrt(ay * ay + az * az)))
+        roll = math.degrees(math.atan2(ax, math.sqrt(ay * ay + az * az)))
         return pitch, roll
 
     # ── calibration ──────────────────────────────────────────────────────
@@ -267,6 +270,7 @@ class MPU6050:
         Called once at racer game start; takes ~0.5 s with the defaults.
         """
         import time
+
         ax = ay = az = 0.0
         gx = gy = gz = 0.0
         for _ in range(samples):
@@ -289,10 +293,10 @@ class MPU6050:
     def enable_motion_int(self, thresh_mg=128, duration_ms=1):
         """Configure the chip to raise INT when |accel| jerks above thresh."""
         # Registers per the MPU6050 RM (Motion Detection Mode).
-        self._w(0x37, 0x60)                            # INT pin latched, push-pull
-        self._w(0x38, 0x40)                            # int enable: motion only
-        self._w(0x1F, max(1, int(thresh_mg / 2)))      # thresh, 2 mg/LSB
-        self._w(0x20, max(1, int(duration_ms)))        # duration, ms
+        self._w(0x37, 0x60)  # INT pin latched, push-pull
+        self._w(0x38, 0x40)  # int enable: motion only
+        self._w(0x1F, max(1, int(thresh_mg / 2)))  # thresh, 2 mg/LSB
+        self._w(0x20, max(1, int(duration_ms)))  # duration, ms
 
     def clear_int(self):
-        self._i2c.readfrom_mem(self._addr, 0x3A, 1)    # INT_STATUS read clears it
+        self._i2c.readfrom_mem(self._addr, 0x3A, 1)  # INT_STATUS read clears it

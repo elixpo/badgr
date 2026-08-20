@@ -7,6 +7,7 @@ import {
   Contact, Bird, Image as ImageIcon, Worm, Compass, BookOpen, Car,
   Cloud, GitCommit, User, Gamepad2, HardDrive, Palette, PawPrint,
   Cpu, Wifi, Bluetooth, RefreshCw, Settings, ArrowUpRight,
+  Music, Flame,
   type LucideIcon,
 } from "lucide-react";
 import type { AppEntry, AppIconId } from "@/data/apps";
@@ -14,7 +15,7 @@ import type { AppEntry, AppIconId } from "@/data/apps";
 const ICONS: Record<AppIconId, LucideIcon> = {
   Contact, Bird, Image: ImageIcon, Worm, Compass, BookOpen, Car, Cloud,
   GitCommit, User, Gamepad2, HardDrive, Palette, PawPrint, Cpu, Wifi,
-  Bluetooth, RefreshCw, Settings,
+  Bluetooth, RefreshCw, Settings, Music, Flame,
 };
 
 type Tint = { ring: string; glow: string; text: string };
@@ -41,7 +42,6 @@ function IconTile({
                      rounded-md bg-card-sub p-2 ring-2 ring-inset
                      ${tint.ring} ${tint.text}`}>
       {app.pngIcon && pngOk ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={app.pngIcon}
           alt=""

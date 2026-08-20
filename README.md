@@ -74,8 +74,8 @@ Weather, GitHub commits, OTA updates — all live. WiFi power-capped at 11 dBm s
 <tr>
 <td valign="top">
 
-### 🎮 14 default apps + an App Market
-Games, GitHub tools, IR quests, a markdown reader, storage breakdown, gesture controls. More optional apps (colour picker, the Elixpo Pet panda) install on-device from the App Market tile.
+### 🎮 16 default apps + an App Market
+Games, GitHub tools, IR quests, a markdown reader, storage breakdown, gesture controls, and a dynamic color picker. More flagship apps (like a full Spotify client and an authentic DOOM port) install on-device from the App Market tile.
 
 </td>
 <td valign="top">
@@ -107,10 +107,10 @@ user can install on-device from the **App Market** tile.
 
 | | | | |
 |:-:|:-:|:-:|:-:|
-| <img src="assets/icons/raw/badge_icon.png" width="64"><br>**Badge** | <img src="assets/icons/raw/identity_icon.png" width="64"><br>**Identity** | <img src="assets/icons/raw/commits_icon.png" width="64"><br>**Commits** | <img src="assets/icons/raw/wallpaper_icon.png" width="64"><br>**Weather** |
+| <img src="assets/icons/raw/badge_icon.png" width="64"><br>**Badge** | <img src="assets/icons/raw/spotify_icon.png" width="64"><br>**Spotify** | <img src="assets/icons/raw/commits_icon.png" width="64"><br>**Commits** | <img src="assets/icons/raw/wallpaper_icon.png" width="64"><br>**Weather** |
 | <img src="assets/icons/raw/racer_icon.png" width="64"><br>**Racer** | <img src="assets/icons/raw/flappy_icon.png" width="64"><br>**Flappy** | <img src="assets/icons/raw/snake_icon.png" width="64"><br>**Snake** | <img src="assets/icons/raw/gamepad_icon.png" width="64"><br>**Gamepad** |
 | <img src="assets/icons/raw/gallery_icon.png" width="64"><br>**Gallery** | <img src="assets/icons/raw/IR_Quest_icon.png" width="64"><br>**IR Quest** | <img src="assets/icons/raw/reader_icon.png" width="64"><br>**Reader** | <img src="assets/icons/raw/storage_icon.png" width="64"><br>**Storage** |
-| <img src="assets/icons/raw/apps_icon.png" width="64"><br>**Market** | <img src="assets/icons/raw/settings_icon.png" width="64"><br>**Settings** | <img src="assets/icons/raw/about_icon.png" width="64"><br>**About** | |
+| <img src="assets/icons/raw/apps_icon.png" width="64"><br>**Market** | <img src="assets/icons/raw/settings_icon.png" width="64"><br>**Settings** | <img src="assets/icons/raw/color_icon.png" width="64"><br>**Colors** | <img src="assets/icons/raw/about_icon.png" width="64"><br>**About** |
 
 </div>
 
@@ -118,23 +118,24 @@ Bluetooth and WiFi don't get their own drawer tiles — they live inside **Setti
 
 ### 📦 App Market — install / uninstall extras on-device
 
-Apps that ship under [`apps_market/`](apps_market/) are **optional**. They aren't in the launcher drawer until you install them. The default catalogue today: **Color Picker** and **Elixpo Pet** — both are good demos but don't pull their weight as always-on tiles.
+Apps that ship under [`apps_market/`](apps_market/) are **optional**. They aren't in the launcher drawer until you install them.
 
 Open the **App Market** tile, scroll to the app you want, press **A**:
-- **INSTALL** → copies the tree from `/apps_market/<name>/` to `/apps/<name>/`. Next time you open the drawer the tile is there.
+- **INSTALL** → downloads and extracts the package into `badge_data/apps/<name>/`. Next time you open the drawer the tile is there.
 - **INSTALLED** → press **A** again to uninstall. The catalogue copy stays put so re-install is one tap.
 
 ```python
 # Programmatic API (handy from REPL or another app):
 from oreoOS import store
-store.list_market()      # [{name, dir, icon, author, installed}, …]
-store.install("pet")     # → bool
+
+store.list_market()  # [{name, dir, icon, author, installed}, …]
+store.install("pet")  # → bool
 store.uninstall("pet")
 ```
 
-The Market is the right home for: games, themed sketches, hardware demos, hackathon entries. **Contribute one** by dropping a folder into `apps_market/<your_app>/` with the usual `main.py + manifest.json + __init__.py + assets/` shape; the deploy script picks it up automatically and the market tile lists it on next boot. Anything in `apps_market/` is **opt-in by default** — that's how you keep flash + drawer real estate tight for everyone else.
+The Market is the right home for massive flagship apps (like our authentic DOOM engine port and full Spotify client), games, themed sketches, hardware demos, and hackathon entries. **Contribute one** by dropping a folder into `apps_market/<your_app>/` with the usual `main.py + manifest.json + assets/` shape; the next.js cloud relay syncs it, and the market tile lists it on next boot. Anything in `apps_market/` is **opt-in by default** — that's how you keep flash + drawer real estate tight for everyone else.
 
-Want yours to be **always-installed**? Drop it in `apps/` instead. Copy [`templates/example_app/`](templates/example_app/) as a starting point.
+Want yours to be **always-installed**? Drop it in `apps/` instead (this acts as a read-only template that automatically bootstraps into `badge_data/apps/` on first boot). Copy [`templates/example_app/`](templates/example_app/) as a starting point.
 
 ---
 
@@ -144,11 +145,23 @@ Want yours to be **always-installed**? Drop it in `apps/` instead. Copy [`templa
 git clone https://github.com/elixpo/oreo
 cd oreo
 python -m venv .venv && source .venv/bin/activate
-pip install -r oreoOS/requirements.txt
+pip install -r oreoSim/requirements.txt
+python oreoSim/run.py             # launch the desktop simulator!
 python tools/deploy.py /dev/ttyACM0      # flash to a connected board
 ```
 
 For step-by-step app-writing + OS internals, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+---
+
+## 💻 oreoSim: The Desktop Simulator
+
+You don't need a physical badge to build apps. OreoOS ships with a state-of-the-art desktop simulator in `oreoSim/` that faithfully mimics the ESP32-S3 hardware.
+
+- **AST-Validated Hot Reloading**: Edit your Python code and the simulator will hot-reload it instantly. If you make a syntax error, the AST pre-validator catches it and keeps the previous frame running so the emulator never crashes.
+- **Hardware Mocks**: Uses robust MicroPython mocks (`native_esp32.py`, `native_hardware.py`) that implement `machine.Pin`, `ADC`, `PWM`, `I2C`, `SPI`, and `esp32.RMT`, so your hardware-bound code executes flawlessly on your laptop.
+- **Active State Retention**: When hot-reloading, the simulator retains your currently active app and state—no need to navigate back from the home screen every time you hit Ctrl+S.
+- **Controls & Scaling**: Use Arrow keys or WASD to navigate. Use F11 to toggle crisp 2x/3x integer pixel scaling.
 
 ---
 
@@ -177,13 +190,14 @@ from `oreoOS`. Three of those are worth a quick tour:
 ```python
 from oreoOS import api, theme
 
+
 def draw(self, d):
-    d.clear(theme.BG)                            # fill cream background
+    d.clear(theme.BG)  # fill cream background
     d.rect(10, 10, 100, 40, theme.PRIMARY, fill=True)
-    d.rect(10, 10, 100, 40, theme.GOLD)          # outline (fill=False default)
-    d.pixel(60, 30, api.WHITE)                   # single pixel
-    d.text("hello!", 14, 20, api.WHITE, scale=2) # framebuf 8×8, scaled
-    d.text(api.rgb(160, 50, 220), 14, 60, ...)   # arbitrary RGB
+    d.rect(10, 10, 100, 40, theme.GOLD)  # outline (fill=False default)
+    d.pixel(60, 30, api.WHITE)  # single pixel
+    d.text("hello!", 14, 20, api.WHITE, scale=2)  # framebuf 8×8, scaled
+    d.text(api.rgb(160, 50, 220), 14, 60, ...)  # arbitrary RGB
 ```
 
 The framebuffer is RGB565 big-endian. Build colours with `api.rgb(r, g, b)`
@@ -196,14 +210,14 @@ exist for visual consistency across apps.
 ```python
 def _try_sprite(name):
     try:
-        m = __import__("apps.my_app.assets.optimized." + name, None, None,
-                       ["DATA", "W", "H"])
+        m = __import__("apps.my_app.assets.optimized." + name, None, None, ["DATA", "W", "H"])
         return (bytearray(m.DATA), m.W, m.H)
     except (ImportError, AttributeError):
         return None
 
+
 def draw(self, d):
-    if (s := self._sprite):
+    if s := self._sprite:
         data, w, h = s
         d.blit(data, x, y, w, h)
 ```
@@ -217,9 +231,10 @@ panda mascot ends up with a transparent backdrop on the splash.
 
 ```python
 from oreoOS import pixelfont
+
 font = pixelfont.load("pixelify_16")  # also pixelify_8, _12, _24
 font.text(d, "Score: 42", 8, 6, theme.PRIMARY)
-w = font.measure("Score: 42")          # for centring
+w = font.measure("Score: 42")  # for centring
 ```
 
 The framebuf's 8×8 font is fine for HUDs; the Pixelify Sans bitmaps
@@ -229,10 +244,11 @@ look better for titles and menus.
 
 ```python
 from oreoOS import cache
-profile, age = cache.load("apps/my_app/cache.txt", ttl_s=3600)
+
+profile, age = cache.load("badge_data/cache/my_app.txt", ttl_s=3600)
 if not profile or age > 3600:
     profile = my_fetch_function()
-    cache.save("apps/my_app/cache.txt", profile)
+    cache.save("badge_data/cache/my_app.txt", profile)
 ```
 
 Used by Badge + Commits to render instantly from disk and refresh in
@@ -243,30 +259,34 @@ the cache age.
 
 ```python
 from oreoOS import timeutil
+
 hour, minute, sec, weekday, day, month, year = timeutil.now()
 
-ok, msg = timeutil.sync_from_ntp()        # ~2 s blocking, gated on WiFi
-print(timeutil.last_sync_status())        # "ok" | "no-wifi" | "failed" | "never"
+ok, msg = timeutil.sync_from_ntp()  # ~2 s blocking, gated on WiFi
+print(timeutil.last_sync_status())  # "ok" | "no-wifi" | "failed" | "never"
 ```
 
 Same call drives the boot-time auto-sync, the **Sync Time** row in
 Settings, and the **C-panel** time-sync action — all three surfaces
 agree on the last result via the shared `last_sync_status()`.
 
-### Storage breakdown — `oreoOS.storage`
+### Storage + Manager breakdown — `oreoOS.storage`
 
 ```python
 from oreoOS import storage
+
 snap = storage.usage()
 # {'stats': {'total': …, 'used': …, 'free': …},
 #  'buckets': {'system': {...}, 'apps': {...}, 'gallery': {...},
 #              'documents': {...}, 'misc': {...}}}
 ```
 
-A full `os.listdir + os.stat` walk takes a few hundred ms on a
-populated 16 MB flash, so the Storage app declares
-`SHOW_LOADING = True` to mask the blocking call behind the slide
-splash. Use it from any app that wants a "how full am I?" readout.
+A full `os.listdir + os.stat` walk takes a few hundred ms on a populated 16 MB flash. The Storage app provides a beautiful visual breakdown of this data and includes a full-fledged App Manager that allows users to instantly garbage collect PSRAM (`Button C`) or recursively delete unneeded apps straight from `badge_data/apps/`.
+
+### Theming & QR Generation — `oreoOS.theme` & `oreoOS.qr`
+
+- **Dynamic Theming (`oreoOS.theme`)**: The OS mathematically derives harmonic color palettes (Secondary, Card, Muted) from any primary RGB hex, automatically applying contrast inversion so text is always readable (using the Rec. 601 perceived luminance formula).
+- **QR Codes (`oreoOS.qr`)**: A 100% pure-Python, zero-dependency QR code generator implementing ISO/IEC 18004. Used by the Identity app for scannable vCards and by the Spotify app for PIN-pairing authentication.
 
 ### Markdown rendering — the Reader app
 
@@ -298,11 +318,13 @@ power capping on top.
 ```python
 # WiFi via the OreoOS wrapper — auto-applies power caps from config
 from oreoWare import wifi
+
 wifi.connect_from_config()
 print(wifi.ip())
 
 # Or drop straight to stock MicroPython:
 import network
+
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
 wlan.connect("SSID", "password")
@@ -311,6 +333,7 @@ wlan.connect("SSID", "password")
 ```python
 # BLE advertise (raw stdlib path)
 import bluetooth
+
 ble = bluetooth.BLE()
 ble.active(True)
 ble.gap_advertise(500_000, b"\x02\x01\x06\x05\x09Oreo")
@@ -537,4 +560,3 @@ With 💖 by [**Ayushman Bhattacharya**](https://github.com/Circuit-Overtime).
 Want to help, ship an app, sponsor a build, or just say hi - ✉️ **hello@elixpo.com**
 
 </div>
-
